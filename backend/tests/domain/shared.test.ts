@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DomainError, Duration, Money, Percentage, Quantity } from "@/domain/shared";
+import { DomainError, Duration, Money, Percentage, Quantity } from "../../src/domain/shared";
 
 describe("Money", () => {
   it("guarda centavos inteiros e não perde precisão em soma repetida", () => {
