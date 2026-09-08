@@ -3,26 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
-  },
-  "dependencies": {
-    "next": "latest",
-    "react": "latest",
-    "react-dom": "latest"
+    "dev": "npm-run-all --parallel dev:backend dev:web",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:web": "npm --prefix web run dev",
+    "build": "npm --prefix backend run build && npm --prefix web run build",
+    "test": "npm --prefix backend run test",
+    "lint": "npm --prefix backend run lint && npm --prefix web run lint",
+    "typecheck": "npm --prefix backend run typecheck && npm --prefix web run typecheck",
+    "install:all": "npm --prefix backend install && npm --prefix web install"
   },
   "devDependencies": {
-    "@types/node": "latest",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
-    "eslint": "latest",
-    "eslint-config-next": "latest",
-    "typescript": "latest",
-    "vitest": "^5.0.0"
+    "npm-run-all": "^4.1.5"
   }
 }
