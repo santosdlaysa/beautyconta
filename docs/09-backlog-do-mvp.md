@@ -173,7 +173,7 @@ Critérios de aceite:
 
 ### C-01 — Campo de taxa sobre venda
 
-Origem: `RF-07`. Tamanho: P.
+Origem: `RF-07`. Tamanho: P. **Concluído em 2026-09-09.** Na web e no aplicativo.
 
 A interface fixa a taxa em zero, o que contraria o motor.
 
@@ -182,7 +182,7 @@ Pix ou marketplace; o resultado desconta a taxa também no simulador.
 
 ### C-02 — Corrigir o lucro do simulador
 
-Origem: documento 03, seção 7. Tamanho: P.
+Origem: documento 03, seção 7. Tamanho: P. **Concluído em 2026-09-09.**
 
 O simulador calcula lucro como preço menos custo, sem descontar a taxa.
 
@@ -191,7 +191,7 @@ resultado permanece idêntico ao atual.
 
 ### C-03 — Composição detalhada do resultado
 
-Origem: `RF-08`. Tamanho: P.
+Origem: `RF-08`. Tamanho: P. **Concluído em 2026-09-09.**
 
 Critérios de aceite: exibir materiais, mão de obra, custos fixos, outros custos,
 taxa e margem; declarar o método de rateio usado; mostrar o preço mínimo ao lado
@@ -199,7 +199,8 @@ do recomendado.
 
 ### C-04 — Páginas por categoria (web complementar)
 
-Origem: documento 05, seção 7. Tamanho: M.
+Origem: documento 05, seção 7. Tamanho: M. **Concluído em 2026-09-09.**
+Oito rotas estáticas em `web/`, com metadados e imagem de compartilhamento.
 
 Critérios de aceite:
 
@@ -210,7 +211,10 @@ Critérios de aceite:
 
 ### C-05 — Instrumentação de eventos
 
-Origem: documento 05, seção 8, e ADR-0006. Tamanho: P.
+Origem: documento 05, seção 8, e ADR-0006. Tamanho: P. **Concluído em 2026-09-09.**
+Camada de emissão com destino trocável na web e no aplicativo, sem SDK: a
+ferramenta continua esperando o ADR-0006. A proteção contra propriedade
+proibida está no código e é coberta por teste que falha quando desligada.
 
 Critérios de aceite: os doze eventos são emitidos; nenhum carrega valor
 financeiro, nome, e-mail ou telefone; existe teste que falha se uma propriedade
@@ -219,7 +223,9 @@ não.
 
 ### C-06 — Estados e acessibilidade
 
-Origem: `RF-08` e documento 02, seção 5. Tamanho: P.
+Origem: `RF-08` e documento 02, seção 5. Tamanho: P. **Concluído em 2026-09-09.**
+O contraste de 4,5 reprovava em vários pares nas duas interfaces; a paleta foi
+corrigida dos dois lados.
 
 Critérios de aceite: estados vazio, carregando, erro e sucesso; navegação por
 teclado; rótulo associado a todo campo; contraste mínimo de 4,5 conforme o
@@ -231,7 +237,11 @@ Bloqueado pelo ADR-0003.
 
 ### D-01 — Autenticação
 
-Origem: `RF-01`. Tamanho: M. Cadastro, entrada, recuperação de senha, sessão
+Origem: `RF-01`. Tamanho: M. **Parcial em 2026-09-09.**
+Cadastro, entrada, sessão persistente, troca de senha, encerramento de sessão e
+exclusão de conta com remoção efetiva funcionam, por e-mail e senha no próprio
+banco — ver ADR-0009. **Faltam recuperação de senha e verificação de e-mail**,
+que dependem de um serviço de envio ainda não contratado. Cadastro, entrada, recuperação de senha, sessão
 persistente, encerramento de sessão e exclusão de conta com remoção efetiva.
 
 **Parcialmente entregue, por decisão da dona do produto, sem esperar o
@@ -248,12 +258,13 @@ lá e a coluna sai.
 
 ### D-02 — Onboarding em cinco etapas
 
-Origem: documento 02, seção 3. Tamanho: M. Progresso salvo a cada etapa,
+Origem: documento 02, seção 3. Tamanho: M. **Concluído em 2026-09-09.**
+Progresso guardado no aparelho a cada etapa, porque não existe rota de rascunho. Progresso salvo a cada etapa,
 possibilidade de pular e primeiro resultado ao final.
 
 ### D-03 — Migração do cálculo anônimo
 
-Origem: documento 02, seção 2. Tamanho: P. O cálculo feito sem cadastro é
+Origem: documento 02, seção 2. Tamanho: P. **Concluído em 2026-09-09.** O cálculo feito sem cadastro é
 transferido para a conta ao concluir o registro, sem redigitação.
 
 ## 7. Etapa E — Cadastros e cálculo salvo
@@ -263,27 +274,30 @@ interface do aplicativo consumi-la.
 
 ### E-01 — Materiais
 
-Origem: `RF-03`. Tamanho: M. Unidade normalizada, perda, data da compra e
+Origem: `RF-03`. Tamanho: M. **Concluído em 2026-09-09.** Unidade normalizada, perda, data da compra e
 arquivamento em vez de exclusão quando houver histórico.
 
 ### E-02 — Custos fixos
 
-Origem: `RF-04`. Tamanho: P. Inclui a alternativa de total único no plano
+Origem: `RF-04`. Tamanho: P. **Concluído em 2026-09-09.** Inclui a alternativa de total único no plano
 gratuito e o bloqueio da linha de reserva para equipamentos.
 
 ### E-03 — Hora de trabalho
 
-Origem: `RF-05`. Tamanho: P. Valor informado ou calculado, com explicação de
+Origem: `RF-05`. Tamanho: P. **Concluído em 2026-09-09.** Valor informado ou calculado, com explicação de
 horas produtivas.
 
 ### E-04 — Serviços com composição
 
-Origem: `RF-06`. Tamanho: M. Associação de materiais e quantidades, duplicação e
+Origem: `RF-06`. Tamanho: M. **Concluído em 2026-09-09.** Associação de materiais e quantidades, duplicação e
 preço atual opcional.
 
 ### E-05 — Histórico imutável
 
-Origem: `RF-10`. Tamanho: M. O registro guarda fotografia das entradas; editar
+Origem: `RF-10`. Tamanho: M. **Concluído em 2026-09-09.**
+Excluir material em uso ou serviço com histórico é recusado com convite para
+arquivar: a chave estrangeira permitiria, mas o registro perderia em silêncio
+de onde veio aquele preço. O registro guarda fotografia das entradas; editar
 um material depois não altera cálculo antigo; existe teste que comprova isso.
 
 ## 8. Etapa F — Planos e assinatura

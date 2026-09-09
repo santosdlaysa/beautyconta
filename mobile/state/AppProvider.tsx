@@ -38,6 +38,14 @@ type State = {
   appointments: api.Appointment[];
   /** Resumo do mesmo dia: combinado, recebido e o que falta entrar. */
   daySummary: api.DaySummary | null;
+  /**
+   * Atendimentos do mês corrente inteiro, para o relatório da Home.
+   *
+   * Carregados à parte dos do dia porque respondem outra pergunta: o dia é
+   * "o que tenho pela frente", o mês é "como está indo". A API já aceita
+   * período, então isso não custa rota nova.
+   */
+  monthAppointments: api.Appointment[];
   /** Dia que a agenda está mostrando. */
   agendaDay: Date;
   /** O cálculo feito antes do cadastro acabou de entrar no histórico (`D-03`). */
@@ -59,6 +67,7 @@ const empty: State = {
   calculationsLimitedByPlan: false,
   appointments: [],
   daySummary: null,
+  monthAppointments: [],
   agendaDay: new Date(),
   migratedCalculation: null,
   loadError: null,
@@ -158,17 +167,30 @@ export function AppProvider({ children }: PropsWithChildren) {
 
     const scope = { token: sessionToken, businessId: business.id };
     const today = new Date();
-    const [settings, services, materials, fixedCosts, history, subscription, appointments, daySummary] =
-      await Promise.all([
-        api.getSettings(sessionToken, business.id),
-        api.listServices(scope),
-        api.listMaterials(scope),
-        api.listFixedCosts(scope),
-        api.listCalculations(scope),
-        api.getSubscription(scope),
-        api.listAppointments(scope, { day: today }),
-        api.getDaySummary(scope, today),
-      ]);
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    const [
+      settings,
+      services,
+      materials,
+      fixedCosts,
+      history,
+      subscription,
+      appointments,
+      daySummary,
+      monthAppointments,
+    ] = await Promise.all([
+      api.getSettings(sessionToken, business.id),
+      api.listServices(scope),
+      api.listMaterials(scope),
+      api.listFixedCosts(scope),
+      api.listCalculations(scope),
+      api.getSubscription(scope),
+      api.listAppointments(scope, { day: today }),
+      api.getDaySummary(scope, today),
+      api.listAppointments(scope, { from: monthStart, to: monthEnd }),
+    ]);
 
     reportPlanChange(lastPlan, subscription.plan);
 
@@ -189,6 +211,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       calculationsLimitedByPlan: history.limitedByPlan,
       appointments,
       daySummary,
+      monthAppointments,
       agendaDay: today,
       migratedCalculation: migrated,
       loadError: null,
@@ -249,11 +272,26 @@ export function AppProvider({ children }: PropsWithChildren) {
   const refreshAgenda = useCallback(
     async (scope: { token: string; businessId: string }, day?: Date) => {
       const target = day ?? stateRef.current.agendaDay;
-      const [appointments, daySummary] = await Promise.all([
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+      // O mês vem junto porque o relatório da Home sai daqui: sem isso, marcar
+      // um atendimento mudava a agenda do dia e deixava o resumo do mês
+      // mostrando o número antigo até o app ser reaberto.
+      const [appointments, daySummary, monthAppointments] = await Promise.all([
         api.listAppointments(scope, { day: target }),
         api.getDaySummary(scope, target),
+        api.listAppointments(scope, { from: monthStart, to: monthEnd }),
       ]);
-      setState((current) => ({ ...current, appointments, daySummary, agendaDay: target }));
+
+      setState((current) => ({
+        ...current,
+        appointments,
+        daySummary,
+        monthAppointments,
+        agendaDay: target,
+      }));
     },
     [],
   );
@@ -403,7 +441,13 @@ export function AppProvider({ children }: PropsWithChildren) {
       dismissMigration() {
         setState((current) => ({ ...current, migratedCalculation: null }));
       },
-      /** Troca o dia da agenda e traz atendimentos e resumo desse dia. */
+      /**
+       * Troca o dia da agenda e traz atendimentos e resumo desse dia.
+       *
+       * Não recarrega o mês: navegar entre dias não muda o que aconteceu no
+       * mês, e buscar de novo a cada toque na tira da semana seria uma
+       * requisição por toque, sem nada de novo para mostrar.
+       */
       async showAgendaDay(day) {
         const scope = requireScope();
         const [appointments, daySummary] = await Promise.all([

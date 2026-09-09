@@ -15,7 +15,6 @@ const shortcuts = [
   { label: 'Estoque', route: 'estoque', icon: 'box', background: colors.softLilac, color: '#548A73' },
 ] as const;
 
-const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 const hourOf = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 const endOf = (iso: string, minutes: number) =>
   new Date(new Date(iso).getTime() + minutes * 60_000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -38,7 +37,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (route: HomeRoute) => v
   const appointments = app.appointments;
   const summary = app.daySummary;
   const dateLabel = selectedDay === today.getDay() ? 'Hoje' : selectedDate.toLocaleDateString('pt-BR', { weekday: 'long' });
-  const month = capitalize(today.toLocaleDateString('pt-BR', { month: 'long' }));
 
   // Serviço arquivado saiu da tabela: não conta na média nem no aviso de setup.
   const activeServices = app.services.filter(service => !service.isArchived);
@@ -50,6 +48,38 @@ export function HomeScreen({ onNavigate }: { onNavigate: (route: HomeRoute) => v
 
   /** Ocultar valores é da usuária: a Home fica visível para clientes o tempo todo. */
   const money = (cents: number) => (visibleValues ? formatCents(cents) : 'R$ ••••');
+
+  /**
+   * Relatório do mês corrente, a partir dos atendimentos já carregados.
+   *
+   * Conta o que aconteceu, e não o que pode acontecer: cancelado e falta ficam
+   * fora do faturamento e do ticket, porque não viraram dinheiro nem trabalho.
+   * A falta aparece à parte justamente por ser o número que a profissional
+   * precisa enxergar para decidir sobre sinal e confirmação.
+   */
+  const monthReport = useMemo(() => {
+    const items = app.monthAppointments;
+    const realizados = items.filter(item => item.status === 'DONE');
+    const cancelados = items.filter(item => item.status === 'CANCELED' || item.status === 'NO_SHOW');
+    const ativos = items.filter(item => item.status !== 'CANCELED' && item.status !== 'NO_SHOW');
+
+    const recebido = ativos.reduce((sum, item) => sum + item.paidCents, 0);
+    const aReceber = ativos.reduce((sum, item) => sum + item.pendingCents, 0);
+    const faturado = realizados.reduce((sum, item) => sum + item.priceCents, 0);
+
+    return {
+      total: items.length,
+      realizados: realizados.length,
+      agendados: ativos.length - realizados.length,
+      faltas: cancelados.length,
+      recebido,
+      aReceber,
+      ticket: realizados.length ? Math.round(faturado / realizados.length) : 0,
+      horas: realizados.reduce((sum, item) => sum + item.durationMinutes, 0) / 60,
+    };
+  }, [app.monthAppointments]);
+
+  const monthLabel = today.toLocaleDateString('pt-BR', { month: 'long' });
 
   const isToday = app.agendaDay.toDateString() === today.toDateString();
   const missingSetup = app.services.length === 0 || app.fixedCosts.length === 0;
@@ -73,7 +103,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (route: HomeRoute) => v
         value={money(summary?.receivedCents ?? 0)}
         caption={summary && summary.appointments > 0
           ? `${summary.appointments} ${summary.appointments === 1 ? 'atendimento' : 'atendimentos'} · ${money(summary.expectedCents)} combinados`
-          : `${month} · nenhum atendimento marcado`}
+          : 'Nenhum atendimento marcado'}
         hint={summary && summary.pendingCents > 0
           ? `${money(summary.pendingCents)} ainda a receber`
           : hourly ? `Sua hora vale ${money(hourly)}` : 'Configure sua hora em Custos'}
@@ -111,9 +141,11 @@ export function HomeScreen({ onNavigate }: { onNavigate: (route: HomeRoute) => v
       <Section title="Sua agenda" action="Ver tudo" onAction={() => onNavigate('agenda')} first />
       <View style={s.calendarMeta}>
         <Text style={s.month}>{selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</Text>
-        <Text style={s.calendarHint}>
-          {summary && summary.appointments > 0 ? `${money(summary.receivedCents)} recebidos` : 'nenhum atendimento'}
-        </Text>
+        {/* Só aparece quando acrescenta algo: o dia vazio já é dito pelo painel
+            abaixo, e repetir "nenhum atendimento" tira o peso da mensagem. */}
+        {summary && summary.appointments > 0 && (
+          <Text style={s.calendarHint}>{money(summary.receivedCents)} recebidos</Text>
+        )}
       </View>
       <WeekStrip dates={week} selected={selectedDay} onSelect={index => void app.showAgendaDay(week[index])} />
 
@@ -150,6 +182,55 @@ export function HomeScreen({ onNavigate }: { onNavigate: (route: HomeRoute) => v
           onPress={() => onNavigate('calcular')}
         />
       </Row>
+
+      <Section title={`Atendimentos de ${monthLabel}`} action="Ver agenda" onAction={() => onNavigate('agenda')} />
+      {monthReport.total === 0
+        ? <EmptyState
+            icon="calendar"
+            title="Nenhum atendimento neste mês"
+            description="Quando você marcar atendimentos, o resumo do mês aparece aqui."
+            action="Marcar atendimento"
+            onAction={() => onNavigate('agenda')}
+          />
+        : <>
+            <Row>
+              <StatCard
+                icon="check"
+                label="Atendimentos feitos"
+                value={String(monthReport.realizados)}
+                caption={monthReport.agendados > 0
+                  ? `${monthReport.agendados} ainda ${monthReport.agendados === 1 ? 'marcado' : 'marcados'}`
+                  : `${monthReport.horas.toFixed(1).replace('.', ',')} h de trabalho`}
+                tone="lilac"
+                onPress={() => onNavigate('agenda')}
+              />
+              <StatCard
+                icon="wallet"
+                label="Recebido no mês"
+                value={money(monthReport.recebido)}
+                caption={monthReport.aReceber > 0
+                  ? `${money(monthReport.aReceber)} a receber`
+                  : 'nada em aberto'}
+                onPress={() => onNavigate('agenda')}
+              />
+            </Row>
+            {monthReport.realizados > 0 && (
+              <ListRow
+                icon="tag"
+                title="Valor médio por atendimento"
+                subtitle={`${monthReport.realizados} ${monthReport.realizados === 1 ? 'atendimento feito' : 'atendimentos feitos'} em ${monthLabel}`}
+                meta={money(monthReport.ticket)}
+              />
+            )}
+            {monthReport.faltas > 0 && (
+              <ListRow
+                icon="calendar"
+                iconTone="pink"
+                title={`${monthReport.faltas} ${monthReport.faltas === 1 ? 'falta ou cancelamento' : 'faltas ou cancelamentos'}`}
+                subtitle="Fora da conta do mês: não viraram trabalho nem dinheiro."
+              />
+            )}
+          </>}
 
       <Section title="Meu negócio" />
       <ListRow icon="box" title="Estoque" subtitle={`${app.materials.length} ${app.materials.length === 1 ? 'material cadastrado' : 'materiais cadastrados'}`} onPress={() => onNavigate('estoque')} />

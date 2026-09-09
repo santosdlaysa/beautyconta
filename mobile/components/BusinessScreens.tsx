@@ -594,7 +594,7 @@ export function PlansScreen({ onBack }: ScreenProps) {
   const { busy, error, run } = useSubmit();
   const subscription = app.subscription;
 
-  if (!subscription) return <Screen><ScreenHeader title="Meu plano" onBack={onBack} /><Loading label="Conferindo sua assinatura..." /></Screen>;
+  if (!subscription) return <Screen><ScreenHeader title="Meu plano" onBack={onBack} /><Loading label="Conferindo sua assinatura..." full /></Screen>;
 
   const limits = subscription.limits;
   const used = (value: number, limit: number | null) => (limit === null ? `${value} · ilimitado` : `${value} de ${limit}`);

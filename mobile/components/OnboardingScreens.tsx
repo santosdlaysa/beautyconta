@@ -125,7 +125,7 @@ export function OnboardingView() {
     await saveDraft(next);
   }, []);
 
-  if (!loaded) return <Screen><Brand /><Loading label="Retomando de onde você parou..." /></Screen>;
+  if (!loaded) return <Screen><Brand /><Loading label="Retomando de onde você parou..." full /></Screen>;
 
   const index = STEPS.indexOf(draft.step);
   const productiveHours = parseNumber(draft.daysPerMonth) * parseNumber(draft.hoursPerDay);

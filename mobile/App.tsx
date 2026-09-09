@@ -27,7 +27,7 @@ function BeautyContaApp() {
   const plans = () => setActiveTab('planos');
 
   if (app.status === 'loading') {
-    return <View style={styles.screen}><StatusBar style="dark" /><Loading label="Abrindo sua conta..." /></View>;
+    return <View style={styles.screen}><StatusBar style="dark" /><Loading label="Abrindo sua conta..." full /></View>;
   }
 
   if (app.status === 'signed-out') {

@@ -331,6 +331,7 @@ export const ui = StyleSheet.create({
   progressFill: { height: 5, borderRadius: 4 },
 
   loading: { alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 40 },
+  loadingFull: { flex: 1 },
   loadingText: { color: colors.muted, fontSize: 12 },
   notice: { flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: 16, padding: 13, marginBottom: 13 },
   noticeText: { flex: 1, fontSize: 12, lineHeight: 18 },
@@ -359,8 +360,15 @@ export const ui = StyleSheet.create({
  * Ficam no mesmo arquivo do resto do sistema visual porque são parte do padrão:
  * toda tela que fala com o servidor mostra os três do mesmo jeito.
  */
-export function Loading({ label = 'Carregando...' }: { label?: string }) {
-  return <View style={ui.loading}><ActivityIndicator color={colors.accent} /><Text style={ui.loadingText}>{label}</Text></View>;
+/**
+ * Espera.
+ *
+ * `full` ocupa o espaço que sobra e centraliza — é o caso de quando a espera é
+ * a tela inteira, como ao abrir a conta. Sem ele, o indicador fica no fluxo,
+ * junto do conteúdo que está sendo atualizado.
+ */
+export function Loading({ label = 'Carregando...', full }: { label?: string; full?: boolean }) {
+  return <View style={[ui.loading, full && ui.loadingFull]}><ActivityIndicator color={colors.accent} /><Text style={ui.loadingText}>{label}</Text></View>;
 }
 
 export function Notice({ message, tone = 'danger', action, onAction }: { message: string; tone?: Tone; action?: string; onAction?: () => void }) {
