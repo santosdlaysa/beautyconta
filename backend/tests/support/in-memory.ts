@@ -190,17 +190,25 @@ export class InMemoryBusinessRepository implements BusinessRepository {
     return Promise.resolve(business ? clone(business) : null);
   }
 
-  findByBookingToken(token: string): Promise<BusinessRecord | null> {
-    const business = [...this.items.values()].find((item) => item.bookingToken === token);
+  findByBookingSlug(slug: string): Promise<BusinessRecord | null> {
+    const business = [...this.items.values()].find((item) => item.bookingSlug === slug);
     return Promise.resolve(business ? clone(business) : null);
   }
 
-  setBookingToken(businessId: string, token: string | null): Promise<BusinessRecord> {
+  setBookingSlug(businessId: string, slug: string | null): Promise<BusinessRecord> {
     const business = this.items.get(businessId);
     if (!business) throw new Error("Negócio inexistente.");
-    const updated = { ...business, bookingToken: token, updatedAt: new Date() };
+    const updated = { ...business, bookingSlug: slug, updatedAt: new Date() };
     this.items.set(businessId, updated);
     return Promise.resolve(clone(updated));
+  }
+
+  listBookingSlugs(): Promise<string[]> {
+    return Promise.resolve(
+      [...this.items.values()]
+        .map((item) => item.bookingSlug)
+        .filter((slug): slug is string => slug !== null),
+    );
   }
 
   listByOwner(ownerUserId: string): Promise<BusinessRecord[]> {

@@ -92,7 +92,7 @@ export function useDialog(): DialogApi {
 }
 
 const s = StyleSheet.create({
-  backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 26, backgroundColor: '#37263e66' },
+  backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 26, backgroundColor: colors.veil },
   card: { width: '100%', maxWidth: 380, backgroundColor: colors.background, borderRadius: 26, padding: 22, gap: 11 },
   title: { color: colors.ink, fontSize: 17, fontWeight: '600', letterSpacing: -0.3 },
   message: { color: colors.ink3, fontSize: 13, lineHeight: 20 },

@@ -42,7 +42,7 @@ const paths: Record<IconName, string> = {
  */
 const hidden = Platform.OS === 'web' ? { 'aria-hidden': true } : { accessible: false };
 
-export function Icon({ name, size = 22, color = '#44344F' }: { name: IconName; size?: number; color?: string }) {
+export function Icon({ name, size = 22, color = colors.ink }: { name: IconName; size?: number; color?: string }) {
   return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.65} strokeLinecap="round" strokeLinejoin="round" {...hidden}>
     {(name === 'calculator' || name === 'calendar') && <Rect x={4} y={name === 'calendar' ? 4 : 2} width={16} height={name === 'calendar' ? 18 : 20} rx={3} />}
     {name === 'lock' && <Rect x={4} y={10} width={16} height={11} rx={3} />}
@@ -73,7 +73,7 @@ export function AppTabs({ active, onChange }: { active: string; onChange: (route
     const selected = active === route;
     const primary = route === 'calcular';
     return <Pressable key={route} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected }} onPress={() => onChange(route)} style={({ pressed }) => [s.tab, pressed && { opacity: 0.65 }]}>
-      <View style={[s.icon, selected && !primary && s.active, primary && s.primary]}><Icon name={icon} size={primary ? 25 : 21} color={primary ? '#fff' : selected ? colors.accent : colors.muted} /></View>
+      <View style={[s.icon, selected && !primary && s.active, primary && s.primary]}><Icon name={icon} size={primary ? 25 : 21} color={primary ? colors.white : selected ? colors.accent : colors.muted} /></View>
       <Text style={[s.label, selected && { color: colors.accent, fontWeight: '700' }]}>{label}</Text>
     </Pressable>;
   })}</View>;
@@ -82,10 +82,11 @@ export function AppTabs({ active, onChange }: { active: string; onChange: (route
 const s = StyleSheet.create({
   canvas: { flex: 1, alignItems: 'center', backgroundColor: colors.softLilac },
   frame: { flex: 1, width: '100%', maxWidth: Platform.OS === 'web' ? 460 : undefined, backgroundColor: colors.background, overflow: 'hidden' },
-  navigation: { flexDirection: 'row', backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F3EDF2', paddingHorizontal: 10, paddingTop: 7, paddingBottom: 9, flexShrink: 0 },
+  navigation: { flexDirection: 'row', backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 10, paddingTop: 7, paddingBottom: 9, flexShrink: 0 },
   tab: { flex: 1, minHeight: 55, alignItems: 'center', justifyContent: 'center', gap: 3 },
   icon: { height: 32, width: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   active: { backgroundColor: colors.lilac },
-  primary: { backgroundColor: colors.pinkHighlight, width: 46, height: 38, borderRadius: 15 },
+  // O mesmo rosa do botão de ação: é o mesmo gesto, em dois lugares.
+  primary: { backgroundColor: colors.pink, width: 46, height: 38, borderRadius: 15 },
   label: { fontSize: 10, color: colors.muted },
 });

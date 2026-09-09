@@ -82,11 +82,11 @@ const FIELD_OF: Record<string, BookingFormField> = {
 };
 
 export function BookingFlow({
-  token,
+  slug,
   page,
   calendar,
 }: {
-  token: string;
+  slug: string;
   page: BookingPage;
   calendar: BookingCalendar;
 }) {
@@ -149,7 +149,7 @@ export function BookingFlow({
     const controller = new AbortController();
 
     bookingGateway
-      .slots(token, service.id, date, controller.signal)
+      .slots(slug, service.id, date, controller.signal)
       .then((availability) => setSlots({ status: "success", slots: availability.slots }))
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
@@ -167,7 +167,7 @@ export function BookingFlow({
       });
 
     return () => controller.abort();
-  }, [token, service, date, reload]);
+  }, [slug, service, date, reload]);
 
   if (gone) return <UnavailableNotice message={gone} />;
 
@@ -240,7 +240,7 @@ export function BookingFlow({
     setTaken(null);
 
     try {
-      const booked = await bookingGateway.book(token, {
+      const booked = await bookingGateway.book(slug, {
         serviceId: service.id,
         date,
         time,

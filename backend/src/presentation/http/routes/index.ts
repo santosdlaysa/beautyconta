@@ -97,7 +97,7 @@ function businessRoutes(deps: Dependencies, limites: RateLimiters): Router {
   router.get("/:businessId/hours", asyncHandler(booking.getHours));
   router.put("/:businessId/hours", asyncHandler(booking.saveHours));
   router.post("/:businessId/booking-link", limites.write, asyncHandler(booking.enableLink));
-  router.post("/:businessId/booking-link/regenerate", limites.write, asyncHandler(booking.regenerateLink));
+  router.put("/:businessId/booking-link", limites.write, asyncHandler(booking.renameLink));
   router.delete("/:businessId/booking-link", asyncHandler(booking.disableLink));
 
   // `mergeParams` mantém `:businessId` visível nos sub-recursos.
@@ -221,9 +221,9 @@ function bookingRoutes(deps: Dependencies, limites: RateLimiters): Router {
   const controller = new BookingController(deps);
   const router = Router();
 
-  router.get("/:token", limites.public, asyncHandler(controller.page));
-  router.get("/:token/slots", limites.public, asyncHandler(controller.slots));
-  router.post("/:token/appointments", limites.booking, asyncHandler(controller.book));
+  router.get("/:slug", limites.public, asyncHandler(controller.page));
+  router.get("/:slug/slots", limites.public, asyncHandler(controller.slots));
+  router.post("/:slug/appointments", limites.booking, asyncHandler(controller.book));
 
   return router;
 }

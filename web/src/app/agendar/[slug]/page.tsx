@@ -33,20 +33,20 @@ type LoadResult =
   | { status: "not_found" }
   | { status: "unavailable" };
 
-async function loadPage(token: string): Promise<LoadResult> {
+async function loadPage(slug: string): Promise<LoadResult> {
   try {
     // Sem prazo, uma API que aceita a conexão e não responde deixaria a
     // requisição pendurada e a cliente olhando a tela em branco.
-    return { status: "ok", page: await bookingGateway.page(token, AbortSignal.timeout(8000)) };
+    return { status: "ok", page: await bookingGateway.page(slug, AbortSignal.timeout(8000)) };
   } catch (error) {
     if (error instanceof BookingError && error.code === "not_found") return { status: "not_found" };
     return { status: "unavailable" };
   }
 }
 
-export default async function BookingPageRoute({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params;
-  const result = await loadPage(token);
+export default async function BookingPageRoute({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const result = await loadPage(slug);
 
   // Link inválido e agenda desligada dão a mesma resposta, porque a API não
   // distingue os dois de propósito — e a página não pode ser a peneira que ela
@@ -65,7 +65,7 @@ export default async function BookingPageRoute({ params }: { params: Promise<{ t
             </span>
             <h1>Não conseguimos abrir a agenda</h1>
             <p>A conexão falhou por um instante. Toque em recarregar — o link continua valendo.</p>
-            <a className="primary-button" href={`/agendar/${encodeURIComponent(token)}`}>
+            <a className="primary-button" href={`/agendar/${encodeURIComponent(slug)}`}>
               Recarregar
             </a>
           </div>
@@ -77,7 +77,7 @@ export default async function BookingPageRoute({ params }: { params: Promise<{ t
   return (
     <main id="conteudo" className="booking-page">
       <BookingFlow
-        token={token}
+        slug={slug}
         page={result.page}
         calendar={buildBookingCalendar(new Date(), result.page.timezone)}
       />

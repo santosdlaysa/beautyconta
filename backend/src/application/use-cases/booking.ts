@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import {
   assertValidRange,
   availableSlots,
@@ -14,6 +13,11 @@ import {
   zonedTimeToUtc,
   type LocalDate,
 } from "../../domain/scheduling/timezone";
+import {
+  assertValidSlug,
+  nextAvailableSlug,
+  slugify,
+} from "../../domain/scheduling/booking-slug";
 import { DomainError } from "../../domain/shared";
 import { ConflictError, NotFoundError } from "../errors";
 import type {
@@ -36,14 +40,6 @@ const LEAD_TIME_MINUTES = 30;
 
 /** Quantos dias à frente a agenda pública aceita marcar. */
 const HORIZON_DAYS = 60;
-
-/**
- * O link precisa ser difícil de adivinhar: ele é a única barreira entre a
- * agenda e a internet. 24 bytes dão 192 bits, longe de qualquer varredura.
- */
-export function createBookingToken(): string {
-  return randomBytes(24).toString("base64url");
-}
 
 export type PublicService = {
   id: string;
@@ -273,21 +269,61 @@ export class ManageBookingLink {
     private readonly businesses: BusinessRepository,
   ) {}
 
-  async enable(userId: string, businessId: string): Promise<BusinessRecord> {
+  /**
+   * Abre a agenda com um endereço tirado do nome do negócio.
+   *
+   * Sem nome cadastrado, cai em "agenda" com sufixo — feio, mas funcional, e
+   * ela troca depois. Melhor um endereço tosco que dá para corrigir do que
+   * travar a abertura da agenda por causa de um campo em branco.
+   */
+  async enable(userId: string, businessId: string, desired?: string): Promise<BusinessRecord> {
     const business = await this.access.authorize(userId, businessId);
-    if (business.bookingToken) return business;
+    if (business.bookingSlug && desired === undefined) return business;
 
-    return this.businesses.setBookingToken(businessId, createBookingToken());
+    return desired === undefined
+      ? this.derivar(businessId, business.name ?? "agenda")
+      : this.escolher(businessId, desired);
   }
 
-  async regenerate(userId: string, businessId: string): Promise<BusinessRecord> {
+  /** Troca o endereço. O anterior deixa de funcionar na hora. */
+  async rename(userId: string, businessId: string, desired: string): Promise<BusinessRecord> {
     await this.access.authorize(userId, businessId);
-    return this.businesses.setBookingToken(businessId, createBookingToken());
+    return this.escolher(businessId, desired);
   }
 
   async disable(userId: string, businessId: string): Promise<BusinessRecord> {
     await this.access.authorize(userId, businessId);
-    return this.businesses.setBookingToken(businessId, null);
+    return this.businesses.setBookingSlug(businessId, null);
+  }
+
+  /**
+   * Endereço escolhido por ela: conferido e recusado quando não serve.
+   *
+   * Consertar em silêncio seria pior — ela mandaria para a cliente um endereço
+   * diferente do que viu na tela.
+   */
+  private async escolher(businessId: string, desired: string): Promise<BusinessRecord> {
+    const slug = slugify(desired);
+    assertValidSlug(slug);
+
+    const dono = await this.businesses.findByBookingSlug(slug);
+    if (dono && dono.id !== businessId) {
+      throw new ConflictError("Esse endereço já é de outra profissional. Escolha outro.");
+    }
+
+    return this.businesses.setBookingSlug(businessId, slug);
+  }
+
+  /**
+   * Endereço derivado do nome: ajustado em silêncio, porque ela não escolheu
+   * aquele texto — o sistema escolheu por ela. Dois estúdios com o mesmo nome
+   * existem, e o segundo vira `studio-marina-2`.
+   */
+  private async derivar(businessId: string, base: string): Promise<BusinessRecord> {
+    const tomados = new Set(await this.businesses.listBookingSlugs());
+    const slug = nextAvailableSlug(base, (candidato) => tomados.has(candidato));
+
+    return this.businesses.setBookingSlug(businessId, slug);
   }
 }
 
@@ -300,9 +336,9 @@ export class ManageBookingLink {
  */
 async function requireBookingBusiness(
   businesses: BusinessRepository,
-  token: string,
+  slug: string,
 ): Promise<BusinessRecord> {
-  const business = token ? await businesses.findByBookingToken(token) : null;
+  const business = slug ? await businesses.findByBookingSlug(slug) : null;
   if (!business) throw new NotFoundError("Agenda", "f");
   return business;
 }

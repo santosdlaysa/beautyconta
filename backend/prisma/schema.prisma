@@ -115,9 +115,13 @@ model Business {
   workModel       WorkModel @map("work_model")
   currency        String    @default("BRL") @db.Char(3)
   timezone        String    @default("America/Sao_Paulo")
-  /// Endereço secreto da agenda pública: quem não tem o link não acha a página.
-  /// Nulo enquanto a profissional não abrir a agenda para clientes.
-  bookingToken    String?   @unique @map("booking_token")
+  /// Apelido da agenda pública: `/agendar/studio-marina`.
+  ///
+  /// **Público e adivinhável, por decisão de produto**: é bonito de falar e de
+  /// mandar por mensagem, e esse é o ponto. A agenda não se defende pelo
+  /// segredo do endereço, e sim pelo teto de requisição, pela antecedência
+  /// mínima e pelo horizonte de datas. Nulo enquanto a agenda estiver fechada.
+  bookingSlug     String?   @unique @map("booking_slug")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 

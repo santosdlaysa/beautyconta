@@ -200,7 +200,18 @@ const horaDoDia = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use o formato H
  * existe para evitar. Quem tenta adivinhar não pode aprender nada com a
  * resposta. O teto continua, contra corpo absurdo.
  */
-export const bookingParamSchema = z.object({ token: z.string().max(128) });
+/**
+ * O apelido chega pela URL da página pública. Sem tamanho mínimo: endereço
+ * curto e endereço inexistente devem dar a mesma resposta.
+ */
+export const bookingParamSchema = z.object({ slug: z.string().max(64) });
+
+/**
+ * Apelido escolhido pela profissional. Aceita texto livre — "Studio Marina" —
+ * porque quem digita não pensa em formato de endereço; o domínio normaliza e
+ * recusa o que não serve.
+ */
+export const bookingLinkSchema = z.object({ slug: z.string().trim().min(1).max(60).optional() });
 
 export const slotsQuerySchema = z.object({ serviceId: z.uuid(), date: isoDate });
 

@@ -15,8 +15,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const key = (businessId: string) => `beautyconta.agenda-publica.${businessId}`;
 
-export async function rememberBookingToken(businessId: string, bookingToken: string): Promise<void> {
-  await AsyncStorage.setItem(key(businessId), bookingToken).catch(() => undefined);
+export async function rememberBookingToken(businessId: string, bookingSlug: string): Promise<void> {
+  await AsyncStorage.setItem(key(businessId), bookingSlug).catch(() => undefined);
 }
 
 export async function readBookingToken(businessId: string): Promise<string | null> {

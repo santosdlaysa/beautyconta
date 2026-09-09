@@ -1,6 +1,6 @@
 import { colors } from '../theme';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { ApiError } from '../lib/api';
 import {
@@ -16,13 +16,13 @@ import {
   WORKING_WEEKDAYS,
   type WorkRange,
 } from '../lib/booking';
-import { forgetBookingToken, readBookingToken, rememberBookingToken } from '../lib/bookingToken';
+import { forgetBookingToken, readBookingToken, rememberBookingToken } from '../lib/bookingSlug';
 import {
   disableBookingLink,
   enableBookingLink,
   getBookingPage,
   getBusinessHours,
-  regenerateBookingLink,
+  renameBookingLink,
   saveBusinessHours,
   type BookingPage,
 } from '../lib/resources';
@@ -339,15 +339,17 @@ export function BookingLinkScreen({ onBack, onAction }: ScreenProps) {
   const dialog = useDialog();
   const { busy, error, setError, clear, run } = useSubmit();
   const [checking, setChecking] = useState(true);
-  const [bookingToken, setBookingToken] = useState<string | null>(null);
+  const [bookingSlug, setBookingToken] = useState<string | null>(null);
   const [page, setPage] = useState<BookingPage | null>(null);
   const [hours, setHours] = useState<number | null>(null);
   const [expired, setExpired] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [editando, setEditando] = useState(false);
+  const [novoEndereco, setNovoEndereco] = useState('');
 
   const token = app.token;
   const business = app.business;
-  const url = useMemo(() => (bookingToken ? bookingUrl(bookingToken) : null), [bookingToken]);
+  const url = useMemo(() => (bookingSlug ? bookingUrl(bookingSlug) : null), [bookingSlug]);
 
   const check = useCallback(async () => {
     if (!token || !business) return;
@@ -361,7 +363,9 @@ export function BookingLinkScreen({ onBack, onAction }: ScreenProps) {
       .then((items) => setHours(items.length))
       .catch(() => setHours(null));
 
-    const stored = await readBookingToken(business.id);
+    // O servidor é quem sabe: a cópia no aparelho virou apenas recuo para
+    // quando o negócio em memória ainda não foi recarregado.
+    const stored = business.bookingSlug ?? (await readBookingToken(business.id));
     if (!stored) {
       setBookingToken(null);
       setPage(null);
@@ -378,6 +382,9 @@ export function BookingLinkScreen({ onBack, onAction }: ScreenProps) {
       // agenda desligada: nos dois casos o endereço guardado não serve mais.
       if (failure instanceof ApiError && failure.status === 404) {
         await forgetBookingToken(business.id);
+        // O negócio em memória pode ter trazido um link que já não existe —
+        // trocado em outro aparelho, por exemplo.
+        app.setBookingToken(null);
         setBookingToken(null);
         setPage(null);
         setExpired(true);
@@ -396,6 +403,9 @@ export function BookingLinkScreen({ onBack, onAction }: ScreenProps) {
   const remember = async (created: string) => {
     if (!business) return;
     await rememberBookingToken(business.id, created);
+    // O negócio em memória acompanha, para as outras telas não mostrarem o
+    // estado antigo da agenda.
+    app.setBookingToken(created);
     setBookingToken(created);
     setExpired(false);
     // A página pública é o retrato do que a cliente vê; não conseguir lê-la
@@ -407,8 +417,9 @@ export function BookingLinkScreen({ onBack, onAction }: ScreenProps) {
     if (!token || !business) return;
     setFeedback(null);
     void run(async () => {
-      const { bookingToken: created } = await enableBookingLink({ token, businessId: business.id });
-      await remember(created);
+      // Sem endereço escolhido, o servidor tira do nome do negócio.
+      const { bookingSlug: created } = await enableBookingLink({ token, businessId: business.id });
+      if (created) await remember(created);
     });
   };
 
@@ -433,21 +444,44 @@ export function BookingLinkScreen({ onBack, onAction }: ScreenProps) {
     void Share.share({ message: `Agende comigo pelo BeautyConta: ${url}`, url }).catch(() => copy());
   };
 
-  const confirmRegenerate = () => {
+  const abrirEdicao = () => {
+    setFeedback(null);
+    clear();
+    setNovoEndereco(bookingSlug ?? '');
+    setEditando(true);
+  };
+
+  /**
+   * Trocar o endereço é escolha dela, não sorteio.
+   *
+   * O aviso é o mesmo de antes e continua necessário: quem já recebeu o
+   * endereço antigo — inclusive por mensagem — não consegue mais marcar.
+   */
+  const salvarEndereco = () => {
     if (!token || !business) return;
-    dialog.confirm({
-      title: 'Trocar o link',
-      message: 'O endereço atual para de funcionar na hora. Quem tiver o link antigo — inclusive quem você já mandou por mensagem — não vai mais conseguir marcar e precisará do endereço novo. Os atendimentos já marcados continuam na sua agenda.',
-      confirmLabel: 'Trocar o link',
-      destructive: true,
-      onConfirm: () => {
-        setFeedback(null);
-        void run(async () => {
-          const { bookingToken: created } = await regenerateBookingLink({ token, businessId: business.id });
-          await remember(created);
-          setFeedback({ tone: 'success', text: 'Link trocado. Divulgue o endereço novo: o anterior não funciona mais.' });
-        });
-      },
+
+    const desejado = novoEndereco.trim();
+    if (!desejado) {
+      setError('Escolha como quer que seu endereço termine.');
+      return;
+    }
+    if (desejado === bookingSlug) {
+      setEditando(false);
+      return;
+    }
+
+    void run(async () => {
+      const { bookingSlug: created } = await renameBookingLink(
+        { token, businessId: business.id },
+        desejado,
+      );
+      if (created) await remember(created);
+
+      setEditando(false);
+      setFeedback({
+        tone: 'success',
+        text: 'Endereço trocado. Divulgue o novo: o anterior não funciona mais.',
+      });
     });
   };
 
@@ -463,6 +497,7 @@ export function BookingLinkScreen({ onBack, onAction }: ScreenProps) {
         void run(async () => {
           await disableBookingLink({ token, businessId: business.id });
           await forgetBookingToken(business.id);
+          app.setBookingToken(null);
           setBookingToken(null);
           setPage(null);
           setExpired(false);
@@ -470,6 +505,10 @@ export function BookingLinkScreen({ onBack, onAction }: ScreenProps) {
       },
     });
   };
+
+  const previa = novoEndereco.trim()
+    ? bookingUrl(slugPreview(novoEndereco))
+    : bookingUrl('seu-estudio');
 
   const bookable = page?.services.length ?? 0;
   const hoursLabel = hours === null
@@ -540,9 +579,10 @@ export function BookingLinkScreen({ onBack, onAction }: ScreenProps) {
             <Section title="Cuidados com o link" />
             <ListRow
               icon="edit"
-              title="Trocar o link"
-              subtitle="Gera outro endereço e derruba o atual na hora"
-              onPress={busy ? undefined : confirmRegenerate}
+              title="Escolher meu endereço"
+              subtitle="Deixe o link com a cara do seu estúdio"
+              meta={bookingSlug ?? undefined}
+              onPress={busy ? undefined : abrirEdicao}
             />
             <ListRow
               icon="alert"
@@ -563,6 +603,30 @@ export function BookingLinkScreen({ onBack, onAction }: ScreenProps) {
             <ListRow icon="clock" title="Meu expediente" subtitle={hoursLabel} onPress={() => onAction?.('hours')} />
           </>}
       </>}
+
+    <FormSheet
+      visible={editando}
+      title="Seu endereço"
+      subtitle="É o que a cliente vê e digita. Escolha algo curto e fácil de falar."
+      busy={busy}
+      error={error}
+      onClose={() => setEditando(false)}
+      onSubmit={salvarEndereco}
+    >
+      <Field
+        label="Endereço da sua agenda"
+        value={novoEndereco}
+        onChangeText={setNovoEndereco}
+        placeholder="studio marina"
+        hint="Letras sem acento, números e hífen. Acento e espaço viram hífen sozinhos."
+      />
+      <Text style={s.linkLabel}>Como vai ficar</Text>
+      <Text style={[s.link, s.previa]}>{previa}</Text>
+      <Text style={s.hint}>
+        Quem já tem o endereço atual não conseguirá mais marcar depois da troca. Os atendimentos
+        já marcados continuam na sua agenda.
+      </Text>
+    </FormSheet>
   </Screen>;
 }
 
@@ -574,5 +638,34 @@ const s = StyleSheet.create({
   footnote: { color: colors.muted, fontSize: 11, lineHeight: 17, textAlign: 'center' },
   hint: { color: colors.muted, fontSize: 11, lineHeight: 17 },
   linkLabel: { color: colors.muted, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
-  link: { color: colors.ink, fontSize: 14, fontWeight: '600', lineHeight: 21 },
+  /**
+   * O endereço é uma palavra só, longa e sem espaços — e na web o texto quebra
+   * por palavra, então ele escapava da caixa e empurrava a tela para os lados.
+   * `break-all` só existe na web; no aparelho o texto já se ajusta sozinho.
+   */
+  previa: { marginBottom: 4 },
+  link: {
+    color: colors.ink,
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 21,
+    ...Platform.select({ web: { wordBreak: 'break-all' } as object, default: {} }),
+  },
 });
+
+/**
+ * Prévia do endereço enquanto ela digita.
+ *
+ * Repete a normalização do servidor de propósito: ela precisa ver o endereço
+ * final **antes** de salvar, e não descobrir depois que "Studio Marina" virou
+ * outra coisa. Quem manda continua sendo o servidor, que recusa o que não serve.
+ */
+function slugPreview(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40) || 'seu-estudio';
+}

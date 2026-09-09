@@ -19,6 +19,13 @@ export type Business = {
   workModel: string;
   currency: string;
   timezone: string;
+  /**
+   * Endereço da agenda pública, ou `null` quando ela está fechada.
+   *
+   * Vem do servidor, e não do aparelho: é o que faz o link sobreviver à troca
+   * de celular e a duas pessoas usando a mesma conta.
+   */
+  bookingSlug: string | null;
 };
 
 export type AllocationMethod = 'PRODUCTIVE_HOUR' | 'APPOINTMENT';
@@ -467,15 +474,34 @@ export const saveBusinessHours = ({ token, businessId }: Scope, hours: BusinessH
     token,
   }));
 
-/** Liga a agenda pública. Já ligada, devolve o mesmo link — chamar de novo é seguro. */
-export const enableBookingLink = ({ token, businessId }: Scope) =>
-  apiRequest<{ bookingToken: string }>(scoped(businessId, '/booking-link'), { method: 'POST', body: {}, token });
+/**
+ * Endereço da agenda, com o link pronto.
+ *
+ * O servidor monta o `bookingLink` inteiro: assim o aplicativo, a web e uma
+ * futura mensagem automática dizem o mesmo endereço, e mudar de domínio é
+ * mexer num lugar só.
+ */
+export type BookingLink = { bookingSlug: string | null; bookingLink: string | null };
 
-/** Troca o link. O endereço anterior deixa de existir na hora. */
-export const regenerateBookingLink = ({ token, businessId }: Scope) =>
-  apiRequest<{ bookingToken: string }>(scoped(businessId, '/booking-link/regenerate'), {
+/**
+ * Liga a agenda pública.
+ *
+ * Sem `slug`, o endereço sai do nome do negócio — "Studio Marina" vira
+ * `studio-marina`, com número no fim se outra profissional já tiver o mesmo
+ * nome. Já ligada, chamar de novo devolve o mesmo endereço.
+ */
+export const enableBookingLink = ({ token, businessId }: Scope, slug?: string) =>
+  apiRequest<BookingLink>(scoped(businessId, '/booking-link'), {
     method: 'POST',
-    body: {},
+    body: slug === undefined ? {} : { slug },
+    token,
+  });
+
+/** Troca o endereço escolhido. O anterior deixa de funcionar na hora. */
+export const renameBookingLink = ({ token, businessId }: Scope, slug: string) =>
+  apiRequest<BookingLink>(scoped(businessId, '/booking-link'), {
+    method: 'PUT',
+    body: { slug },
     token,
   });
 
@@ -498,8 +524,8 @@ export type BookingPage = {
  * mostra à profissional exatamente os serviços que a cliente vê — serviço sem
  * preço o servidor não publica.
  */
-export const getBookingPage = (bookingToken: string) =>
-  apiRequest<BookingPage>(`/api/booking/${bookingToken}`);
+export const getBookingPage = (bookingSlug: string) =>
+  apiRequest<BookingPage>(`/api/booking/${bookingSlug}`);
 
 export const getSubscription = ({ token, businessId }: Scope) =>
   apiRequest<SubscriptionStatus>(scoped(businessId, '/subscription'), { token });

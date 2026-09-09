@@ -64,11 +64,11 @@ export function AuthView({ mode, onMode }: { mode: AuthScreen; onMode: (m: AuthS
   }, [mode]);
 
   if (mode === 'welcome') return (
-    <LinearGradient colors={[colors.lilac, '#f6aac7']} style={s.welcomePage}>
+    <LinearGradient colors={[colors.lilac, colors.pinkGradient]} style={s.welcomePage}>
       <View style={s.welcomeTop}><Brand center /></View>
       <View style={s.welcomeArt}>
         <View style={[s.orbit, s.orbitOne]} /><View style={[s.orbit, s.orbitTwo]} />
-        <Icon name="sparkle" size={72} color="#FFFFFF" />
+        <Icon name="sparkle" size={72} color={colors.white} />
         <Text style={s.welcomeArtText}>beauty{'\n'}business</Text>
       </View>
       <View style={s.welcomeSheet}>

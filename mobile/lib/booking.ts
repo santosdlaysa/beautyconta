@@ -20,7 +20,7 @@ import type { BusinessHour } from './resources';
 export const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL ?? 'https://beautyconta.com.br').replace(/\/+$/, '');
 
 /** Endereço que a profissional compartilha; `/agendar/:token` é rota do site. */
-export const bookingUrl = (bookingToken: string): string => `${SITE_URL}/agendar/${bookingToken}`;
+export const bookingUrl = (bookingSlug: string): string => `${SITE_URL}/agendar/${bookingSlug}`;
 
 export const WEEKDAYS = [
   'Domingo',

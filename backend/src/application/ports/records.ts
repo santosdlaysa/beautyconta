@@ -47,7 +47,7 @@ export type BusinessRecord = {
   currency: string;
   timezone: string;
   /** Endereço secreto da agenda pública; nulo enquanto ela não for aberta. */
-  bookingToken: string | null;
+  bookingSlug: string | null;
   createdAt: Date;
   updatedAt: Date;
 };

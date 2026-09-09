@@ -38,15 +38,23 @@ export class PrismaBusinessRepository implements BusinessRepository {
     return business ? toRecord(business) : null;
   }
 
-  async findByBookingToken(token: string): Promise<BusinessRecord | null> {
-    const business = await this.prisma.business.findUnique({ where: { bookingToken: token } });
+  async findByBookingSlug(slug: string): Promise<BusinessRecord | null> {
+    const business = await this.prisma.business.findUnique({ where: { bookingSlug: slug } });
     return business ? toRecord(business) : null;
   }
 
-  async setBookingToken(businessId: string, token: string | null): Promise<BusinessRecord> {
+  async setBookingSlug(businessId: string, slug: string | null): Promise<BusinessRecord> {
     return toRecord(
-      await this.prisma.business.update({ where: { id: businessId }, data: { bookingToken: token } }),
+      await this.prisma.business.update({ where: { id: businessId }, data: { bookingSlug: slug } }),
     );
+  }
+
+  async listBookingSlugs(): Promise<string[]> {
+    const linhas = await this.prisma.business.findMany({
+      where: { bookingSlug: { not: null } },
+      select: { bookingSlug: true },
+    });
+    return linhas.map((linha) => linha.bookingSlug as string);
   }
 
   async listByOwner(ownerUserId: string): Promise<BusinessRecord[]> {
@@ -99,7 +107,7 @@ function toData(input: Omit<BusinessRecord, "id" | "createdAt" | "updatedAt">) {
     workModel: input.workModel,
     currency: input.currency,
     timezone: input.timezone,
-    bookingToken: input.bookingToken,
+    bookingSlug: input.bookingSlug,
   };
 }
 
@@ -112,7 +120,7 @@ function toRecord(business: Business): BusinessRecord {
     workModel: business.workModel as WorkModelSlug,
     currency: business.currency,
     timezone: business.timezone,
-    bookingToken: business.bookingToken,
+    bookingSlug: business.bookingSlug,
     createdAt: business.createdAt,
     updatedAt: business.updatedAt,
   };

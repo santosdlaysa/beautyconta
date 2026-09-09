@@ -19,7 +19,7 @@ import {
  *   página exibisse o texto do servidor, uma mudança de mensagem lá viraria
  *   sem querer a distinção que o backend evita.
  * - **422 no dado da página é tratado como 404.** A única entrada dessa rota é
- *   o token, então "token malformado" e "token desconhecido" são a mesma coisa
+ *   o slug, então "slug malformado" e "slug desconhecido" são a mesma coisa
  *   para quem abriu o link — e devolver 422 ali distinguiria os dois casos.
  * - **409 repassa a mensagem da API**, que já explica à cliente que o horário
  *   foi ocupado e o que fazer.
@@ -73,26 +73,26 @@ export function createHttpBookingGateway(
   }
 
   return {
-    async page(token, signal) {
+    async page(slug, signal) {
       const page = await request<unknown>(
-        url(`/${encodeURIComponent(token)}`),
+        url(`/${encodeURIComponent(slug)}`),
         { signal, cache: "no-store", headers: { accept: "application/json" } },
         true,
       );
       return toBookingPage(page);
     },
 
-    async slots(token, serviceId, date, signal) {
+    async slots(slug, serviceId, date, signal) {
       const query = new URLSearchParams({ serviceId, date });
       const availability = await request<unknown>(
-        url(`/${encodeURIComponent(token)}/slots?${query}`),
+        url(`/${encodeURIComponent(slug)}/slots?${query}`),
         { signal, cache: "no-store", headers: { accept: "application/json" } },
       );
       return toDayAvailability(availability, date);
     },
 
-    async book(token, booking, signal) {
-      const confirmation = await request<unknown>(url(`/${encodeURIComponent(token)}/appointments`), {
+    async book(slug, booking, signal) {
+      const confirmation = await request<unknown>(url(`/${encodeURIComponent(slug)}/appointments`), {
         method: "POST",
         signal,
         headers: { "content-type": "application/json", accept: "application/json" },

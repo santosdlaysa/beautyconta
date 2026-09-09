@@ -84,12 +84,12 @@ export class BookingError extends Error {
 }
 
 export interface BookingGateway {
-  page(token: string, signal?: AbortSignal): Promise<BookingPage>;
+  page(slug: string, signal?: AbortSignal): Promise<BookingPage>;
   slots(
-    token: string,
+    slug: string,
     serviceId: string,
     date: string,
     signal?: AbortSignal,
   ): Promise<DayAvailability>;
-  book(token: string, request: BookingRequest, signal?: AbortSignal): Promise<BookingConfirmation>;
+  book(slug: string, request: BookingRequest, signal?: AbortSignal): Promise<BookingConfirmation>;
 }

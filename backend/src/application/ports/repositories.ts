@@ -67,9 +67,11 @@ export interface BusinessRepository {
     id: string,
     input: Partial<Pick<BusinessRecord, "name" | "primaryCategory" | "workModel" | "timezone">>,
   ): Promise<BusinessRecord>;
-  /** Busca pelo endereço secreto da agenda pública, sem exigir sessão. */
-  findByBookingToken(token: string): Promise<BusinessRecord | null>;
-  setBookingToken(businessId: string, token: string | null): Promise<BusinessRecord>;
+  /** Busca pelo apelido da agenda pública, sem exigir sessão. */
+  findByBookingSlug(slug: string): Promise<BusinessRecord | null>;
+  setBookingSlug(businessId: string, slug: string | null): Promise<BusinessRecord>;
+  /** Apelidos já usados, para derivar um livre a partir do nome do negócio. */
+  listBookingSlugs(): Promise<string[]>;
   getSettings(businessId: string): Promise<BusinessSettingsRecord | null>;
   saveSettings(
     input: Omit<BusinessSettingsRecord, "createdAt" | "updatedAt">,

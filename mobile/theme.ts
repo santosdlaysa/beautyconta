@@ -33,6 +33,34 @@ export const colors = {
   infoSoft: '#f0ebfa',
   /** Traços e ícones sem texto: 3:1 basta, mas o cinza claro anterior não chegava lá. */
   outline: '#8b7d90',
+
+  /**
+   * Tons do cartão em gradiente.
+   *
+   * O fundo dele é rosa e lilás claros, então o texto precisa de uma família
+   * própria — usar `ink` ali daria contraste demais e quebraria a leitura suave
+   * que o cartão pede.
+   */
+  heroInk: '#462d59',
+  heroLabel: '#5a3f61',
+  heroCaption: '#694a73',
+  heroHint: '#63456b',
+  heroAction: '#654275',
+  /** Véus brancos sobre o gradiente: botão, orbes e a arte de fundo. */
+  heroVeil: 'rgba(255, 255, 255, 0.52)',
+  heroVeilSoft: 'rgba(255, 255, 255, 0.2)',
+  orbitLine: 'rgba(255, 255, 255, 0.38)',
+  orbitBand: 'rgba(255, 255, 255, 0.13)',
+  orbitCore: 'rgba(196, 154, 230, 0.29)',
+
+  /** Marcadores e trilhos da agenda. */
+  marker: '#dda3c0',
+  markerPending: '#bba7da',
+  trail: '#e8cfdf',
+  track: '#f0e8ea',
+  /** Fundo de ícone em estado vazio e véu atrás das folhas. */
+  surfaceSoft: '#f0e5f2',
+  veil: 'rgba(55, 38, 62, 0.33)',
 } as const;
 
 /** Medidas repetidas nas telas: mantêm o ritmo visual da Home. */

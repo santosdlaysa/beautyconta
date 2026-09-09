@@ -117,6 +117,15 @@ type Actions = {
    * Só o canal web é cancelável por aqui; Google Play e App Store não permitem
    * que o aplicativo cancele por conta própria, e o servidor recusa com `409`.
    */
+  /**
+   * Guarda o link da agenda pública que acabou de ser ligado, trocado ou
+   * desligado.
+   *
+   * O negócio em memória precisa acompanhar, senão o Perfil continua dizendo
+   * "agenda fechada" depois de ela ligar na outra tela — e ela não tem como
+   * saber qual das duas telas está certa.
+   */
+  setBookingToken(bookingSlug: string | null): void;
   cancelSubscription(subscriptionId: string): Promise<void>;
   dismissMigration(): void;
   showAgendaDay(day: Date): Promise<void>;
@@ -447,6 +456,11 @@ export function AppProvider({ children }: PropsWithChildren) {
       },
       dismissMigration() {
         setState((current) => ({ ...current, migratedCalculation: null }));
+      },
+      setBookingToken(bookingSlug) {
+        setState((current) =>
+          current.business ? { ...current, business: { ...current.business, bookingSlug } } : current,
+        );
       },
       /**
        * Pede o cancelamento e relê a assinatura.

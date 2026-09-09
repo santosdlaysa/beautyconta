@@ -52,7 +52,7 @@ export class CreateBusiness {
         currency: "BRL",
         timezone: input.timezone ?? "America/Sao_Paulo",
         // A agenda pública começa fechada; o link é criado quando ela pedir.
-        bookingToken: null,
+        bookingSlug: null,
       },
       limit,
     );

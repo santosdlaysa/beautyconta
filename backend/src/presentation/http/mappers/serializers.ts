@@ -64,7 +64,7 @@ export function serializeBusiness(business: BusinessRecord) {
      * aplicativo não tinha como saber se o link existe — precisava guardar uma
      * cópia no aparelho, que some ao trocar de celular.
      */
-    bookingToken: business.bookingToken,
+    bookingSlug: business.bookingSlug,
     createdAt: business.createdAt.toISOString(),
     updatedAt: business.updatedAt.toISOString(),
   };
@@ -246,4 +246,22 @@ export function serializeExport(data: {
     equipment: data.equipment.map(serializeEquipment),
     subscriptions: data.subscriptions.map(serializeSubscription),
   };
+}
+
+/**
+ * Endereço da agenda pública, montado aqui.
+ *
+ * O servidor entrega o link pronto em vez de deixar cada interface concatenar
+ * o seu: assim o aplicativo, a web e uma futura mensagem automática dizem
+ * exatamente a mesma coisa, e mudar o domínio é mexer num lugar só.
+ */
+export function serializeBookingLink(slug: string | null) {
+  return {
+    bookingSlug: slug,
+    bookingLink: slug ? `${bookingBaseUrl()}/agendar/${slug}` : null,
+  };
+}
+
+function bookingBaseUrl(): string {
+  return (process.env.PUBLIC_SITE_URL ?? "https://beautyconta.com.br").replace(/\/+$/, "");
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState, type PropsWithChildren, type ReactNode } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme';
 import { Icon, type IconName } from './AppChrome';
@@ -39,13 +39,13 @@ export function HeroCard({ label, value, caption, hint, onPress, accessibilityLa
   return <LinearGradient colors={[colors.pinkGradient, colors.lilac]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={ui.hero}>
     <View style={ui.heroArt}>
       <View style={ui.orbitOuter} /><View style={ui.orbitInner} /><View style={ui.orbitCore} />
-      <View style={ui.artSpark}><Icon name="sparkle" size={29} color="#FFFFFF" /></View>
+      <View style={ui.artSpark}><Icon name="sparkle" size={29} color={colors.white} /></View>
     </View>
     <View style={ui.heroTop}><Text style={ui.heroLabel}>{label}</Text>{right}</View>
     <Text style={ui.heroValue}>{value}</Text>
     <View style={ui.heroBottom}>
       <View style={ui.grow}>{caption && <Text style={ui.heroCaption}>{caption}</Text>}{hint && <Text style={ui.heroHint}>{hint}</Text>}</View>
-      {onPress && <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} onPress={onPress} style={({ pressed }) => [ui.heroArrow, pressed && ui.pressed]}><Icon name="arrow" size={19} color="#654275" /></Pressable>}
+      {onPress && <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} onPress={onPress} style={({ pressed }) => [ui.heroArrow, pressed && ui.pressed]}><Icon name="arrow" size={19} color={colors.heroAction} /></Pressable>}
     </View>
   </LinearGradient>;
 }
@@ -227,6 +227,13 @@ export function ProgressBar({ value, color = colors.accent }: { value: number; c
   return <View style={ui.progress}><View style={[ui.progressFill, { width, backgroundColor: color }]} /></View>;
 }
 
+/**
+ * Texto sem espaços — endereço, e-mail — não quebra sozinho na web e escapa da
+ * caixa. Como o quadro do aplicativo corta o que transborda (`overflow:
+ * hidden`), o excedente não vira rolagem: some da tela.
+ */
+export const quebraLonga = Platform.select({ web: { wordBreak: 'break-word' } as object, default: {} });
+
 export const ui = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { flexGrow: 1, padding: 22, paddingTop: 16, paddingBottom: 28 },
@@ -241,17 +248,17 @@ export const ui = StyleSheet.create({
 
   hero: { borderRadius: 25, padding: 21, paddingTop: 17, overflow: 'hidden', minHeight: 170, marginBottom: 22 },
   heroArt: { position: 'absolute', top: 0, right: 0, bottom: 0, width: 160, overflow: 'hidden', pointerEvents: 'none' },
-  orbitOuter: { position: 'absolute', top: 38, right: -35, width: 143, height: 143, borderRadius: 80, borderWidth: 1, borderColor: '#FFFFFF60', transform: [{ scaleX: 1.5 }, { rotate: '-28deg' }] },
-  orbitInner: { position: 'absolute', top: 52, right: -20, width: 118, height: 118, borderRadius: 70, borderWidth: 17, borderColor: '#FFFFFF20' },
-  orbitCore: { position: 'absolute', top: 70, right: -2, width: 82, height: 82, borderRadius: 45, backgroundColor: '#C49AE64A' },
+  orbitOuter: { position: 'absolute', top: 38, right: -35, width: 143, height: 143, borderRadius: 80, borderWidth: 1, borderColor: colors.orbitLine, transform: [{ scaleX: 1.5 }, { rotate: '-28deg' }] },
+  orbitInner: { position: 'absolute', top: 52, right: -20, width: 118, height: 118, borderRadius: 70, borderWidth: 17, borderColor: colors.orbitBand },
+  orbitCore: { position: 'absolute', top: 70, right: -2, width: 82, height: 82, borderRadius: 45, backgroundColor: colors.orbitCore },
   artSpark: { position: 'absolute', right: 32, top: 79, opacity: 0.85 },
   heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 33 },
-  heroLabel: { color: '#5a3f61', fontSize: 12, fontWeight: '500' },
-  heroValue: { color: '#462D59', fontSize: 34, fontWeight: '600', letterSpacing: -1.3, marginTop: 6 },
+  heroLabel: { color: colors.heroLabel, fontSize: 12, fontWeight: '500' },
+  heroValue: { color: colors.heroInk, fontSize: 34, fontWeight: '600', letterSpacing: -1.3, marginTop: 6 },
   heroBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 16 },
-  heroCaption: { color: '#694A73', fontSize: 11 },
-  heroHint: { color: '#63456b', fontSize: 9, marginTop: 5 },
-  heroArrow: { width: 33, height: 33, borderRadius: 18, backgroundColor: '#FFFFFF85', alignItems: 'center', justifyContent: 'center' },
+  heroCaption: { color: colors.heroCaption, fontSize: 11 },
+  heroHint: { color: colors.heroHint, fontSize: 9, marginTop: 5 },
+  heroArrow: { width: 33, height: 33, borderRadius: 18, backgroundColor: colors.heroVeil, alignItems: 'center', justifyContent: 'center' },
 
   section: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 32, gap: 10, marginBottom: 9 },
   sectionSpaced: { marginTop: 20 },
@@ -277,7 +284,7 @@ export const ui = StyleSheet.create({
   stat: { flex: 1, borderRadius: 19, padding: 15 },
   statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statLabel: { color: colors.muted, fontSize: 10 },
-  statValue: { color: '#634B71', fontSize: 19, fontWeight: '600', letterSpacing: -0.5, marginTop: 11 },
+  statValue: { color: colors.heroCaption, fontSize: 19, fontWeight: '600', letterSpacing: -0.5, marginTop: 11 },
   statCaption: { color: colors.faded, fontSize: 9, marginTop: 5 },
 
   button: { flexDirection: 'row', gap: 8, backgroundColor: colors.pink, minHeight: 48, borderRadius: 25, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
@@ -304,7 +311,7 @@ export const ui = StyleSheet.create({
   chipTextActive: { color: colors.white, fontWeight: '600' },
 
   empty: { alignItems: 'center', paddingVertical: 22, paddingHorizontal: 18 },
-  emptyIcon: { width: 45, height: 45, borderRadius: 24, backgroundColor: '#F0E5F2', alignItems: 'center', justifyContent: 'center' },
+  emptyIcon: { width: 45, height: 45, borderRadius: 24, backgroundColor: colors.surfaceSoft, alignItems: 'center', justifyContent: 'center' },
   emptyTitle: { color: colors.ink, fontSize: 13, fontWeight: '600', marginTop: 10 },
   emptyText: { color: colors.muted, fontSize: 11, textAlign: 'center', lineHeight: 18, marginTop: 5 },
   emptyButton: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, marginTop: 4 },
@@ -316,29 +323,29 @@ export const ui = StyleSheet.create({
   dayNumber: { color: colors.ink, fontSize: 15, fontWeight: '500' },
   activeText: { color: colors.white },
   dayDot: { height: 3, width: 3, borderRadius: 2, backgroundColor: 'transparent' },
-  dayMarked: { backgroundColor: '#DDA3C0' },
+  dayMarked: { backgroundColor: colors.marker },
   activeDot: { backgroundColor: colors.white },
 
   timelinePanel: { backgroundColor: colors.softLilac, borderRadius: 23, padding: 15, paddingBottom: 8, marginBottom: 6 },
   timelineHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 28, marginBottom: 13 },
-  timelineTitle: { color: '#75647D', fontSize: 11, fontWeight: '500', textTransform: 'capitalize' },
+  timelineTitle: { color: colors.ink3, fontSize: 11, fontWeight: '500', textTransform: 'capitalize' },
   addButton: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: colors.white },
   timelineRow: { flexDirection: 'row', alignItems: 'stretch', minHeight: 91 },
   timeColumn: { width: 36, paddingTop: 15 },
-  time: { fontSize: 10, fontWeight: '500', color: '#746379' },
+  time: { fontSize: 10, fontWeight: '500', color: colors.ink3 },
   endTime: { fontSize: 8, color: colors.ink3, marginTop: 5 },
   timelineTrack: { width: 14, alignItems: 'center', paddingTop: 18 },
-  timelineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#E09CBE', borderColor: '#F8F2F7', borderWidth: 1, zIndex: 1 },
-  pendingDot: { backgroundColor: '#BBA7DA' },
-  timelineLine: { position: 'absolute', top: 25, bottom: -18, width: 1, backgroundColor: '#E8CFDF' },
+  timelineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.marker, borderColor: colors.softLilac, borderWidth: 1, zIndex: 1 },
+  pendingDot: { backgroundColor: colors.markerPending },
+  timelineLine: { position: 'absolute', top: 25, bottom: -18, width: 1, backgroundColor: colors.trail },
   appointmentCard: { flex: 1, marginLeft: 6, marginBottom: 10, padding: 11, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: colors.white },
   titleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 7 },
-  statusDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#87B59C' },
-  statusDotPending: { backgroundColor: '#C4A074' },
+  statusDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.success },
+  statusDotPending: { backgroundColor: colors.warning },
   statusText: { color: colors.ink3, fontSize: 10 },
 
-  progress: { height: 5, borderRadius: 4, backgroundColor: '#f0e8ea', marginTop: 9, overflow: 'hidden' },
+  progress: { height: 5, borderRadius: 4, backgroundColor: colors.track, marginTop: 9, overflow: 'hidden' },
   progressFill: { height: 5, borderRadius: 4 },
 
   loading: { alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 40 },
@@ -347,7 +354,7 @@ export const ui = StyleSheet.create({
   notice: { flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: 16, padding: 13, marginBottom: 13 },
   noticeText: { flex: 1, fontSize: 12, lineHeight: 18 },
 
-  sheetBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#37263e55' },
+  sheetBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.veil },
   sheet: { backgroundColor: colors.background, borderTopLeftRadius: 30, borderTopRightRadius: 30, maxHeight: '92%', paddingTop: 10 },
   sheetHandle: { alignSelf: 'center', width: 42, height: 4, borderRadius: 3, backgroundColor: colors.border },
   sheetContent: { padding: 22, paddingTop: 16, paddingBottom: 34, gap: 14 },

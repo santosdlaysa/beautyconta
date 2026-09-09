@@ -26,7 +26,7 @@ async function agendaAberta() {
   });
 
   const link = await as().post(`/api/businesses/${businessId}/booking-link`).send({});
-  const token: string = link.body.bookingToken;
+  const slug: string = link.body.bookingSlug;
 
   /** Próxima quinta-feira, para nunca cair no passado. */
   const proximaQuinta = () => {
@@ -35,14 +35,14 @@ async function agendaAberta() {
     return data.toISOString().slice(0, 10);
   };
 
-  return { ...setup, app, token, serviceId: servico.body.id as string, data: proximaQuinta() };
+  return { ...setup, app, slug, serviceId: servico.body.id as string, data: proximaQuinta() };
 }
 
 describe("agenda pública", () => {
   it("mostra o negócio e os serviços para quem tem o link", async () => {
-    const { app, token } = await agendaAberta();
+    const { app, slug } = await agendaAberta();
 
-    const { status, body } = await request(app).get(`/api/booking/${token}`);
+    const { status, body } = await request(app).get(`/api/booking/${slug}`);
 
     expect(status).toBe(200);
     expect(body.businessName).toBe("Estúdio Marina");
@@ -51,9 +51,9 @@ describe("agenda pública", () => {
   });
 
   it("não expõe nada do negócio por dentro", async () => {
-    const { app, token } = await agendaAberta();
+    const { app, slug } = await agendaAberta();
 
-    const { body } = await request(app).get(`/api/booking/${token}`);
+    const { body } = await request(app).get(`/api/booking/${slug}`);
     const texto = JSON.stringify(body);
 
     // A página é aberta: custo, margem e identificador interno não saem daqui.
@@ -64,10 +64,10 @@ describe("agenda pública", () => {
   });
 
   it("oferece horários livres do dia", async () => {
-    const { app, token, serviceId, data } = await agendaAberta();
+    const { app, slug, serviceId, data } = await agendaAberta();
 
     const { status, body } = await request(app)
-      .get(`/api/booking/${token}/slots`)
+      .get(`/api/booking/${slug}/slots`)
       .query({ serviceId, date: data });
 
     expect(status).toBe(200);
@@ -78,24 +78,24 @@ describe("agenda pública", () => {
   });
 
   it("não oferece horário em dia sem expediente", async () => {
-    const { app, token, serviceId, data } = await agendaAberta();
+    const { app, slug, serviceId, data } = await agendaAberta();
 
     // O dia seguinte à quinta não tem expediente cadastrado.
     const sexta = new Date(`${data}T12:00:00Z`);
     sexta.setDate(sexta.getDate() + 1);
 
     const { body } = await request(app)
-      .get(`/api/booking/${token}/slots`)
+      .get(`/api/booking/${slug}/slots`)
       .query({ serviceId, date: sexta.toISOString().slice(0, 10) });
 
     expect(body.slots).toEqual([]);
   });
 
   it("marca o atendimento e ele aparece na agenda da profissional", async () => {
-    const { app, as, businessId, token, serviceId, data } = await agendaAberta();
+    const { app, as, businessId, slug, serviceId, data } = await agendaAberta();
 
     const { status, body } = await request(app)
-      .post(`/api/booking/${token}/appointments`)
+      .post(`/api/booking/${slug}/appointments`)
       .send({
         serviceId,
         date: data,
@@ -120,14 +120,14 @@ describe("agenda pública", () => {
   });
 
   it("tira da lista o horário que acabou de ser ocupado", async () => {
-    const { app, token, serviceId, data } = await agendaAberta();
+    const { app, slug, serviceId, data } = await agendaAberta();
 
-    await request(app).post(`/api/booking/${token}/appointments`).send({
+    await request(app).post(`/api/booking/${slug}/appointments`).send({
       serviceId, date: data, time: "10:00", clientName: "Ana", clientPhone: "95 99999-0000",
     });
 
     const { body } = await request(app)
-      .get(`/api/booking/${token}/slots`)
+      .get(`/api/booking/${slug}/slots`)
       .query({ serviceId, date: data });
 
     expect(body.slots).not.toContain("10:00");
@@ -136,9 +136,9 @@ describe("agenda pública", () => {
   });
 
   it("recusa a segunda cliente que escolher o mesmo horário", async () => {
-    const { app, token, serviceId, data } = await agendaAberta();
+    const { app, slug, serviceId, data } = await agendaAberta();
     const marcar = (nome: string) =>
-      request(app).post(`/api/booking/${token}/appointments`).send({
+      request(app).post(`/api/booking/${slug}/appointments`).send({
         serviceId, date: data, time: "10:00", clientName: nome, clientPhone: "95 99999-0000",
       });
 
@@ -151,9 +151,9 @@ describe("agenda pública", () => {
   });
 
   it("recusa data que já passou", async () => {
-    const { app, token, serviceId } = await agendaAberta();
+    const { app, slug, serviceId } = await agendaAberta();
 
-    const { status, body } = await request(app).post(`/api/booking/${token}/appointments`).send({
+    const { status, body } = await request(app).post(`/api/booking/${slug}/appointments`).send({
       serviceId, date: "2020-01-02", time: "10:00", clientName: "Ana", clientPhone: "95 99999-0000",
     });
 
@@ -162,9 +162,9 @@ describe("agenda pública", () => {
   });
 
   it("recusa horário fora do expediente", async () => {
-    const { app, token, serviceId, data } = await agendaAberta();
+    const { app, slug, serviceId, data } = await agendaAberta();
 
-    const { status } = await request(app).post(`/api/booking/${token}/appointments`).send({
+    const { status } = await request(app).post(`/api/booking/${slug}/appointments`).send({
       serviceId, date: data, time: "20:00", clientName: "Ana", clientPhone: "95 99999-0000",
     });
 
@@ -172,9 +172,9 @@ describe("agenda pública", () => {
   });
 
   it("exige telefone: é a única forma de retomar contato", async () => {
-    const { app, token, serviceId, data } = await agendaAberta();
+    const { app, slug, serviceId, data } = await agendaAberta();
 
-    const { status, body } = await request(app).post(`/api/booking/${token}/appointments`).send({
+    const { status, body } = await request(app).post(`/api/booking/${slug}/appointments`).send({
       serviceId, date: data, time: "10:00", clientName: "Ana",
     });
 
@@ -185,25 +185,23 @@ describe("agenda pública", () => {
 
 describe("o link como barreira", () => {
   it("dá a mesma resposta para link inventado e agenda fechada", async () => {
-    const { app, as, businessId, token } = await agendaAberta();
+    const { app, as, businessId, slug } = await agendaAberta();
 
     const inventado = await request(app).get(`/api/booking/${"z".repeat(32)}`);
     expect(inventado.status).toBe(404);
 
     await as().delete(`/api/businesses/${businessId}/booking-link`);
-    const desligado = await request(app).get(`/api/booking/${token}`);
+    const desligado = await request(app).get(`/api/booking/${slug}`);
 
     // Quem tenta adivinhar não distingue "não existe" de "existe e está fechada".
     expect(desligado.status).toBe(404);
     expect(desligado.body).toEqual(inventado.body);
   });
 
-  it("token curto também dá 404, e não erro de validação", async () => {
+  it("endereço curto ou inexistente dá 404, e não erro de validação", async () => {
     const { app } = await agendaAberta();
 
-    // Exigir tamanho mínimo faria "malformado" e "desconhecido" darem respostas
-    // diferentes — a peneira que o 404 único existe para fechar.
-    for (const suspeito of ["x", "abc", "z".repeat(15)]) {
+    for (const suspeito of ["x", "abc", "estudio-que-nao-existe"]) {
       const { status } = await request(app).get(`/api/booking/${suspeito}`);
       expect(status).toBe(404);
     }
@@ -216,22 +214,26 @@ describe("o link como barreira", () => {
     expect(body.message).toBe("Agenda não encontrada.");
   });
 
-  it("trocar o link derruba o endereço antigo na hora", async () => {
-    const { app, as, businessId, token } = await agendaAberta();
+  it("trocar o endereço derruba o antigo na hora", async () => {
+    const { app, as, businessId, slug } = await agendaAberta();
 
-    const novo = await as().post(`/api/businesses/${businessId}/booking-link/regenerate`).send({});
+    const novo = await as()
+      .put(`/api/businesses/${businessId}/booking-link`)
+      .send({ slug: "studio-da-marina" });
 
-    expect(novo.body.bookingToken).not.toBe(token);
-    expect((await request(app).get(`/api/booking/${token}`)).status).toBe(404);
-    expect((await request(app).get(`/api/booking/${novo.body.bookingToken}`)).status).toBe(200);
+    expect(novo.body.bookingSlug).toBe("studio-da-marina");
+    expect(novo.body.bookingLink).toContain("/agendar/studio-da-marina");
+    expect(novo.body.bookingSlug).not.toBe(slug);
+    expect((await request(app).get(`/api/booking/${slug}`)).status).toBe(404);
+    expect((await request(app).get(`/api/booking/${novo.body.bookingSlug}`)).status).toBe(200);
   });
 
   it("não deixa marcar em negócio de outra pessoa pelo link errado", async () => {
-    const { app, token, data } = await agendaAberta();
+    const { app, slug, data } = await agendaAberta();
     const outra = await agendaAberta();
 
     // Serviço da segunda profissional, link da primeira.
-    const { status } = await request(app).post(`/api/booking/${token}/appointments`).send({
+    const { status } = await request(app).post(`/api/booking/${slug}/appointments`).send({
       serviceId: outra.serviceId, date: data, time: "10:00",
       clientName: "Ana", clientPhone: "95 99999-0000",
     });
@@ -242,13 +244,13 @@ describe("o link como barreira", () => {
 
 describe("o link visto pela dona", () => {
   it("aparece nos dados do negócio, para o aplicativo saber que existe", async () => {
-    const { as, businessId, token } = await agendaAberta();
+    const { as, businessId, slug } = await agendaAberta();
 
     const { body } = await as().get(`/api/businesses/${businessId}`);
 
     // Sem isto, o aplicativo precisaria guardar uma cópia no aparelho — que
     // some quando ela troca de celular.
-    expect(body.bookingToken).toBe(token);
+    expect(body.bookingSlug).toBe(slug);
   });
 
   it("some quando a agenda é desligada", async () => {
@@ -257,7 +259,7 @@ describe("o link visto pela dona", () => {
     await as().delete(`/api/businesses/${businessId}/booking-link`);
     const { body } = await as().get(`/api/businesses/${businessId}`);
 
-    expect(body.bookingToken).toBeNull();
+    expect(body.bookingSlug).toBeNull();
   });
 
   it("não vaza para outra pessoa", async () => {

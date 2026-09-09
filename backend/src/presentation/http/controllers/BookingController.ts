@@ -10,10 +10,11 @@ import {
   SaveBusinessHours,
 } from "../../../application/use-cases/booking";
 import { formatTime } from "../../../domain/scheduling/availability";
-import { serializeAppointment } from "../mappers/serializers";
+import { serializeAppointment, serializeBookingLink } from "../mappers/serializers";
 import { userIdOf } from "../middleware/identity";
 import { parse } from "../validators/parse";
 import {
+  bookingLinkSchema,
   bookingParamSchema,
   bookingRequestSchema,
   businessHoursSchema,
@@ -36,14 +37,14 @@ export class BookingController {
   }
 
   page = async (req: Request, res: Response): Promise<void> => {
-    const { token } = parse(bookingParamSchema, req.params);
+    const { slug } = parse(bookingParamSchema, req.params);
 
-    const page = await new GetBookingPage(this.deps.businesses, this.deps.services).execute(token);
+    const page = await new GetBookingPage(this.deps.businesses, this.deps.services).execute(slug);
     res.json(page);
   };
 
   slots = async (req: Request, res: Response): Promise<void> => {
-    const { token } = parse(bookingParamSchema, req.params);
+    const { slug } = parse(bookingParamSchema, req.params);
     const query = parse(slotsQuerySchema, req.query);
 
     const availability = await new ListAvailableSlots(
@@ -52,13 +53,13 @@ export class BookingController {
       this.deps.services,
       this.deps.appointments,
       this.deps.clock,
-    ).execute(token, query.serviceId, query.date);
+    ).execute(slug, query.serviceId, query.date);
 
     res.json(availability);
   };
 
   book = async (req: Request, res: Response): Promise<void> => {
-    const { token } = parse(bookingParamSchema, req.params);
+    const { slug } = parse(bookingParamSchema, req.params);
     const input = parse(bookingRequestSchema, req.body);
 
     const appointment = await new BookAppointment(
@@ -67,7 +68,7 @@ export class BookingController {
       this.deps.services,
       this.deps.appointments,
       this.deps.clock,
-    ).execute(token, input);
+    ).execute(slug, input);
 
     // A confirmação devolve só o que a cliente precisa ver. O restante do
     // atendimento é dado do negócio, não dela.
@@ -106,24 +107,29 @@ export class BookingController {
 
   enableLink = async (req: Request, res: Response): Promise<void> => {
     const { businessId } = parse(businessParamSchema, req.params);
+    const input = parse(bookingLinkSchema, req.body ?? {});
 
     const business = await new ManageBookingLink(this.access, this.deps.businesses).enable(
       userIdOf(req),
       businessId,
+      input.slug,
     );
 
-    res.json({ bookingToken: business.bookingToken });
+    res.json(serializeBookingLink(business.bookingSlug));
   };
 
-  regenerateLink = async (req: Request, res: Response): Promise<void> => {
+  /** Troca o endereço; o anterior deixa de funcionar na hora. */
+  renameLink = async (req: Request, res: Response): Promise<void> => {
     const { businessId } = parse(businessParamSchema, req.params);
+    const input = parse(bookingLinkSchema.required({ slug: true }), req.body);
 
-    const business = await new ManageBookingLink(this.access, this.deps.businesses).regenerate(
+    const business = await new ManageBookingLink(this.access, this.deps.businesses).rename(
       userIdOf(req),
       businessId,
+      input.slug,
     );
 
-    res.json({ bookingToken: business.bookingToken });
+    res.json(serializeBookingLink(business.bookingSlug));
   };
 
   disableLink = async (req: Request, res: Response): Promise<void> => {

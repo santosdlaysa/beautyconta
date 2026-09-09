@@ -7,7 +7,7 @@ import { centsToInput, formatCents, formatIsoDate, parseCents, parseIsoDate, par
 import { useApp } from '../state/AppProvider';
 import { useDialog } from './Dialog';
 import { Icon } from './AppChrome';
-import { Avatar, Badge, Button, Card, ChoiceField, EmptyState, Field, FormSheet, HeroCard, IconBubble, ListRow, Loading, Notice, PlanLimitNotice, Row, Screen, ScreenHeader, SearchField, Section, StatCard, TimelinePanel, TimelineRow, WeekStrip, ui } from './ui';
+import { Avatar, Badge, Button, Card, ChoiceField, EmptyState, Field, FormSheet, HeroCard, IconBubble, ListRow, Loading, Notice, PlanLimitNotice, Row, Screen, ScreenHeader, SearchField, Section, StatCard, TimelinePanel, TimelineRow, WeekStrip, quebraLonga, ui } from './ui';
 
 export type ProfessionalScreenProps = { onBack?: () => void; onAction?: (action: string) => void };
 
@@ -236,6 +236,10 @@ export function ProfileScreen({ onBack, onAction }: ProfessionalScreenProps) {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
 
+  // A agenda está no ar quando existe link: é a mesma verdade que o servidor
+  // usa para responder à cliente, e não uma preferência guardada à parte.
+  const agendaAberta = Boolean(app.business?.bookingSlug);
+
   const plan = app.subscription?.plan ?? 'FREE';
   const planLabel = plan === 'FREE' ? 'Plano gratuito' : plan === 'PREMIUM' ? 'Premium' : 'Master';
 
@@ -283,17 +287,44 @@ export function ProfileScreen({ onBack, onAction }: ProfessionalScreenProps) {
       <View style={s.profile}>
         <Avatar initials={initialsOf(app.user?.name ?? 'BC')} size={64} />
         <Text style={s.profileName}>{app.user?.name ?? 'Sua conta'}</Text>
-        <Text style={ui.rowSub}>{app.business?.name ?? app.user?.email ?? ''}</Text>
+        <Text style={[ui.rowSub, quebraLonga]}>{app.business?.name ?? app.user?.email ?? ''}</Text>
         <View style={s.profileBadge}><Badge label={planLabel} tone="lilac" /></View>
       </View>
     </Card>
     <Button label="Editar perfil" icon="edit" secondary onPress={() => { setName(app.user?.name ?? ''); profile.setError(null); setNameOpen(true); }} />
 
-    <Section title="Conta e negócio" first />
+    {/*
+      Separado do resto de propósito: aqui está o que as suas clientes veem e
+      usam. O que é da conta — senha, plano, nome — fica na seção seguinte,
+      porque são coisas que se mexe uma vez e esquece.
+    */}
+    <Section title="Modo empresa" first />
+    <ListRow
+      icon="calendar"
+      iconTone={agendaAberta ? 'pink' : 'lilac'}
+      title="Link para receber agendamentos"
+      subtitle={agendaAberta
+        ? 'Ligado: suas clientes marcam sozinhas pelo link'
+        : 'Desligado: ninguém consegue marcar por enquanto'}
+      badge={<Badge label={agendaAberta ? 'No ar' : 'Fechada'} tone={agendaAberta ? 'success' : 'lilac'} />}
+      onPress={() => onAction?.('booking')}
+    />
+    <ListRow
+      icon="clock"
+      title="Meu expediente"
+      subtitle="Os dias e horas em que você atende — é o que decide os horários oferecidos"
+      onPress={() => onAction?.('hours')}
+    />
+    <ListRow
+      icon="tag"
+      title="Meus serviços e preços"
+      subtitle="Só serviço com preço aparece para a cliente escolher"
+      onPress={() => onAction?.('services')}
+    />
+
+    <Section title="Conta e negócio" />
     <ListRow icon="store" title="Dados do negócio" subtitle={app.business?.name ?? 'Sem nome definido'} onPress={() => setNameOpen(true)} />
     <ListRow icon="sparkle" title="Meu plano" subtitle={planLabel} onPress={() => onAction?.('plans')} />
-    <ListRow icon="clock" title="Meu expediente" subtitle="Os horários em que você atende" onPress={() => onAction?.('hours')} />
-    <ListRow icon="calendar" title="Agenda online" subtitle="O link para suas clientes marcarem sozinhas" onPress={() => onAction?.('booking')} />
     <ListRow icon="lock" title="Trocar senha" subtitle="Encerra as sessões abertas" onPress={() => { setCurrent(''); setNext(''); password.setError(null); setPasswordOpen(true); }} />
     <ListRow icon="bell" title="Notificações" subtitle="Lembretes e avisos — em breve" onPress={() => dialog.inform({ title: 'Em breve', message: 'Os lembretes e avisos ainda estão sendo preparados.' })} />
 
@@ -301,11 +332,11 @@ export function ProfileScreen({ onBack, onAction }: ProfessionalScreenProps) {
     <ListRow icon="help" title="Central de ajuda" subtitle="Tire suas dúvidas" onPress={() => dialog.inform({ title: 'Central de ajuda', message: 'Escreva para suporte@beautyconta.com.br e respondemos por e-mail.' })} />
     <ListRow icon="logout" title="Sair da conta" subtitle="Encerra a sessão neste aparelho" onPress={confirmSignOut} />
     <ListRow icon="alert" iconTone="danger" title="Excluir minha conta" subtitle="Apaga tudo, sem volta" onPress={confirmDelete} />
-    <Text style={s.version}>BeautyConta · versão 1.0.0 · {app.user?.email ?? ''}</Text>
+    <Text style={[s.version, quebraLonga]}>BeautyConta · versão 1.0.0 · {app.user?.email ?? ''}</Text>
 
     <FormSheet visible={nameOpen} title="Editar perfil" busy={profile.busy} error={profile.error} onClose={() => setNameOpen(false)} onSubmit={saveName}>
       <Field label="Seu nome" value={name} onChangeText={setName} placeholder="Como você quer ser chamada" />
-      <Text style={s.hint}>O e-mail da conta é {app.user?.email ?? '—'} e não muda por aqui.</Text>
+      <Text style={[s.hint, quebraLonga]}>O e-mail da conta é {app.user?.email ?? '—'} e não muda por aqui.</Text>
     </FormSheet>
 
     <FormSheet visible={passwordOpen} title="Trocar senha" subtitle="Ao trocar, você sai de todos os aparelhos." busy={password.busy} error={password.error} onClose={() => setPasswordOpen(false)} onSubmit={savePassword}>

@@ -1,18 +1,28 @@
 import { colors } from '../theme';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import { bookingUrl } from '../lib/booking';
 import { formatCents } from '../lib/useSubmit';
 import { useApp } from '../state/AppProvider';
+import { useDialog } from './Dialog';
 import { Icon } from './AppChrome';
 import { EmptyState, HeroCard, ListRow, Notice, Row, Screen, Section, StatCard, TimelinePanel, TimelineRow, WeekStrip, ui } from './ui';
 
-export type HomeRoute = 'inicio' | 'calcular' | 'servicos' | 'custos' | 'planos' | 'clientes' | 'agenda' | 'financeiro' | 'estoque' | 'relatorios' | 'perfil';
+export type HomeRoute = 'inicio' | 'calcular' | 'servicos' | 'custos' | 'planos' | 'clientes' | 'agenda' | 'agenda-online' | 'financeiro' | 'estoque' | 'relatorios' | 'perfil';
 
+/**
+ * Atalhos, na paleta da marca.
+ *
+ * Calcular é o único em rosa cheio, o mesmo do botão de ação: é a tarefa que o
+ * aplicativo existe para fazer. Os outros alternam os dois fundos claros, para
+ * dar ritmo sem inventar uma cor por atalho.
+ */
 const shortcuts = [
-  { label: 'Calcular', route: 'calcular', icon: 'calculator', background: '#FCE4EE', color: '#C94282' },
-  { label: 'Serviços', route: 'servicos', icon: 'sparkle', background: colors.lilac, color: '#7D66AC' },
-  { label: 'Custos', route: 'custos', icon: 'wallet', background: colors.softPink, color: '#B37B4B' },
-  { label: 'Estoque', route: 'estoque', icon: 'box', background: colors.softLilac, color: '#548A73' },
+  { label: 'Calcular', route: 'calcular', icon: 'calculator', background: colors.pink, color: colors.white },
+  { label: 'Serviços', route: 'servicos', icon: 'sparkle', background: colors.softPink, color: colors.accent },
+  { label: 'Custos', route: 'custos', icon: 'wallet', background: colors.softLilac, color: colors.info },
+  { label: 'Estoque', route: 'estoque', icon: 'box', background: colors.softPink, color: colors.accent },
 ] as const;
 
 const hourOf = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -23,6 +33,7 @@ const firstName = (name: string) => name.trim().split(' ')[0];
 
 export function HomeScreen({ onNavigate }: { onNavigate: (route: HomeRoute) => void }) {
   const app = useApp();
+  const dialog = useDialog();
   const [today] = useState(() => new Date());
   const [visibleValues, setVisibleValues] = useState(true);
   const selectedDay = app.agendaDay.getDay();
@@ -81,6 +92,28 @@ export function HomeScreen({ onNavigate }: { onNavigate: (route: HomeRoute) => v
 
   const monthLabel = today.toLocaleDateString('pt-BR', { month: 'long' });
 
+  /** Agenda no ar quando existe link: a mesma verdade que o servidor usa. */
+  const bookingSlug = app.business?.bookingSlug ?? null;
+  const linkDaAgenda = bookingSlug ? bookingUrl(bookingSlug) : null;
+
+  const compartilharLink = () => {
+    if (!linkDaAgenda) return;
+
+    // `Share` cai fora em navegador sem suporte; copiar é o recuo que sempre
+    // funciona, e é o que ela faria em seguida de qualquer jeito.
+    void Share.share({
+      message: `Agende comigo pelo BeautyConta: ${linkDaAgenda}`,
+      url: linkDaAgenda,
+    }).catch(() => {
+      void Clipboard.setStringAsync(linkDaAgenda).then((copiou) =>
+        dialog.inform({
+          title: copiou ? 'Link copiado' : 'Seu link',
+          message: copiou ? 'É só colar na conversa com a sua cliente.' : linkDaAgenda,
+        }),
+      );
+    });
+  };
+
   const isToday = app.agendaDay.toDateString() === today.toDateString();
   const missingSetup = app.services.length === 0 || app.fixedCosts.length === 0;
 
@@ -92,7 +125,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (route: HomeRoute) => v
           <Text style={s.greeting}>{app.user ? `Olá, ${firstName(app.user.name)}. Um novo dia para o seu negócio.` : 'Um novo dia para o seu negócio.'}</Text>
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel="Abrir meu perfil" onPress={() => onNavigate('perfil')} style={({ pressed }) => [s.avatar, pressed && ui.pressed]}>
-          <Icon name="users" size={22} color="#8D5F8A" />
+          <Icon name="users" size={22} color={colors.accent} />
           <View style={s.avatarDot} />
         </Pressable>
       </View>
@@ -109,7 +142,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (route: HomeRoute) => v
           : hourly ? `Sua hora vale ${money(hourly)}` : 'Configure sua hora em Custos'}
         onPress={() => onNavigate('agenda')}
         accessibilityLabel="Abrir a agenda"
-        right={<Pressable accessibilityRole="button" accessibilityLabel={visibleValues ? 'Ocultar valores' : 'Mostrar valores'} onPress={() => setVisibleValues(!visibleValues)} style={({ pressed }) => [s.eyeButton, pressed && ui.pressed]}><Icon name={visibleValues ? 'eye' : 'eye-off'} size={19} color="#6E4C78" /></Pressable>}
+        right={<Pressable accessibilityRole="button" accessibilityLabel={visibleValues ? 'Ocultar valores' : 'Mostrar valores'} onPress={() => setVisibleValues(!visibleValues)} style={({ pressed }) => [s.eyeButton, pressed && ui.pressed]}><Icon name={visibleValues ? 'eye' : 'eye-off'} size={19} color={colors.heroLabel} /></Pressable>}
       />
 
       <View style={s.shortcuts}>
@@ -183,6 +216,26 @@ export function HomeScreen({ onNavigate }: { onNavigate: (route: HomeRoute) => v
         />
       </Row>
 
+      {/*
+        Fica junto da agenda porque é o mesmo assunto — e na Home porque
+        compartilhar o link é coisa de todo dia, não de tela de configuração.
+      */}
+      {linkDaAgenda
+        ? <ListRow
+            icon="calendar"
+            iconTone="pink"
+            title="Seu link de agendamento"
+            subtitle="Mande para a cliente marcar sozinha, sem precisar te chamar"
+            meta="Enviar"
+            onPress={compartilharLink}
+          />
+        : <ListRow
+            icon="calendar"
+            title="Receber agendamentos por link"
+            subtitle="Suas clientes marcam sozinhas, no horário que você abrir"
+            onPress={() => onNavigate('agenda-online')}
+          />}
+
       <Section title={`Atendimentos de ${monthLabel}`} action="Ver agenda" onAction={() => onNavigate('agenda')} />
       {monthReport.total === 0
         ? <EmptyState
@@ -245,13 +298,13 @@ const s = StyleSheet.create({
   brand: { color: colors.ink, fontSize: 23, fontWeight: '700', letterSpacing: -1 },
   brandAccent: { color: colors.accent, fontWeight: '400' },
   greeting: { color: colors.muted, fontSize: 11, marginTop: 5, maxWidth: 240 },
-  avatar: { width: 43, height: 43, borderRadius: 24, backgroundColor: '#F5E8F0', borderWidth: 3, borderColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
-  avatarDot: { position: 'absolute', right: -1, bottom: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: '#91B49F', borderWidth: 2, borderColor: '#FFFCFD' },
-  eyeButton: { width: 33, height: 33, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: '#FFFFFF32' },
+  avatar: { width: 43, height: 43, borderRadius: 24, backgroundColor: colors.softPink, borderWidth: 3, borderColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  avatarDot: { position: 'absolute', right: -1, bottom: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.success, borderWidth: 2, borderColor: colors.background },
+  eyeButton: { width: 33, height: 33, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: colors.heroVeilSoft },
   shortcuts: { flexDirection: 'row', justifyContent: 'space-around', paddingBottom: 27 },
   shortcut: { flex: 1, alignItems: 'center', gap: 9 },
   shortcutCircle: { width: 52, height: 52, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  shortcutLabel: { color: '#615566', fontSize: 11 },
+  shortcutLabel: { color: colors.muted, fontSize: 11 },
   calendarMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 },
   month: { color: colors.muted, fontSize: 11, textTransform: 'capitalize' },
   calendarHint: { color: colors.faded, fontSize: 10 },
