@@ -107,18 +107,25 @@ Inclui:
 - até 3 serviços;
 - até 5 custos fixos;
 - valor da hora de trabalho;
+- taxa sobre venda, perda de material e outros custos diretos;
 - custo real, margem e preço recomendado;
 - últimos 5 cálculos no histórico.
 
 Ao final do resultado, o convite é explícito sobre o que muda ao assinar, sem
 esconder o número já calculado.
 
+Taxa, perda e outros custos diretos entrarem no gratuito é uma decisão tomada
+em 2026-09-09, durante a construção da API, e não uma descrição do desenho
+original: esta seção dizia o contrário do item C-01 do backlog, que exige o
+campo de taxa na calculadora pública — gratuita e sem cadastro. O ADR-0010
+registra a escolha, o argumento de venda que o Premium perde com ela e o que
+custa revertê-la.
+
 ### Premium — R$ 14,90 por mês
 
 Para quem quer organizar o negócio.
 
 - precificação sem limite: materiais, serviços, custos fixos e cálculos;
-- taxas sobre venda, perdas e outros custos diretos;
 - histórico completo e comparação entre cálculos;
 - tabela de preços exportável e compartilhável;
 - metas: "quanto preciso trabalhar para ganhar X", devolvendo número de
@@ -156,7 +163,7 @@ existe, o Master administra a operação.
 | Serviços | Até 3 | Ilimitados | Ilimitados |
 | Custos fixos | Até 5 | Ilimitados | Ilimitados |
 | Histórico de cálculos | Últimos 5 | Completo | Completo |
-| Taxas, perdas e outros custos | Não | Sim | Sim |
+| Taxas, perdas e outros custos | Sim | Sim | Sim |
 | Simulador de preço | Sim | Sim | Sim |
 | Metas de faturamento | Prévia | Completa | Completa |
 | Tabela de preços | Visualização | Exportável | Personalizada |

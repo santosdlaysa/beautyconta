@@ -1,5 +1,6 @@
 node_modules/
 backend/dist/
+mobile/node_modules/
 .next/
 out/
 .env*
@@ -9,3 +10,4 @@ out/
 
 *.tsbuildinfo
 coverage/
+.tmp/

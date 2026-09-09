@@ -16,3 +16,7 @@ export const ArrowIcon = (props: IconProps) => <Base {...props}><path d="M5 12h1
 export const MenuIcon = (props: IconProps) => <Base {...props}><path d="M4 7h16M4 12h16M4 17h16"/></Base>;
 export const ClockIcon = (props: IconProps) => <Base {...props}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></Base>;
 export const ShieldIcon = (props: IconProps) => <Base {...props}><path d="M12 3 4.5 6v5c0 4.8 3 8.4 7.5 10 4.5-1.6 7.5-5.2 7.5-10V6L12 3Z"/><path d="m9 12 2 2 4-4"/></Base>;
+export const AlertIcon = (props: IconProps) => <Base {...props}><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16.2h.01"/></Base>;
+export const SpinnerIcon = (props: IconProps) => <Base {...props}><path d="M12 3a9 9 0 1 0 9 9" /></Base>;
+export const HelpIcon = (props: IconProps) => <Base {...props}><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2-2.4 3.4M12 17.2h.01"/></Base>;
+export const CoinIcon = (props: IconProps) => <Base {...props}><ellipse cx="12" cy="6.5" rx="7.5" ry="3.5"/><path d="M4.5 6.5v11c0 1.9 3.4 3.5 7.5 3.5s7.5-1.6 7.5-3.5v-11M4.5 12c0 1.9 3.4 3.5 7.5 3.5s7.5-1.6 7.5-3.5"/></Base>;

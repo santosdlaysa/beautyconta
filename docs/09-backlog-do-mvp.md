@@ -17,16 +17,21 @@ Convenções:
 A ordem existe para que nada seja construído duas vezes.
 
 ```text
-Etapa A  camadas, motor e testes            sem dependência externa
-Etapa B  base de dados e catálogos          ADR-0002 aceito
-Etapa C  calculadora pública completa       depende de A
-Etapa D  autenticação e onboarding          bloqueado pelo ADR-0003
-Etapa E  cadastros e cálculo salvo          depende de B e D
-Etapa F  planos, limites e cobrança         parcial: ADR-0004 aceito, 0007 aberto
-Etapa G  publicação, privacidade e suporte  bloqueado pelos ADR-0005 e 0006
+Etapa A  camadas, motor e testes             sem dependência externa
+Etapa B  base de dados e catálogos           ADR-0002 aceito
+Etapa C  calculadora no Expo                 depende de A
+Etapa D  autenticação e onboarding mobile   bloqueado pelo ADR-0003
+Etapa E  cadastros e cálculo salvo no app    depende de B e D
+Etapa F  planos, limites e compras nas lojas parcial: ADR-0004 aceito, 0007 aberto
+Etapa G  web SEO, publicação e operação      bloqueado pelos ADR-0005 e 0006
 ```
 
-As etapas A, B e C podem começar imediatamente. As demais aguardam decisão.
+Situação em 2026-09-09: as etapas A e B estão concluídas, e a API dos cadastros
+da etapa E também — falta a interface consumi-la. A etapa D saiu do bloqueio por
+decisão da dona do produto, que pediu autenticação por e-mail e senha no próprio
+banco em vez de esperar o provedor do ADR-0003; recuperação de senha e
+verificação de e-mail continuam pendentes, porque dependem de serviço de e-mail.
+As etapas C, F e G seguem como estavam.
 
 ## 3. Etapa A — Motor de precificação
 
@@ -50,7 +55,7 @@ valor entram nele no item A-01.
 
 ### A-01 — Completar o motor conforme o documento 03
 
-Origem: documento 03, seções 3 a 7. Tamanho: M.
+Origem: documento 03, seções 3 a 7. Tamanho: M. **Concluído em 2026-09-09.**
 
 O motor atual cobre apenas o caminho básico. Faltam termos já especificados.
 
@@ -71,7 +76,7 @@ Critérios de aceite:
 
 ### A-02 — Validações de faixa
 
-Origem: documento 03, seção 11. Tamanho: P.
+Origem: documento 03, seção 11. Tamanho: P. **Concluído em 2026-09-09.**
 
 Critérios de aceite:
 
@@ -84,7 +89,7 @@ Critérios de aceite:
 
 ### A-03 — Arredondamento comercial
 
-Origem: documento 03, seção 9. Tamanho: P.
+Origem: documento 03, seção 9. Tamanho: P. **Concluído em 2026-09-09.**
 
 Critérios de aceite:
 
@@ -95,7 +100,7 @@ Critérios de aceite:
 
 ### A-04 — Simulador de meta
 
-Origem: documento 03, seção 10. Tamanho: P.
+Origem: documento 03, seção 10. Tamanho: P. **Concluído em 2026-09-09.**
 
 Critérios de aceite:
 
@@ -106,7 +111,7 @@ Critérios de aceite:
 
 ### A-05 — Versionamento do resultado
 
-Origem: documento 03, seção 12. Tamanho: P.
+Origem: documento 03, seção 12. Tamanho: P. **Concluído em 2026-09-09.**
 
 Critérios de aceite:
 
@@ -115,7 +120,8 @@ Critérios de aceite:
 
 ### A-06 — Suíte de testes obrigatória
 
-Origem: documento 03, seção 12. Tamanho: M.
+Origem: documento 03, seção 12. Tamanho: M. **Concluído em 2026-09-09.**
+Os onze casos vivem em `backend/tests/domain/documento-03.test.ts`.
 
 Critérios de aceite: existe teste para cada um dos onze casos listados no
 documento 03 — material fracionado e múltiplos materiais, perda, minutos
@@ -128,7 +134,7 @@ exemplo completo da seção 8 do documento 03 vira teste de regressão.
 
 ### B-01 — Esquema Prisma inicial
 
-Origem: documento 04, seção 3, e ADR-0002. Tamanho: M.
+Origem: documento 04, seção 3, e ADR-0002. Tamanho: M. **Concluído em 2026-09-09.**
 
 Critérios de aceite:
 
@@ -142,7 +148,9 @@ Critérios de aceite:
 
 ### B-02 — Catálogos como semente
 
-Origem: documento 06. Tamanho: P.
+Origem: documento 06. Tamanho: P. **Concluído em 2026-09-09.**
+As listas vivem em `domain/catalog` e são servidas por `GET /api/catalog`: em código,
+a semente é idempotente por construção e nunca toca em categoria personalizada.
 
 Critérios de aceite:
 
@@ -153,7 +161,7 @@ Critérios de aceite:
 
 ### B-03 — Isolamento por negócio
 
-Origem: documento 04, seção 4. Tamanho: M.
+Origem: documento 04, seção 4. Tamanho: M. **Concluído em 2026-09-09.**
 
 Critérios de aceite:
 
@@ -161,7 +169,7 @@ Critérios de aceite:
 - existe teste que tenta ler dado de outro negócio e recebe negativa;
 - limite de plano é verificado no servidor, nunca apenas na interface.
 
-## 5. Etapa C — Calculadora pública
+## 5. Etapa C — Calculadora no Expo e web pública
 
 ### C-01 — Campo de taxa sobre venda
 
@@ -189,7 +197,7 @@ Critérios de aceite: exibir materiais, mão de obra, custos fixos, outros custo
 taxa e margem; declarar o método de rateio usado; mostrar o preço mínimo ao lado
 do recomendado.
 
-### C-04 — Páginas por categoria
+### C-04 — Páginas por categoria (web complementar)
 
 Origem: documento 05, seção 7. Tamanho: M.
 
@@ -226,6 +234,18 @@ Bloqueado pelo ADR-0003.
 Origem: `RF-01`. Tamanho: M. Cadastro, entrada, recuperação de senha, sessão
 persistente, encerramento de sessão e exclusão de conta com remoção efetiva.
 
+**Parcialmente entregue, por decisão da dona do produto, sem esperar o
+ADR-0003.** A senha é guardada pelo próprio backend, com scrypt e sal por
+senha, e a sessão virou token opaco em `sessions` — o cabeçalho provisório
+`x-user-id` deixou de existir. Estão prontos: cadastro, entrada, troca de
+senha com encerramento das demais sessões, sessão persistente no aplicativo,
+saída e exclusão de conta.
+
+Continua pendente: recuperação de senha por link e verificação de e-mail, que
+dependem de um serviço de envio ainda não contratado. Quando o ADR-0003
+escolher o provedor, a migração lê `users.password_hash`, cria as identidades
+lá e a coluna sai.
+
 ### D-02 — Onboarding em cinco etapas
 
 Origem: documento 02, seção 3. Tamanho: M. Progresso salvo a cada etapa,
@@ -237,6 +257,9 @@ Origem: documento 02, seção 2. Tamanho: P. O cálculo feito sem cadastro é
 transferido para a conta ao concluir o registro, sem redigitação.
 
 ## 7. Etapa E — Cadastros e cálculo salvo
+
+A API dos cinco itens está pronta e testada desde 2026-09-09; o que falta é a
+interface do aplicativo consumi-la.
 
 ### E-01 — Materiais
 
@@ -271,7 +294,8 @@ recebidos.
 
 ### F-01 — Limites do plano gratuito
 
-Origem: `RF-11` e documento 01, seção 6. Tamanho: M.
+Origem: `RF-11` e documento 01, seção 6. Tamanho: M. **Concluído em 2026-09-09.**
+Verificado no servidor; a interface ainda precisa exibir a mensagem devolvida.
 
 Critérios de aceite:
 
@@ -316,13 +340,16 @@ Critérios de aceite:
   alto primeiro;
 - a interface informa em qual canal a assinatura é gerenciada e cancelada.
 
-## 9. Etapa G — Publicação
+## 9. Etapa G — Web complementar e publicação
 
 Bloqueado pelos ADR-0005 e 0006.
 
 ### G-01 — Privacidade e termos
 
-Origem: `RF-12`. Tamanho: M. Política e termos publicados antes da primeira
+Origem: `RF-12`. Tamanho: M. **Parcial em 2026-09-09:** exclusão de conta e
+exportação de dados funcionam (`DELETE /api/users/me` e
+`GET /api/businesses/:id/export`). Faltam política, termos e o registro de
+consentimento, que dependem de decisão sobre publicação. Política e termos publicados antes da primeira
 cobrança, consentimento registrado, exportação e exclusão funcionando.
 
 ### G-02 — Operação

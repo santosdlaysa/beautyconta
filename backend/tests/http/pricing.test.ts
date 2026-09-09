@@ -15,6 +15,44 @@ const exemploDoDocumento = {
   desiredMarginPercent: 30,
 };
 
+describe("POST /api/pricing/goal", () => {
+  it("projeta o preço da meta e diz quantos atendimentos ela exige hoje", async () => {
+    const { status, body } = await request(app).post("/api/pricing/goal").send({
+      totalCost: 120,
+      monthlyProfitGoal: 2000,
+      monthlyAppointments: 40,
+      currentPrice: 200,
+    });
+
+    expect(status).toBe(200);
+    expect(body.profitPerAppointment).toBe(50);
+    expect(body.projectedPrice).toBe(170);
+    expect(body.appointmentsNeededAtCurrentPrice).toBe(25);
+    // A saída é rotulada como projeção, exigência do item A-04.
+    expect(body.disclaimer).toMatch(/não é garantia/i);
+  });
+
+  it("não promete volume quando o preço atual não cobre o custo", async () => {
+    const { body } = await request(app).post("/api/pricing/goal").send({
+      totalCost: 120,
+      monthlyProfitGoal: 2000,
+      monthlyAppointments: 40,
+      currentPrice: 100,
+    });
+
+    expect(body.appointmentsNeededAtCurrentPrice).toBeNull();
+  });
+
+  it("recusa meta sem atendimentos estimados", async () => {
+    const { status, body } = await request(app)
+      .post("/api/pricing/goal")
+      .send({ totalCost: 120, monthlyProfitGoal: 2000, monthlyAppointments: 0 });
+
+    expect(status).toBe(422);
+    expect(body.field).toBe("monthlyAppointments");
+  });
+});
+
 describe("POST /api/pricing/calculate", () => {
   it("reproduz o exemplo do documento 03", async () => {
     const { status, body } = await request(app).post("/api/pricing/calculate").send(exemploDoDocumento);

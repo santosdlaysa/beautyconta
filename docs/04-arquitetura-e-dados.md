@@ -1,14 +1,14 @@
 # Arquitetura e dados
 
-## 1. Direção técnica proposta
+## 1. Direção técnica
 
 A decisão final deve considerar experiência da equipe e velocidade de validação.
-Uma base coerente para web responsiva e futura aplicação móvel é:
+Uma base coerente para o app mobile principal e o canal web complementar é:
 
-- web: Next.js com TypeScript;
-- mobile futuro: React Native com Expo;
-- API: Node.js/TypeScript, inicialmente integrada ao Next.js ou em serviço
-  separado quando houver necessidade;
+- mobile principal: React Native com Expo SDK 57, na pasta `mobile/`;
+- web complementar: Next.js com TypeScript, na pasta `web/`, para SEO, landing
+  pages e calculadoras públicas;
+- API: Node.js/TypeScript, em serviço compartilhado por mobile e web;
 - banco: PostgreSQL;
 - ORM: Prisma, decidido no ADR-0002;
 - organização do código: Clean Architecture, decidida no ADR-0008 e detalhada no
@@ -20,22 +20,22 @@ Uma base coerente para web responsiva e futura aplicação móvel é:
 - observabilidade: erros, logs estruturados e métricas sem registrar dados
   pessoais desnecessários.
 
-Para o MVP, uma aplicação web responsiva e instalável reduz custo e valida a
-demanda antes da manutenção de dois clientes. A lógica de cálculo deve ficar em
-um pacote independente para ser reutilizada no mobile.
+O app Expo é a superfície prioritária do MVP. A web pode evoluir em paralelo
+sem bloquear os fluxos mobile e atende a aquisição orgânica. A lógica de cálculo
+deve ficar em um pacote independente para ser reutilizada no mobile, API e web.
 
 ## 2. Componentes
 
 ```text
-Interface web/mobile
-        |
-        v
-API de aplicação ---- Serviço de assinatura
-        |
-        +---- Motor de precificação versionado
-        |
-        v
-PostgreSQL
+App Expo (principal)       Web/SEO (complementar)
+             \             /
+              v           v
+                 API de aplicação ---- Serviço de assinatura
+                          |
+                          +---- Motor de precificação versionado
+                          |
+                          v
+                    PostgreSQL
 ```
 
 O motor de cálculo não consulta o banco diretamente: recebe entradas validadas e
@@ -324,7 +324,7 @@ Os ADRs estão redigidos em [`docs/adr`](adr/README.md). Os ADRs 0002, 0004 e
 
 | ADR | Assunto | Recomendação atual |
 |---|---|---|
-| [0001](adr/0001-web-primeiro.md) | Web/PWA versus app nativo | Web e PWA nas fases 1 a 3 |
+| [0001](adr/0001-web-primeiro.md) | App Expo principal versus web complementar | Expo primeiro; web para SEO |
 | [0002](adr/0002-orm.md) | Prisma versus Drizzle | **Prisma, aceito** |
 | [0003](adr/0003-autenticacao.md) | Provedor de autenticação | Provedor gerenciado, a validar |
 | [0004](adr/0004-pagamentos.md) | Pagamentos e assinaturas | **Mercado Pago e RevenueCat, aceito** |
@@ -335,4 +335,3 @@ Os ADRs estão redigidos em [`docs/adr`](adr/README.md). Os ADRs 0002, 0004 e
 
 O ADR-0003 ainda depende de escolha de provedor, e o ADR-0005 precisa ser
 decidido antes da primeira cobrança.
-

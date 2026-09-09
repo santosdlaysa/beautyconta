@@ -1,20 +1,91 @@
+import { colors } from './theme';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { ClientsScreen, FinanceScreen, InventoryScreen, ProfileScreen, ReportsScreen } from './components/ProfessionalScreens';
+import { AgendaScreen } from './components/AgendaScreen';
+import { CostsScreen, PlansScreen, PricingScreen, ServicesScreen } from './components/BusinessScreens';
+import { AuthView, type AuthScreen } from './components/AuthScreens';
+import { OnboardingView } from './components/OnboardingScreens';
+import { AppFrame, AppTabs } from './components/AppChrome';
+import { HomeScreen } from './components/HomeScreen';
+import { Button, Loading, Notice, Screen, ScreenHeader } from './components/ui';
+import { AppProvider, useApp } from './state/AppProvider';
+import { DialogProvider } from './components/Dialog';
+
+type Tab = 'inicio' | 'calcular' | 'servicos' | 'custos' | 'planos' | 'clientes' | 'agenda' | 'financeiro' | 'estoque' | 'relatorios' | 'perfil';
 
 export default function App() {
+  return <AppFrame><AppProvider><DialogProvider><BeautyContaApp /></DialogProvider></AppProvider></AppFrame>;
+}
+
+function BeautyContaApp() {
+  const app = useApp();
+  const [authMode, setAuthMode] = useState<AuthScreen>('welcome');
+  const [activeTab, setActiveTab] = useState<Tab>('inicio');
+  const home = () => setActiveTab('inicio');
+  const plans = () => setActiveTab('planos');
+
+  if (app.status === 'loading') {
+    return <View style={styles.screen}><StatusBar style="dark" /><Loading label="Abrindo sua conta..." /></View>;
+  }
+
+  if (app.status === 'signed-out') {
+    return <View style={styles.screen}>
+      <StatusBar style="dark" />
+      {app.loadError
+        ? <FailedToLoad message={app.loadError} onRetry={() => void app.reload()} />
+        : <AuthView mode={authMode} onMode={setAuthMode} />}
+    </View>;
+  }
+
+  // Conta criada, negócio ou configuração faltando: a jornada continua de onde
+  // parou, sem passar pela tela de entrada de novo.
+  if (app.status === 'onboarding') {
+    return <View style={styles.screen}><StatusBar style="dark" /><OnboardingView /></View>;
+  }
+
+  // Todas as telas seguem a mesma moldura da Home: cabeçalho, destaque e seções.
+  const screen = {
+    inicio: <HomeScreen onNavigate={setActiveTab} />,
+    calcular: <PricingScreen onBack={home} onUpgrade={plans} />,
+    servicos: <ServicesScreen onBack={home} onUpgrade={plans} />,
+    custos: <CostsScreen onBack={home} onUpgrade={plans} />,
+    planos: <PlansScreen onBack={home} />,
+    clientes: <ClientsScreen onBack={home} />,
+    agenda: <AgendaScreen onBack={home} />,
+    financeiro: <FinanceScreen onBack={home} onAction={(action) => setActiveTab(routeOf(action))} />,
+    estoque: <InventoryScreen onBack={home} onAction={(action) => { if (action === 'plans') plans(); }} />,
+    relatorios: <ReportsScreen onBack={home} onAction={(action) => setActiveTab(routeOf(action))} />,
+    perfil: <ProfileScreen onBack={home} onAction={(action) => { if (action === 'plans') setActiveTab('planos'); }} />,
+  }[activeTab];
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
+    <View style={styles.screen}>
+      <StatusBar style="dark" />
+      {screen}
+      <AppTabs active={activeTab} onChange={setActiveTab} />
     </View>
   );
 }
 
+/** Atalhos que as telas pedem por nome, para não conhecerem o roteador. */
+function routeOf(action: string): Tab {
+  if (action === 'services') return 'servicos';
+  if (action === 'costs') return 'custos';
+  if (action === 'pricing') return 'calcular';
+  return 'inicio';
+}
+
+/** Falha ao carregar os dados: a usuária vê o motivo e pode tentar de novo. */
+function FailedToLoad({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return <Screen>
+    <ScreenHeader title="Não conseguimos carregar" subtitle="Seus dados continuam salvos no servidor." />
+    <Notice message={message} />
+    <Button label="Tentar de novo" icon="arrow" onPress={onRetry} />
+  </Screen>;
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  screen: { flex: 1, backgroundColor: colors.background },
 });

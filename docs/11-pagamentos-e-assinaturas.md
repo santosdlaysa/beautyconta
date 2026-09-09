@@ -102,21 +102,23 @@ Postura adotada: cumprir a regra mais restritiva. O aplicativo vende por compra
 no aplicativo, sem menção a preço externo. A web vende pelo Mercado Pago. A
 comunicação fora do aplicativo pode citar livremente o checkout web.
 
-## 7. Impacto no roadmap
+## 7. Impacto no roadmap mobile-first
 
 A cobrança por Google Play e App Store só existe com aplicativo publicado nas
-lojas. Isso antecipa o aplicativo móvel, que o ADR-0001 havia empurrado para
-depois da Fase 3.
+lojas. Como o app Expo é o produto principal, seus fluxos devem ser construídos
+antes da publicação, com RevenueCat entrando quando conta e limites estiverem
+prontos.
 
 Sequência resultante:
 
-1. Fases 1 e 2 na web, com cobrança apenas pelo Mercado Pago;
-2. aplicativo móvel com RevenueCat quando houver assinantes web pagando e
-   retenção medida;
-3. as lojas ampliam distribuição; elas não são pré-requisito para faturar.
+1. app Expo com calculadora, conta e limites, usando ambiente de teste;
+2. backend compartilhado e RevenueCat para compras nas lojas;
+3. web em paralelo para aquisição e Mercado Pago quando o checkout web estiver
+   publicado;
+4. publicação nas lojas após testes de compra, restauração e cancelamento.
 
-Publicar nas lojas antes de haver retenção significa pagar comissão e o custo de
-duas plataformas para validar algo que a web valida sozinha.
+Publicar nas lojas exige cumprir políticas e suportar compras reais; por isso o
+checkout entra depois que a experiência principal estiver validada no Expo.
 
 ## 8. Modelo de dados
 

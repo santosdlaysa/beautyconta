@@ -1,8 +1,14 @@
 # ADR-0003 — Provedor de autenticação
 
-**Estado:** Proposto
-**Data:** —
-**Responsável:** —
+**Estado:** Substituído
+**Data:** 2026-09-09
+**Responsável:** Proprietário do produto
+
+Substituído pelo [ADR-0009](0009-autenticacao-propria.md), que decidiu o
+contrário: a senha passou a ser guardada no próprio banco, para destravar o
+item D-01 sem esperar a hospedagem do ADR-0005. O texto abaixo permanece como
+estava, porque o provedor gerenciado continua sendo o destino e os critérios de
+escolha desta página seguem valendo quando a decisão for retomada.
 
 ## Contexto
 

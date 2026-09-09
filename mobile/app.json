@@ -1,15 +1,22 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "BeautyConta",
+    "slug": "beautyconta",
+    "description": "Precificação e gestão simples para profissionais de beleza.",
+    "scheme": "beautyconta",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "ios": {
-      "supportsTablet": true
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FBF7F4"
     },
     "android": {
+      "package": "com.beautyconta.app",
+      "permissions": [],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -17,6 +24,13 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.beautyconta.app",
+      "infoPlist": {
+        "CFBundleDisplayName": "BeautyConta"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"

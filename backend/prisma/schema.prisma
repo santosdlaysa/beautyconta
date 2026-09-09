@@ -1,0 +1,412 @@
+// Modelo de dados do BeautyConta.
+//
+// Convenções obrigatórias do ADR-0002, porque este produto calcula dinheiro:
+// - dinheiro: BigInt em BIGINT, sempre em centavos;
+// - quantidades, perdas e margens: Decimal com NUMERIC(precisão, escala) explícito;
+// - nenhum Float em coluna que participe de cálculo.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Catálogos fixos — slugs estáveis definidos no documento 06
+// ---------------------------------------------------------------------------
+
+/// Segmentos profissionais da etapa 1 do onboarding.
+enum Segment {
+  nails
+  lashes
+  brows
+  hair
+  esthetics
+  makeup
+  waxing
+  other
+}
+
+/// Modelos de local de trabalho da etapa 2 do onboarding.
+enum WorkModel {
+  home
+  own_salon
+  rented_station
+  shared_space
+  mobile
+}
+
+/// Unidades de medida do documento 06, seção 4.
+enum MeasurementUnit {
+  unit
+  pair
+  box
+  g
+  kg
+  ml
+  l
+  m
+  cm
+  custom
+}
+
+/// Rateio do custo fixo, documento 03.
+enum FixedCostAllocationMethod {
+  PRODUCTIVE_HOUR
+  APPOINTMENT
+}
+
+/// Arredondamento comercial, documento 03, seção 9.
+enum RoundingStrategy {
+  NONE
+  NEAREST_1
+  NEAREST_5
+  NEAREST_10
+  ENDING_90
+}
+
+// ---------------------------------------------------------------------------
+// Contas e negócios
+// ---------------------------------------------------------------------------
+
+/// Credenciais pertencem ao provedor de autenticação e não vivem aqui.
+model User {
+  id              String    @id @default(uuid()) @db.Uuid
+  name            String
+  email           String    @unique
+  // Contra o ADR-0003, que delegava credenciais a um provedor gerenciado: a
+  // coluna existe para destravar o item D-01 e sai quando o provedor entrar.
+  // Opcional porque conta criada antes desta migração não tem senha.
+  passwordHash    String?   @map("password_hash")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  businesses Business[]
+  sessions   Session[]
+
+  @@map("users")
+}
+
+/// Sessão persistente do aplicativo. Guarda o resumo do token, nunca o token.
+model Session {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  tokenHash  String   @unique @map("token_hash")
+  expiresAt  DateTime @map("expires_at")
+  lastUsedAt DateTime @default(now()) @map("last_used_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Business {
+  id              String    @id @default(uuid()) @db.Uuid
+  ownerUserId     String    @map("owner_user_id") @db.Uuid
+  name            String?
+  primaryCategory Segment   @map("primary_category")
+  workModel       WorkModel @map("work_model")
+  currency        String    @default("BRL") @db.Char(3)
+  timezone        String    @default("America/Sao_Paulo")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  owner         User                 @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  settings      BusinessSettings?
+  materials     Material[]
+  fixedCosts    FixedCost[]
+  appointments  Appointment[]
+  services      Service[]
+  calculations  PricingCalculation[]
+  equipment     Equipment[]
+  subscriptions Subscription[]
+  billingEvents BillingEvent[]
+
+  @@index([ownerUserId])
+  @@map("businesses")
+}
+
+model BusinessSettings {
+  businessId                    String                    @id @map("business_id") @db.Uuid
+  desiredMonthlyWithdrawal      BigInt                    @map("desired_monthly_withdrawal_cents")
+  productiveHoursPerMonth       Decimal                   @map("productive_hours_per_month") @db.Decimal(8, 2)
+  estimatedAppointmentsPerMonth Int                       @map("estimated_appointments_per_month")
+  fixedCostAllocationMethod     FixedCostAllocationMethod @default(PRODUCTIVE_HOUR) @map("fixed_cost_allocation_method")
+  roundingStrategy              RoundingStrategy          @default(NONE) @map("rounding_strategy")
+  createdAt                     DateTime                  @default(now()) @map("created_at")
+  updatedAt                     DateTime                  @updatedAt @map("updated_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("business_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Catálogo da usuária
+// ---------------------------------------------------------------------------
+
+model Material {
+  id               String          @id @default(uuid()) @db.Uuid
+  businessId       String          @map("business_id") @db.Uuid
+  name             String
+  category         String
+  purchasePrice    BigInt          @map("purchase_price_cents")
+  purchaseQuantity Decimal         @map("purchase_quantity_decimal") @db.Decimal(14, 4)
+  unit             MeasurementUnit
+  /// Fração entre 0 e 1, não percentual inteiro.
+  wastePercentage  Decimal         @default(0) @map("waste_percentage_decimal") @db.Decimal(6, 4)
+  purchaseDate     DateTime?       @map("purchase_date") @db.Date
+  isArchived       Boolean         @default(false) @map("is_archived")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  business Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  services ServiceMaterial[]
+
+  @@index([businessId, isArchived])
+  @@map("materials")
+}
+
+model FixedCost {
+  id            String   @id @default(uuid()) @db.Uuid
+  businessId    String   @map("business_id") @db.Uuid
+  name          String
+  category      String
+  monthlyAmount BigInt   @map("monthly_amount_cents")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, isActive])
+  @@map("fixed_costs")
+}
+
+model Service {
+  id                 String   @id @default(uuid()) @db.Uuid
+  businessId         String   @map("business_id") @db.Uuid
+  name               String
+  category           String
+  durationMinutes    Int      @map("duration_minutes")
+  /// Fração entre 0 e 1.
+  desiredMargin      Decimal  @map("desired_margin_decimal") @db.Decimal(6, 4)
+  currentPrice       BigInt?  @map("current_price_cents")
+  otherDirectCost    BigInt   @default(0) @map("other_direct_cost_cents")
+  /// Fração entre 0 e 1.
+  salesFeePercentage Decimal  @default(0) @map("sales_fee_percentage_decimal") @db.Decimal(6, 4)
+  isArchived         Boolean  @default(false) @map("is_archived")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  business     Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  materials    ServiceMaterial[]
+  calculations PricingCalculation[]
+  appointments Appointment[]
+
+  @@index([businessId, isArchived])
+  @@map("services")
+}
+
+model ServiceMaterial {
+  serviceId    String  @map("service_id") @db.Uuid
+  materialId   String  @map("material_id") @db.Uuid
+  quantityUsed Decimal @map("quantity_used_decimal") @db.Decimal(14, 4)
+
+  service  Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  /// `Cascade`, e não `Restrict`: a exclusão de conta do `RF-01` precisa
+  /// atravessar até aqui. Impedir a exclusão de um material em uso continua
+  /// sendo regra da aplicação, que recusa com mensagem explicando o
+  /// arquivamento — o banco recusando com violação de chave estrangeira
+  /// quebraria a remoção efetiva exigida pelo `RF-12`.
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@id([serviceId, materialId])
+  @@index([materialId])
+  @@map("service_materials")
+}
+
+// ---------------------------------------------------------------------------
+// Cálculos salvos — imutáveis por decisão do ADR-0002
+// ---------------------------------------------------------------------------
+
+/// Atendimento agendado e o que foi efetivamente recebido por ele.
+///
+/// O preço combinado e o valor pago são colunas separadas de propósito: desconto
+/// na hora, pagamento parcial e cancelamento depois de sinal são a regra, não a
+/// exceção, e a diferença entre os dois é o que a profissional precisa ver.
+model Appointment {
+  id              String            @id @default(uuid()) @db.Uuid
+  businessId      String            @map("business_id") @db.Uuid
+  serviceId       String?           @map("service_id") @db.Uuid
+  clientName      String            @map("client_name")
+  startsAt        DateTime          @map("starts_at")
+  durationMinutes Int               @map("duration_minutes")
+  priceCents      BigInt            @map("price_cents")
+  paidCents       BigInt            @default(0) @map("paid_cents")
+  paidAt          DateTime?         @map("paid_at")
+  status          AppointmentStatus @default(SCHEDULED)
+  notes           String?
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  // O atendimento sobrevive à exclusão do serviço: o histórico do dia não pode
+  // sumir porque a tabela de preços mudou.
+  service  Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, startsAt])
+  @@map("appointments")
+}
+
+model PricingCalculation {
+  id                 String   @id @default(uuid()) @db.Uuid
+  businessId         String   @map("business_id") @db.Uuid
+  /// Nulo quando o cálculo é avulso, fora de um serviço do catálogo.
+  serviceId          String?  @map("service_id") @db.Uuid
+  calculationVersion Int      @map("calculation_version")
+  /// Fotografia versionada das entradas, para reproduzir o cálculo no futuro.
+  inputSnapshot      Json     @map("input_snapshot")
+  materialCost       BigInt   @map("material_cost_cents")
+  laborCost          BigInt   @map("labor_cost_cents")
+  allocatedFixedCost BigInt   @map("allocated_fixed_cost_cents")
+  otherDirectCost    BigInt   @map("other_direct_cost_cents")
+  totalBaseCost      BigInt   @map("total_base_cost_cents")
+  minimumPrice       BigInt   @map("minimum_price_cents")
+  suggestedPrice     BigInt   @map("suggested_price_cents")
+  commercialPrice    BigInt   @map("commercial_price_cents")
+  expectedProfit     BigInt   @map("expected_profit_cents")
+  /// Fração entre 0 e 1.
+  expectedMargin     Decimal  @map("expected_margin_decimal") @db.Decimal(6, 4)
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  service  Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, createdAt])
+  @@index([serviceId, createdAt])
+  @@map("pricing_calculations")
+}
+
+// ---------------------------------------------------------------------------
+// Equipamentos — documento 07, fora do MVP, estrutura registrada desde já
+// ---------------------------------------------------------------------------
+
+model Equipment {
+  id               String   @id @default(uuid()) @db.Uuid
+  businessId       String   @map("business_id") @db.Uuid
+  name             String
+  type             String
+  acquisitionPrice BigInt   @map("acquisition_price_cents")
+  residualValue    BigInt   @default(0) @map("residual_value_cents")
+  usefulLifeMonths Int      @map("useful_life_months")
+  acquisitionDate  DateTime @map("acquisition_date") @db.Date
+  isArchived       Boolean  @default(false) @map("is_archived")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, isArchived])
+  @@map("equipment")
+}
+
+// ---------------------------------------------------------------------------
+// Assinaturas — documento 11. Esta tabela é a fonte de verdade do acesso.
+// ---------------------------------------------------------------------------
+
+/// Situação do atendimento na agenda do dia.
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  DONE
+  CANCELED
+  NO_SHOW
+}
+
+enum Plan {
+  FREE
+  PREMIUM
+  MASTER
+}
+
+enum SubscriptionStatus {
+  active
+  in_grace
+  past_due
+  canceled
+  expired
+  refunded
+  paused
+}
+
+enum SubscriptionChannel {
+  WEB
+  ANDROID
+  IOS
+}
+
+enum SubscriptionProvider {
+  MERCADO_PAGO
+  REVENUECAT
+}
+
+enum BillingPeriod {
+  MONTHLY
+  ANNUAL
+}
+
+model Subscription {
+  id                     String               @id @default(uuid()) @db.Uuid
+  businessId             String               @map("business_id") @db.Uuid
+  plan                   Plan                 @default(FREE)
+  status                 SubscriptionStatus
+  channel                SubscriptionChannel
+  provider               SubscriptionProvider
+  billingPeriod          BillingPeriod        @map("billing_period")
+  providerCustomerId     String?              @map("provider_customer_id")
+  providerSubscriptionId String?              @map("provider_subscription_id")
+  revenuecatAppUserId    String?              @map("revenuecat_app_user_id")
+  mpPreapprovalId        String?              @map("mp_preapproval_id")
+  currentPeriodStart     DateTime?            @map("current_period_start")
+  currentPeriodEnd       DateTime?            @map("current_period_end")
+  cancelAtPeriodEnd      Boolean              @default(false) @map("cancel_at_period_end")
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
+
+  business      Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  billingEvents BillingEvent[]
+
+  @@unique([provider, providerSubscriptionId])
+  @@index([businessId, status])
+  @@index([revenuecatAppUserId])
+  @@map("subscriptions")
+}
+
+/// Registro bruto do webhook, gravado antes de qualquer processamento.
+/// O `external_event_id` único é o que garante a idempotência exigida pelo documento 11.
+model BillingEvent {
+  id              String               @id @default(uuid()) @db.Uuid
+  businessId      String?              @map("business_id") @db.Uuid
+  subscriptionId  String?              @map("subscription_id") @db.Uuid
+  source          SubscriptionProvider
+  externalEventId String               @unique @map("external_event_id")
+  type            String
+  payload         Json                 @map("payload_json")
+  processedAt     DateTime?            @map("processed_at")
+  createdAt       DateTime             @default(now()) @map("created_at")
+
+  business     Business?     @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([subscriptionId, createdAt])
+  @@index([processedAt])
+  @@map("billing_events")
+}
