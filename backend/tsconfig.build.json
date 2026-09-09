@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // `rootDir` em `src` é o que faz o servidor sair em `dist/server.js`. Com a
+    // raiz no diretório do projeto, o TypeScript preservava a pasta `src` na
+    // saída e o `npm start` apontava para um arquivo que não existia — erro que
+    // só apareceria no primeiro `start` depois do deploy.
+    "rootDir": "src",
+    "sourceMap": false
+  },
+  // Produção não leva teste junto: `supertest` e `vitest` são dependências de
+  // desenvolvimento e não estarão instaladas no servidor.
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "tests"]
+}
