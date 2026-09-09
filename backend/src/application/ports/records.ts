@@ -46,6 +46,8 @@ export type BusinessRecord = {
   workModel: WorkModelSlug;
   currency: string;
   timezone: string;
+  /** Endereço secreto da agenda pública; nulo enquanto ela não for aberta. */
+  bookingToken: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -121,11 +123,26 @@ export type ServiceRecord = {
 
 export type AppointmentStatusSlug = "SCHEDULED" | "CONFIRMED" | "DONE" | "CANCELED" | "NO_SHOW";
 
+/** Marcado pela profissional ou pela cliente, no link da agenda pública. */
+export type AppointmentSourceSlug = "MANUAL" | "ONLINE";
+
+/** Faixa de expediente de um dia da semana, em minutos desde a meia-noite. */
+export type BusinessHourRecord = {
+  id: string;
+  businessId: string;
+  /** 0 é domingo. */
+  weekday: number;
+  startMinute: number;
+  endMinute: number;
+};
+
 export type AppointmentRecord = {
   id: string;
   businessId: string;
   serviceId: string | null;
   clientName: string;
+  clientPhone: string | null;
+  source: AppointmentSourceSlug;
   startsAt: Date;
   durationMinutes: number;
   /** Combinado com a cliente. */

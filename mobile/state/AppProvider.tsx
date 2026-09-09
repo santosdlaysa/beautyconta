@@ -111,6 +111,13 @@ type Actions = {
   updateMaterial(id: string, input: Partial<api.MaterialInput>): Promise<api.Material>;
   removeMaterial(id: string): Promise<void>;
   archiveMaterial(id: string, archived: boolean): Promise<api.Material>;
+  /**
+   * Pede o cancelamento da assinatura.
+   *
+   * Só o canal web é cancelável por aqui; Google Play e App Store não permitem
+   * que o aplicativo cancele por conta própria, e o servidor recusa com `409`.
+   */
+  cancelSubscription(subscriptionId: string): Promise<void>;
   dismissMigration(): void;
   showAgendaDay(day: Date): Promise<void>;
   createAppointment(input: api.AppointmentInput): Promise<api.Appointment>;
@@ -440,6 +447,21 @@ export function AppProvider({ children }: PropsWithChildren) {
       },
       dismissMigration() {
         setState((current) => ({ ...current, migratedCalculation: null }));
+      },
+      /**
+       * Pede o cancelamento e relê a assinatura.
+       *
+       * O plano não muda na hora, e isso é correto: o pedido vai ao
+       * processador, e `subscriptions` só reflete quando o webhook confirmar.
+       * Mostrar "cancelado" antes disso seria o aplicativo afirmando algo que a
+       * cobrança ainda não sabe.
+       */
+      async cancelSubscription(subscriptionId) {
+        const scope = requireScope();
+        await api.cancelSubscription(scope, subscriptionId);
+
+        const subscription = await api.getSubscription(scope);
+        setState((current) => ({ ...current, subscription }));
       },
       /**
        * Troca o dia da agenda e traz atendimentos e resumo desse dia.

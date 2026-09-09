@@ -36,10 +36,15 @@ export class MercadoPagoTranslator implements BillingWebhookTranslator {
     const notification = payload as MercadoPagoNotification | null;
     if (!notification) return null;
 
-    const dataId = notification.data?.id;
+    // O identificador chega como texto na maioria das notificações e como
+    // número em algumas. Recusar por causa do tipo faria o evento se perder em
+    // silêncio: o Mercado Pago reenviaria, receberia 400 de novo e desistiria.
+    const bruto = notification.data?.id;
+    const dataId =
+      typeof bruto === "string" ? bruto : typeof bruto === "number" ? String(bruto) : null;
     const type = notification.type ?? notification.topic;
 
-    if (typeof dataId !== "string" || typeof type !== "string") return null;
+    if (dataId === null || dataId === "" || typeof type !== "string") return null;
     if (!this.hasValidSignature(headers, dataId)) return null;
 
     // O `id` da notificação é o que o Mercado Pago reenvia igual em cada

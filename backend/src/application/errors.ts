@@ -27,8 +27,14 @@ export class ApplicationError extends Error {
  * explicação.
  */
 export class NotFoundError extends ApplicationError {
-  constructor(what = "Registro") {
-    super(`${what} não encontrado.`, "not_found");
+  /**
+   * `gender` existe porque a mensagem chega à usuária como está, e
+   * "Conta não encontrado" é erro que se lê na tela. Quatro dos onze usos são
+   * femininos, e um deles é a agenda pública, vista por quem nem é cliente do
+   * produto.
+   */
+  constructor(what = "Registro", gender: "m" | "f" = "m") {
+    super(`${what} não ${gender === "f" ? "encontrada" : "encontrado"}.`, "not_found");
     this.name = "NotFoundError";
   }
 }

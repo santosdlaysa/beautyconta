@@ -1,6 +1,6 @@
 import type { Appointment, PrismaClient } from "@prisma/client";
 import type { AppointmentRepository } from "../../../application/ports/repositories";
-import type { AppointmentRecord } from "../../../application/ports/records";
+import type { AppointmentRecord, AppointmentSourceSlug } from "../../../application/ports/records";
 import { centsToNumber, numberToCents } from "./mappers";
 
 /**
@@ -14,21 +14,56 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async create(input: Omit<AppointmentRecord, "id" | "createdAt" | "updatedAt">): Promise<AppointmentRecord> {
-    return toRecord(
-      await this.prisma.appointment.create({
-        data: {
-          businessId: input.businessId,
-          serviceId: input.serviceId,
-          clientName: input.clientName,
-          startsAt: input.startsAt,
-          durationMinutes: input.durationMinutes,
-          priceCents: numberToCents(input.priceCents),
-          paidCents: numberToCents(input.paidCents),
-          paidAt: input.paidAt,
-          status: input.status,
-          notes: input.notes,
-        },
-      }),
+    return toRecord(await this.prisma.appointment.create({ data: toData(input) }));
+  }
+
+  /**
+   * Cria conferindo o conflito dentro da transação, com a linha do negócio
+   * bloqueada.
+   *
+   * Duas clientes abrem o link ao mesmo tempo, veem o mesmo horário livre e
+   * confirmam juntas: sem o bloqueio, as duas entram e a profissional descobre
+   * o problema com as duas na porta. É o mesmo remédio usado no limite de
+   * plano, pelo mesmo motivo — conferir e gravar precisam ser um ato só.
+   */
+  async createIfFree(
+    input: Omit<AppointmentRecord, "id" | "createdAt" | "updatedAt">,
+  ): Promise<AppointmentRecord | null> {
+    const fim = new Date(input.startsAt.getTime() + input.durationMinutes * 60_000);
+
+    return this.prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "businesses" WHERE id = ${input.businessId}::uuid FOR UPDATE`;
+
+        // Cancelado e falta não ocupam horário: a vaga volta a valer.
+        const conflitos = await tx.appointment.count({
+          where: {
+            businessId: input.businessId,
+            status: { notIn: ["CANCELED", "NO_SHOW"] },
+            startsAt: { lt: fim },
+          },
+        });
+
+        if (conflitos > 0) {
+          const ocupados = await tx.appointment.findMany({
+            where: {
+              businessId: input.businessId,
+              status: { notIn: ["CANCELED", "NO_SHOW"] },
+              startsAt: { lt: fim },
+            },
+            select: { startsAt: true, durationMinutes: true },
+          });
+
+          const colide = ocupados.some(
+            (item) =>
+              new Date(item.startsAt.getTime() + item.durationMinutes * 60_000) > input.startsAt,
+          );
+          if (colide) return null;
+        }
+
+        return toRecord(await tx.appointment.create({ data: toData(input) }));
+      },
+      { maxWait: 15_000, timeout: 30_000 },
     );
   }
 
@@ -78,12 +113,31 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
   }
 }
 
+function toData(input: Omit<AppointmentRecord, "id" | "createdAt" | "updatedAt">) {
+  return {
+    businessId: input.businessId,
+    serviceId: input.serviceId,
+    clientName: input.clientName,
+    clientPhone: input.clientPhone,
+    source: input.source,
+    startsAt: input.startsAt,
+    durationMinutes: input.durationMinutes,
+    priceCents: numberToCents(input.priceCents),
+    paidCents: numberToCents(input.paidCents),
+    paidAt: input.paidAt,
+    status: input.status,
+    notes: input.notes,
+  };
+}
+
 function toRecord(appointment: Appointment): AppointmentRecord {
   return {
     id: appointment.id,
     businessId: appointment.businessId,
     serviceId: appointment.serviceId,
     clientName: appointment.clientName,
+    clientPhone: appointment.clientPhone,
+    source: appointment.source as AppointmentSourceSlug,
     startsAt: appointment.startsAt,
     durationMinutes: appointment.durationMinutes,
     priceCents: centsToNumber(appointment.priceCents),

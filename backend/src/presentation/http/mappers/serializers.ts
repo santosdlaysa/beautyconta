@@ -57,6 +57,14 @@ export function serializeBusiness(business: BusinessRecord) {
     workModel: business.workModel,
     currency: business.currency,
     timezone: business.timezone,
+    /**
+     * Endereço da agenda pública, ou `null` quando ela está fechada.
+     *
+     * Sai aqui porque esta resposta só chega à dona do negócio, e sem isso o
+     * aplicativo não tinha como saber se o link existe — precisava guardar uma
+     * cópia no aparelho, que some ao trocar de celular.
+     */
+    bookingToken: business.bookingToken,
     createdAt: business.createdAt.toISOString(),
     updatedAt: business.updatedAt.toISOString(),
   };
@@ -160,6 +168,13 @@ export function serializeAppointment(appointment: AppointmentRecord) {
     id: appointment.id,
     serviceId: appointment.serviceId,
     clientName: appointment.clientName,
+    /** Como falar com a cliente — o único contato de quem marcou pelo link. */
+    clientPhone: appointment.clientPhone,
+    /**
+     * De onde veio. A profissional precisa distinguir o que ela marcou do que
+     * entrou sozinho pela agenda pública, nem que seja para conferir antes.
+     */
+    source: appointment.source,
     startsAt: appointment.startsAt.toISOString(),
     durationMinutes: appointment.durationMinutes,
     priceCents: appointment.priceCents,

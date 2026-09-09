@@ -109,7 +109,7 @@ export class CancelSubscription {
 
     const all = await this.subscriptions.listByBusiness(businessId);
     const subscription = all.find((item) => item.id === subscriptionId);
-    if (!subscription) throw new NotFoundError("Assinatura");
+    if (!subscription) throw new NotFoundError("Assinatura", "f");
 
     if (subscription.provider !== this.gateway.provider) {
       throw new ConflictError(

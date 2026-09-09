@@ -31,7 +31,7 @@ export class CreateBusiness {
 
   async execute(ownerUserId: string, input: CreateBusinessInput): Promise<BusinessRecord> {
     const owner = await this.users.findById(ownerUserId);
-    if (!owner || owner.deletedAt) throw new NotFoundError("Conta");
+    if (!owner || owner.deletedAt) throw new NotFoundError("Conta", "f");
 
     // O plano vale por negócio, e aqui ainda não existe negócio: o teto é o do
     // melhor plano entre os que a pessoa já tem. Sem esta verificação, criar
@@ -51,6 +51,8 @@ export class CreateBusiness {
         workModel: input.workModel,
         currency: "BRL",
         timezone: input.timezone ?? "America/Sao_Paulo",
+        // A agenda pública começa fechada; o link é criado quando ela pedir.
+        bookingToken: null,
       },
       limit,
     );
@@ -106,7 +108,7 @@ export class GetBusinessSettings {
   async execute(userId: string, businessId: string): Promise<BusinessSettingsRecord> {
     await this.access.authorize(userId, businessId);
     const settings = await this.businesses.getSettings(businessId);
-    if (!settings) throw new NotFoundError("Configuração do negócio");
+    if (!settings) throw new NotFoundError("Configuração do negócio", "f");
     return settings;
   }
 }

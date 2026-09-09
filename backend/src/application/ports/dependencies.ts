@@ -2,6 +2,7 @@ import type { BillingWebhookTranslator, SubscriptionGateway } from "./billing";
 import type {
   AppointmentRepository,
   BillingEventRepository,
+  BusinessHoursRepository,
   BusinessRepository,
   CalculationRepository,
   Clock,
@@ -25,6 +26,7 @@ export type Dependencies = {
   users: UserRepository;
   sessions: SessionRepository;
   businesses: BusinessRepository;
+  businessHours: BusinessHoursRepository;
   materials: MaterialRepository;
   fixedCosts: FixedCostRepository;
   services: ServiceRepository;

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { Dependencies } from "../../../application/ports/dependencies";
 import { AccountController } from "../controllers/AccountController";
+import { BookingController } from "../controllers/BookingController";
 import { AppointmentController } from "../controllers/AppointmentController";
 import { BusinessController } from "../controllers/BusinessController";
 import { CalculationController } from "../controllers/CalculationController";
@@ -37,6 +38,7 @@ export function createApiRouter(deps: Dependencies): Router {
   // sessão como barreira e o custo por requisição é baixo.
   router.use(limites.public, pricingRoutes);
   router.use(limites.public, catalogRoutes);
+  router.use("/booking", bookingRoutes(deps, limites));
 
   router.use(sessionRoutes(deps, limites));
   router.use(accountRoutes(deps, limites));
@@ -89,6 +91,14 @@ function businessRoutes(deps: Dependencies, limites: RateLimiters): Router {
   router.get("/:businessId/settings", asyncHandler(businesses.getSettings));
   router.put("/:businessId/settings", asyncHandler(businesses.saveSettings));
   router.get("/:businessId/export", asyncHandler(businesses.export));
+
+  // Expediente e link da agenda pública ficam com a dona do negócio.
+  const booking = new BookingController(deps);
+  router.get("/:businessId/hours", asyncHandler(booking.getHours));
+  router.put("/:businessId/hours", asyncHandler(booking.saveHours));
+  router.post("/:businessId/booking-link", limites.write, asyncHandler(booking.enableLink));
+  router.post("/:businessId/booking-link/regenerate", limites.write, asyncHandler(booking.regenerateLink));
+  router.delete("/:businessId/booking-link", asyncHandler(booking.disableLink));
 
   // `mergeParams` mantém `:businessId` visível nos sub-recursos.
   const scoped = Router({ mergeParams: true });
@@ -196,6 +206,24 @@ function billingRoutes(deps: Dependencies, limites: RateLimiters): Router {
   // Sem `requireUser`: quem chama é o processador. A autenticação é a
   // assinatura do webhook, conferida dentro do tradutor de cada provedor.
   router.post("/webhooks/:source", limites.webhook, asyncHandler(controller.webhook));
+
+  return router;
+}
+
+/**
+ * Agenda pública, aberta: quem entra é a cliente, com o link e sem conta.
+ *
+ * O teto de requisição é mais apertado que o das outras rotas abertas porque
+ * marcar cria registro no banco de outra pessoa — e o endereço secreto protege
+ * contra quem não tem o link, não contra quem tem.
+ */
+function bookingRoutes(deps: Dependencies, limites: RateLimiters): Router {
+  const controller = new BookingController(deps);
+  const router = Router();
+
+  router.get("/:token", limites.public, asyncHandler(controller.page));
+  router.get("/:token/slots", limites.public, asyncHandler(controller.slots));
+  router.post("/:token/appointments", limites.booking, asyncHandler(controller.book));
 
   return router;
 }

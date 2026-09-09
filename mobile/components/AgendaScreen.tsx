@@ -1,9 +1,11 @@
 import { colors } from '../theme';
-import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import type { Appointment, AppointmentStatus } from '../lib/resources';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { formatPhone, telUrl, whatsappUrl } from '../lib/booking';
+import { listAppointments, type Appointment, type AppointmentStatus } from '../lib/resources';
 import { centsToInput, formatCents, parseCents, parseNumber, useSubmit } from '../lib/useSubmit';
 import { useApp } from '../state/AppProvider';
+import { useDialog } from './Dialog';
 import {
   Badge,
   Button,
@@ -13,6 +15,7 @@ import {
   Field,
   FormSheet,
   HeroCard,
+  ListRow,
   Notice,
   Row,
   Screen,
@@ -67,12 +70,14 @@ function isoFrom(day: Date, time: string): string | null {
 
 const emptyForm = { clientName: '', service: 'Nenhum', time: '09:00', duration: '60', price: '', status: 'Agendado' };
 
-export function AgendaScreen({ onBack }: { onBack?: () => void; onAction?: (action: string) => void }) {
+export function AgendaScreen({ onBack, onAction }: { onBack?: () => void; onAction?: (action: string) => void }) {
   const app = useApp();
+  const dialog = useDialog();
   const { busy, error, setError, clear, run } = useSubmit();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Appointment | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [incoming, setIncoming] = useState<Appointment[]>([]);
 
   const today = useMemo(() => new Date(), []);
   const week = useMemo(() => Array.from({ length: 7 }, (_, index) => {
@@ -89,6 +94,64 @@ export function AgendaScreen({ onBack }: { onBack?: () => void; onAction?: (acti
   useEffect(() => {
     if (selectedDay === -1) void app.showAgendaDay(today);
   }, [selectedDay, today, app]);
+
+  const token = app.token;
+  const businessId = app.business?.id;
+
+  /**
+   * O que entrou pelo link e ainda vem por aí.
+   *
+   * Busca à parte da agenda do dia porque a pergunta é outra: o dia é o que ela
+   * tem pela frente agora, e isto é o que apareceu sozinho e ela ainda não
+   * conferiu — quase sempre em outra data. A janela acompanha a da agenda
+   * pública, que aceita marcar com até sessenta dias de antecedência.
+   */
+  const loadIncoming = useCallback(async () => {
+    if (!token || !businessId) return;
+
+    const from = new Date();
+    const to = new Date();
+    to.setDate(to.getDate() + 60);
+
+    try {
+      const found = await listAppointments({ token, businessId }, { from, to });
+      setIncoming(found.filter(item => item.source === 'ONLINE'));
+    } catch {
+      // Falhar aqui não pode esconder a agenda do dia, que é o essencial da
+      // tela: a lista de conferência simplesmente não aparece desta vez.
+      setIncoming([]);
+    }
+  }, [token, businessId]);
+
+  useEffect(() => {
+    void loadIncoming();
+  }, [loadIncoming]);
+
+  /** Marcado pelo link, ainda por vir e sem confirmação dela: é o que pede conferência. */
+  const toReview = useMemo(() => {
+    const now = Date.now();
+    return incoming
+      .filter(item => item.status === 'SCHEDULED' && new Date(item.startsAt).getTime() >= now)
+      .sort((first, second) => first.startsAt.localeCompare(second.startsAt));
+  }, [incoming]);
+
+  const openContact = (url: string | null) => {
+    if (!url) {
+      dialog.inform({ title: 'Telefone incompleto', message: 'O número que a cliente deixou não dá para discar. Confira com ela na próxima conversa.' });
+      return;
+    }
+    void Linking.openURL(url).catch(() => {
+      dialog.inform({ title: 'Não conseguimos abrir', message: 'Este aparelho não abriu o aplicativo de contato. Copie o número e fale com a cliente por fora.' });
+    });
+  };
+
+  /** Confere e confirma: é o gesto que tira o atendimento da lista de pendências. */
+  const confirmBooking = (appointment: Appointment) => {
+    void run(async () => {
+      await app.updateAppointment(appointment.id, { status: 'CONFIRMED' });
+      await loadIncoming();
+    });
+  };
 
   const startNew = () => {
     setEditing(null);
@@ -145,19 +208,27 @@ export function AgendaScreen({ onBack }: { onBack?: () => void; onAction?: (acti
     void run(async () => {
       if (editing) await app.updateAppointment(editing.id, input);
       else await app.createAppointment(input);
+      // Mexer num atendimento pode mudar a lista de conferência — cancelar o
+      // que veio pelo link, por exemplo, tira ele de lá.
+      await loadIncoming();
       setOpen(false);
     });
   };
 
   /** Registrar o que entrou é o gesto mais repetido do dia: um toque, sem pergunta. */
   const settle = (appointment: Appointment) => {
-    void run(() => app.settleAppointment(appointment.id));
+    void run(async () => {
+      await app.settleAppointment(appointment.id);
+      // Dar baixa fecha o atendimento; ele sai da lista de conferência junto.
+      await loadIncoming();
+    });
   };
 
   const remove = () => {
     if (!editing) return;
     void run(async () => {
       await app.removeAppointment(editing.id);
+      await loadIncoming();
       setOpen(false);
     });
   };
@@ -188,6 +259,40 @@ export function AgendaScreen({ onBack }: { onBack?: () => void; onAction?: (acti
 
     {error && !open && <Notice message={error} />}
 
+    {toReview.length > 0 && <>
+      <Section title="Marcados pelo seu link" />
+      <Text style={s.reviewHint}>
+        {toReview.length === 1 ? 'Uma cliente marcou sozinha e ainda não foi confirmada.' : `${toReview.length} clientes marcaram sozinhas e ainda não foram confirmadas.`}
+      </Text>
+      {toReview.map(appointment => (
+        <Card key={appointment.id}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Ver ${appointment.clientName} na agenda de ${dateOf(appointment.startsAt)}`}
+            onPress={() => void app.showAgendaDay(new Date(appointment.startsAt))}
+            style={({ pressed }) => [s.pendingRow, pressed && ui.pressed]}
+          >
+            <View style={ui.grow}>
+              <Text style={ui.rowTitle}>{appointment.clientName}</Text>
+              <Text style={ui.rowSub}>
+                {dateOf(appointment.startsAt)} às {hourOf(appointment.startsAt)} · {app.services.find(item => item.id === appointment.serviceId)?.name ?? 'Sem serviço'} · {formatCents(appointment.priceCents)}
+              </Text>
+              {appointment.clientPhone && <Text style={ui.rowSub}>{formatPhone(appointment.clientPhone)}</Text>}
+            </View>
+            <Badge label="Pelo link" tone="lilac" />
+          </Pressable>
+          <Row>
+            <View style={ui.grow}>
+              <Button label={busy ? 'Confirmando...' : 'Confirmar'} icon="check" onPress={busy ? undefined : () => confirmBooking(appointment)} />
+            </View>
+            {appointment.clientPhone && <View style={ui.grow}>
+              <Button label="Falar no WhatsApp" icon="users" secondary onPress={() => openContact(whatsappUrl(appointment.clientPhone ?? ''))} />
+            </View>}
+          </Row>
+        </Card>
+      ))}
+    </>}
+
     <TimelinePanel title={`${dateLabel}, ${app.agendaDay.getDate()}`} onAdd={startNew}>
       {app.appointments.length === 0
         ? <EmptyState
@@ -206,6 +311,7 @@ export function AgendaScreen({ onBack }: { onBack?: () => void; onAction?: (acti
             title={appointment.clientName}
             subtitle={`${app.services.find(item => item.id === appointment.serviceId)?.name ?? 'Sem serviço'} · ${formatCents(appointment.priceCents)}`}
             status={statusTextOf(appointment)}
+            tag={appointment.source === 'ONLINE' ? 'Pelo link' : undefined}
             pending={appointment.pendingCents > 0}
             last={index === app.appointments.length - 1}
             onPress={() => startEdit(appointment)}
@@ -228,6 +334,14 @@ export function AgendaScreen({ onBack }: { onBack?: () => void; onAction?: (acti
         </Card>
       ))}
     </>}
+
+    <Section title="Agenda online" />
+    <ListRow
+      icon="calendar"
+      title="Link da agenda online"
+      subtitle="Suas clientes marcam sozinhas, sem instalar o aplicativo"
+      onPress={() => onAction?.('booking')}
+    />
 
     <Section title="Resumo do dia" />
     <Row>
@@ -256,10 +370,32 @@ export function AgendaScreen({ onBack }: { onBack?: () => void; onAction?: (acti
       </Row>
       <Field label="Valor combinado" value={form.price} onChangeText={value => setForm({ ...form, price: value })} prefix="R$" numeric />
       <ChoiceField label="Situação" items={STATUS.map(item => item.label)} value={form.status} onChange={value => setForm({ ...form, status: value })} />
+      {editing?.source === 'ONLINE' && <Notice tone="success" message="Esta cliente marcou sozinha, pelo seu link da agenda online." />}
+      {editing?.clientPhone && <ClientContact phone={editing.clientPhone} onOpen={openContact} />}
       {editing && editing.paidCents > 0 && <Notice tone="success" message={`Já recebido: ${formatCents(editing.paidCents)}.`} />}
     </FormSheet>
   </Screen>;
 }
+
+/**
+ * Contato de quem marcou pelo link.
+ *
+ * Quem chega pela agenda pública não tem conta no BeautyConta: este telefone é
+ * o único caminho de volta até ela, e por isso vira ação e não só texto.
+ */
+function ClientContact({ phone, onOpen }: { phone: string; onOpen: (url: string | null) => void }) {
+  return <View style={s.contact}>
+    <Text style={ui.groupLabel}>Contato da cliente</Text>
+    <Text style={s.phone}>{formatPhone(phone)}</Text>
+    <Row>
+      <View style={ui.grow}><Button label="Falar no WhatsApp" icon="users" secondary onPress={() => onOpen(whatsappUrl(phone))} /></View>
+      <View style={ui.grow}><Button label="Ligar" icon="bell" secondary onPress={() => onOpen(telUrl(phone))} /></View>
+    </Row>
+  </View>;
+}
+
+/** Dia e mês curtos: a lista de conferência quase sempre fala de outra data. */
+const dateOf = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
 function statusTextOf(appointment: Appointment): string {
   if (appointment.status === 'CANCELED') return 'Cancelado';
@@ -274,4 +410,7 @@ const s = StyleSheet.create({
   month: { color: colors.muted, fontSize: 11, textTransform: 'capitalize' },
   metaHint: { color: colors.muted, fontSize: 10 },
   pendingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  reviewHint: { color: colors.ink3, fontSize: 12, lineHeight: 18, marginBottom: 11 },
+  contact: { gap: 7 },
+  phone: { color: colors.ink, fontSize: 15, fontWeight: '600' },
 });

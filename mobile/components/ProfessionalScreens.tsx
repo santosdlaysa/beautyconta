@@ -292,6 +292,8 @@ export function ProfileScreen({ onBack, onAction }: ProfessionalScreenProps) {
     <Section title="Conta e negócio" first />
     <ListRow icon="store" title="Dados do negócio" subtitle={app.business?.name ?? 'Sem nome definido'} onPress={() => setNameOpen(true)} />
     <ListRow icon="sparkle" title="Meu plano" subtitle={planLabel} onPress={() => onAction?.('plans')} />
+    <ListRow icon="clock" title="Meu expediente" subtitle="Os horários em que você atende" onPress={() => onAction?.('hours')} />
+    <ListRow icon="calendar" title="Agenda online" subtitle="O link para suas clientes marcarem sozinhas" onPress={() => onAction?.('booking')} />
     <ListRow icon="lock" title="Trocar senha" subtitle="Encerra as sessões abertas" onPress={() => { setCurrent(''); setNext(''); password.setError(null); setPasswordOpen(true); }} />
     <ListRow icon="bell" title="Notificações" subtitle="Lembretes e avisos — em breve" onPress={() => dialog.inform({ title: 'Em breve', message: 'Os lembretes e avisos ainda estão sendo preparados.' })} />
 

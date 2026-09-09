@@ -115,6 +115,9 @@ model Business {
   workModel       WorkModel @map("work_model")
   currency        String    @default("BRL") @db.Char(3)
   timezone        String    @default("America/Sao_Paulo")
+  /// Endereço secreto da agenda pública: quem não tem o link não acha a página.
+  /// Nulo enquanto a profissional não abrir a agenda para clientes.
+  bookingToken    String?   @unique @map("booking_token")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
@@ -123,6 +126,7 @@ model Business {
   materials     Material[]
   fixedCosts    FixedCost[]
   appointments  Appointment[]
+  businessHours BusinessHour[]
   services      Service[]
   calculations  PricingCalculation[]
   equipment     Equipment[]
@@ -146,6 +150,27 @@ model BusinessSettings {
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@map("business_settings")
+}
+
+/// Faixa de expediente de um dia da semana.
+///
+/// Guardada em minutos desde a meia-noite, no fuso do negócio, e não como
+/// horário com data: o expediente se repete toda semana e não tem fuso próprio.
+/// Um dia pode ter mais de uma faixa — manhã e tarde, com almoço no meio.
+model BusinessHour {
+  id          String   @id @default(uuid()) @db.Uuid
+  businessId  String   @map("business_id") @db.Uuid
+  /// 0 é domingo, como em `Date.getDay`.
+  weekday     Int
+  startMinute Int      @map("start_minute")
+  endMinute   Int      @map("end_minute")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, weekday, startMinute])
+  @@index([businessId, weekday])
+  @@map("business_hours")
 }
 
 // ---------------------------------------------------------------------------
@@ -247,6 +272,12 @@ model Appointment {
   businessId      String            @map("business_id") @db.Uuid
   serviceId       String?           @map("service_id") @db.Uuid
   clientName      String            @map("client_name")
+  /// Como falar com a cliente. Obrigatório no agendamento pelo link, onde é a
+  /// única forma de retomar contato; opcional quando a profissional marca.
+  clientPhone     String?           @map("client_phone")
+  /// De onde veio o atendimento. A profissional precisa distinguir o que ela
+  /// mesma marcou do que entrou sozinho pela agenda pública.
+  source          AppointmentSource @default(MANUAL)
   startsAt        DateTime          @map("starts_at")
   durationMinutes Int               @map("duration_minutes")
   priceCents      BigInt            @map("price_cents")
@@ -329,6 +360,12 @@ enum AppointmentStatus {
   DONE
   CANCELED
   NO_SHOW
+}
+
+/// Origem do atendimento: marcado pela profissional ou pela cliente no link.
+enum AppointmentSource {
+  MANUAL
+  ONLINE
 }
 
 enum Plan {

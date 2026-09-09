@@ -15,7 +15,7 @@
       "backgroundColor": "#FBF7F4"
     },
     "android": {
-      "package": "com.beautyconta.app",
+      "package": "com.laysadiniz.sweetpricing",
       "permissions": [],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -23,17 +23,26 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "versionCode": 16
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.beautyconta.app",
       "infoPlist": {
-        "CFBundleDisplayName": "BeautyConta"
-      }
+        "CFBundleDisplayName": "BeautyConta",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "buildNumber": "2"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "owner": "beauty-conta",
+    "extra": {
+      "eas": {
+        "projectId": "ffb8dd18-e8ee-4830-80c3-bc409314cab7"
+      }
     }
   }
 }

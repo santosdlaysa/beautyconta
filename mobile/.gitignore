@@ -41,3 +41,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Credenciais de assinatura (NUNCA versionar)
+credentials.json
+credentials/

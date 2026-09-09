@@ -1,5 +1,6 @@
 import type {
   AppointmentRecord,
+  BusinessHourRecord,
   BillingEventRecord,
   BusinessRecord,
   BusinessSettingsRecord,
@@ -66,6 +67,9 @@ export interface BusinessRepository {
     id: string,
     input: Partial<Pick<BusinessRecord, "name" | "primaryCategory" | "workModel" | "timezone">>,
   ): Promise<BusinessRecord>;
+  /** Busca pelo endereço secreto da agenda pública, sem exigir sessão. */
+  findByBookingToken(token: string): Promise<BusinessRecord | null>;
+  setBookingToken(businessId: string, token: string | null): Promise<BusinessRecord>;
   getSettings(businessId: string): Promise<BusinessSettingsRecord | null>;
   saveSettings(
     input: Omit<BusinessSettingsRecord, "createdAt" | "updatedAt">,
@@ -137,11 +141,35 @@ export interface ServiceRepository {
   delete(businessId: string, id: string): Promise<void>;
 }
 
+/**
+ * Expediente do negócio.
+ *
+ * A gravação substitui a semana inteira: é assim que a tela funciona, e um
+ * expediente meio salvo geraria horário livre que não existe.
+ */
+export interface BusinessHoursRepository {
+  list(businessId: string): Promise<BusinessHourRecord[]>;
+  replaceAll(
+    businessId: string,
+    hours: readonly Omit<BusinessHourRecord, "id" | "businessId">[],
+  ): Promise<BusinessHourRecord[]>;
+}
+
 export interface AppointmentRepository {
   create(input: Omit<AppointmentRecord, "id" | "createdAt" | "updatedAt">): Promise<AppointmentRecord>;
   findById(businessId: string, id: string): Promise<AppointmentRecord | null>;
   /** Intervalo semiaberto: inclui o início, exclui o fim. */
   listBetween(businessId: string, from: Date, to: Date): Promise<AppointmentRecord[]>;
+  /**
+   * Cria conferindo, na mesma transação, que o horário continua livre.
+   *
+   * Sem isso, duas clientes que abrem o link ao mesmo tempo escolhem o mesmo
+   * horário e as duas conseguem: a lista foi montada antes, e entre ver e
+   * confirmar o mundo mudou. Devolve `null` quando alguém chegou primeiro.
+   */
+  createIfFree(
+    input: Omit<AppointmentRecord, "id" | "createdAt" | "updatedAt">,
+  ): Promise<AppointmentRecord | null>;
   update(
     businessId: string,
     id: string,

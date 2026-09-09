@@ -193,14 +193,24 @@ export function TimelinePanel({ title, onAdd, children }: PropsWithChildren<{ ti
   </View>;
 }
 
-export function TimelineRow({ time, endTime, title, subtitle, initials, meta, status, pending, last, onPress }: { time: string; endTime?: string; title: string; subtitle?: string; initials?: string; meta?: string; status?: string; pending?: boolean; last?: boolean; onPress?: () => void }) {
+/**
+ * Linha da agenda.
+ *
+ * `tag` marca a origem do atendimento — hoje, o que entrou sozinho pelo link.
+ * Fica ao lado do nome, e não no rodapé da linha, porque é o que a profissional
+ * procura ao passar o olho na lista: o que ela ainda não conferiu.
+ */
+export function TimelineRow({ time, endTime, title, subtitle, initials, meta, status, tag, pending, last, onPress }: { time: string; endTime?: string; title: string; subtitle?: string; initials?: string; meta?: string; status?: string; tag?: string; pending?: boolean; last?: boolean; onPress?: () => void }) {
   const body = <>
     <View style={ui.timeColumn}><Text style={ui.time}>{time}</Text>{endTime && <Text style={ui.endTime}>{endTime}</Text>}</View>
     <View style={ui.timelineTrack}><View style={[ui.timelineDot, pending && ui.pendingDot]} />{!last && <View style={ui.timelineLine} />}</View>
     <View style={ui.appointmentCard}>
       {initials !== undefined && <Avatar initials={initials} tone={pending ? 'lilac' : 'pink'} size={32} />}
       <View style={ui.grow}>
-        <Text style={ui.rowTitle}>{title}</Text>
+        <View style={ui.titleRow}>
+          <Text style={ui.rowTitle}>{title}</Text>
+          {tag && <Badge label={tag} tone="lilac" />}
+        </View>
         {subtitle && <Text style={ui.rowSub}>{subtitle}</Text>}
         {status && <View style={ui.statusRow}><View style={[ui.statusDot, pending && ui.statusDotPending]} /><Text style={ui.statusText}>{status}</Text></View>}
       </View>
@@ -322,6 +332,7 @@ export const ui = StyleSheet.create({
   pendingDot: { backgroundColor: '#BBA7DA' },
   timelineLine: { position: 'absolute', top: 25, bottom: -18, width: 1, backgroundColor: '#E8CFDF' },
   appointmentCard: { flex: 1, marginLeft: 6, marginBottom: 10, padding: 11, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: colors.white },
+  titleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 7 },
   statusDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#87B59C' },
   statusDotPending: { backgroundColor: '#C4A074' },

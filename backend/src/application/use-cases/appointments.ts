@@ -15,6 +15,7 @@ import type { BusinessAccess } from "../services/business-access";
 
 export type AppointmentInput = {
   clientName: string;
+  clientPhone?: string | null;
   serviceId?: string | null;
   startsAt: Date;
   durationMinutes: number;
@@ -51,6 +52,10 @@ export class CreateAppointment {
       startsAt: input.startsAt,
       durationMinutes: input.durationMinutes,
       priceCents: input.priceCents,
+      clientPhone: input.clientPhone?.trim() || null,
+      // Marcado pela profissional. O que entra pelo link é gravado por
+      // `BookAppointment`, que carimba `ONLINE`.
+      source: "MANUAL",
       status: input.status ?? "SCHEDULED",
       paidCents: paidFor(input),
       paidAt: paidFor(input) > 0 ? new Date() : null,
@@ -114,6 +119,9 @@ export class UpdateAppointment {
 
     return this.appointments.update(businessId, id, {
       ...(input.clientName !== undefined ? { clientName: input.clientName.trim() } : {}),
+      ...(input.clientPhone !== undefined
+        ? { clientPhone: input.clientPhone?.trim() || null }
+        : {}),
       ...(input.serviceId !== undefined ? { serviceId: input.serviceId } : {}),
       ...(input.startsAt !== undefined ? { startsAt: input.startsAt } : {}),
       ...(input.durationMinutes !== undefined ? { durationMinutes: input.durationMinutes } : {}),

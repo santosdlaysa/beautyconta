@@ -4,6 +4,7 @@ import { MercadoPagoTranslator } from "./billing/mercado-pago/translator";
 import { NotConfiguredGateway } from "./billing/not-configured-gateway";
 import { RevenueCatTranslator } from "./billing/revenuecat/translator";
 import { prisma } from "./persistence/prisma/client";
+import { PrismaBusinessHoursRepository } from "./persistence/prisma/business-hours-repository";
 import { PrismaBusinessRepository } from "./persistence/prisma/business-repository";
 import { PrismaAppointmentRepository } from "./persistence/prisma/appointment-repository";
 import { PrismaCalculationRepository } from "./persistence/prisma/calculation-repository";
@@ -26,6 +27,7 @@ export function createDependencies(): Dependencies {
     users: new PrismaUserRepository(prisma),
     sessions: new PrismaSessionRepository(prisma),
     businesses: new PrismaBusinessRepository(prisma),
+    businessHours: new PrismaBusinessHoursRepository(prisma),
     materials: new PrismaMaterialRepository(prisma),
     fixedCosts: new PrismaFixedCostRepository(prisma),
     services: new PrismaServiceRepository(prisma),

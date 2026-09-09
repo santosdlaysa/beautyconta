@@ -121,6 +121,12 @@ const isoDateTime = z.string().datetime({ offset: true });
 
 export const createAppointmentSchema = z.object({
   clientName: nonEmptyText(),
+  /**
+   * Opcional aqui, obrigatório na agenda pública: quem marca pelo link não tem
+   * outro contato, e quem a profissional marca ela já sabe como encontrar.
+   * Sem este campo no esquema, o telefone enviado era descartado em silêncio.
+   */
+  clientPhone: z.string().trim().min(8).max(20).nullish(),
   serviceId: z.uuid().nullish(),
   startsAt: isoDateTime,
   durationMinutes: z.number().int().min(1).max(1440),
@@ -179,3 +185,48 @@ export const toFraction = (value: number): number => value / 100;
 
 /** Data em `AAAA-MM-DD` para `Date` em UTC, sem deslocamento de fuso. */
 export const toDate = (value: string): Date => new Date(`${value}T00:00:00.000Z`);
+
+// ---------------------------------------------------------------------------
+// Agenda pública
+// ---------------------------------------------------------------------------
+
+const horaDoDia = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use o formato HH:MM");
+
+/**
+ * Sem tamanho mínimo, de propósito.
+ *
+ * Exigir 16 caracteres fazia token curto responder `422` e token desconhecido
+ * responder `404` — e essa diferença é exatamente a peneira que o `404` único
+ * existe para evitar. Quem tenta adivinhar não pode aprender nada com a
+ * resposta. O teto continua, contra corpo absurdo.
+ */
+export const bookingParamSchema = z.object({ token: z.string().max(128) });
+
+export const slotsQuerySchema = z.object({ serviceId: z.uuid(), date: isoDate });
+
+export const bookingRequestSchema = z.object({
+  serviceId: z.uuid(),
+  date: isoDate,
+  time: horaDoDia,
+  clientName: nonEmptyText(80),
+  /**
+   * Telefone é obrigatório no link e só aqui: é a única forma de a profissional
+   * retomar contato com quem marcou sem ter conta. Guardado como texto porque
+   * formato de telefone não é conta, e normalizar aqui perderia o que a cliente
+   * escreveu.
+   */
+  clientPhone: z.string().trim().min(8).max(20),
+  notes: z.string().trim().max(300).nullish(),
+});
+
+export const businessHoursSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        weekday: z.number().int().min(0).max(6),
+        startMinute: z.number().int().min(0).max(1440),
+        endMinute: z.number().int().min(0).max(1440),
+      }),
+    )
+    .max(21),
+});

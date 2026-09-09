@@ -20,3 +20,5 @@ export const AlertIcon = (props: IconProps) => <Base {...props}><circle cx="12" 
 export const SpinnerIcon = (props: IconProps) => <Base {...props}><path d="M12 3a9 9 0 1 0 9 9" /></Base>;
 export const HelpIcon = (props: IconProps) => <Base {...props}><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2-2.4 3.4M12 17.2h.01"/></Base>;
 export const CoinIcon = (props: IconProps) => <Base {...props}><ellipse cx="12" cy="6.5" rx="7.5" ry="3.5"/><path d="M4.5 6.5v11c0 1.9 3.4 3.5 7.5 3.5s7.5-1.6 7.5-3.5v-11M4.5 12c0 1.9 3.4 3.5 7.5 3.5s7.5-1.6 7.5-3.5"/></Base>;
+export const CalendarIcon = (props: IconProps) => <Base {...props}><rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M8 2.5v4M16 2.5v4M3.5 10h17"/></Base>;
+export const UserIcon = (props: IconProps) => <Base {...props}><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20.5c1.3-3.5 4-5.3 7.5-5.3s6.2 1.8 7.5 5.3"/></Base>;

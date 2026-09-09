@@ -144,11 +144,26 @@ export type PlanLimits = {
   fixedCosts: number | null;
   calculations: number | null;
 };
+/** Onde a assinatura foi comprada — e, por isso, onde ela é cancelada. */
+export type SubscriptionChannel = 'WEB' | 'ANDROID' | 'IOS';
+
+export type Subscription = {
+  id: string;
+  plan: string;
+  status: string;
+  billingPeriod: string;
+  channel: SubscriptionChannel;
+  provider: string;
+  currentPeriodEnd: string | null;
+  /** Já pedido: segue valendo até o fim do período pago. */
+  cancelAtPeriodEnd: boolean;
+};
+
 export type SubscriptionStatus = {
   plan: 'FREE' | 'PREMIUM' | 'MASTER';
   limits: PlanLimits;
-  managedIn: string | null;
-  subscriptions: { id: string; plan: string; status: string; billingPeriod: string }[];
+  managedIn: SubscriptionChannel | null;
+  subscriptions: Subscription[];
 };
 
 export type CatalogItem = { slug: string; label: string };
@@ -349,10 +364,16 @@ export const saveCalculation = ({ token, businessId }: Scope, input: PublicPrici
 
 export type AppointmentStatus = 'SCHEDULED' | 'CONFIRMED' | 'DONE' | 'CANCELED' | 'NO_SHOW';
 
+/** Quem marcou: a profissional pelo aplicativo, ou a cliente pelo link. */
+export type AppointmentSource = 'MANUAL' | 'ONLINE';
+
 export type Appointment = {
   id: string;
   serviceId: string | null;
   clientName: string;
+  /** Contato da cliente. Obrigatório em quem marcou pelo link, nulo no resto. */
+  clientPhone: string | null;
+  source: AppointmentSource;
   /** Momento com fuso, em ISO. */
   startsAt: string;
   durationMinutes: number;
@@ -417,8 +438,84 @@ export const settleAppointment = ({ token, businessId }: Scope, id: string, paid
 export const deleteAppointment = ({ token, businessId }: Scope, id: string) =>
   apiRequest<void>(scoped(businessId, `/appointments/${id}`), { method: 'DELETE', token });
 
+// --- agenda pública -------------------------------------------------------
+
+/**
+ * Uma faixa do expediente como o servidor **lê**: relógio, não minuto.
+ *
+ * A escrita usa outro formato, e a assimetria é do servidor. Ela é resolvida em
+ * `lib/booking.ts`, na borda, para que a tela conheça um formato só.
+ */
+export type BusinessHour = { weekday: number; start: string; end: string };
+
+/** Uma faixa como o servidor **grava**: minutos desde a meia-noite. */
+export type BusinessHourInput = { weekday: number; startMinute: number; endMinute: number };
+
+export const getBusinessHours = ({ token, businessId }: Scope) =>
+  items(apiRequest<{ items: BusinessHour[] }>(scoped(businessId, '/hours'), { token }));
+
+/**
+ * Grava a semana inteira de uma vez.
+ *
+ * A rota substitui tudo o que estava lá: mandar meia semana apaga a outra
+ * metade. Por isso a tela sempre envia o expediente completo, e não a mudança.
+ */
+export const saveBusinessHours = ({ token, businessId }: Scope, hours: BusinessHourInput[]) =>
+  items(apiRequest<{ items: BusinessHour[] }>(scoped(businessId, '/hours'), {
+    method: 'PUT',
+    body: { items: hours },
+    token,
+  }));
+
+/** Liga a agenda pública. Já ligada, devolve o mesmo link — chamar de novo é seguro. */
+export const enableBookingLink = ({ token, businessId }: Scope) =>
+  apiRequest<{ bookingToken: string }>(scoped(businessId, '/booking-link'), { method: 'POST', body: {}, token });
+
+/** Troca o link. O endereço anterior deixa de existir na hora. */
+export const regenerateBookingLink = ({ token, businessId }: Scope) =>
+  apiRequest<{ bookingToken: string }>(scoped(businessId, '/booking-link/regenerate'), {
+    method: 'POST',
+    body: {},
+    token,
+  });
+
+export const disableBookingLink = ({ token, businessId }: Scope) =>
+  apiRequest<void>(scoped(businessId, '/booking-link'), { method: 'DELETE', token });
+
+/** O que a página pública mostra: nome, fuso e os serviços que a cliente escolhe. */
+export type BookingPage = {
+  businessName: string | null;
+  segment: string;
+  timezone: string;
+  services: { id: string; name: string; category: string; durationMinutes: number; priceCents: number | null }[];
+};
+
+/**
+ * A página pública vista de fora, sem sessão.
+ *
+ * É o que confirma que o link guardado no aparelho ainda vale: a rota responde
+ * 404 tanto para link desconhecido quanto para agenda desligada. E, de quebra,
+ * mostra à profissional exatamente os serviços que a cliente vê — serviço sem
+ * preço o servidor não publica.
+ */
+export const getBookingPage = (bookingToken: string) =>
+  apiRequest<BookingPage>(`/api/booking/${bookingToken}`);
+
 export const getSubscription = ({ token, businessId }: Scope) =>
   apiRequest<SubscriptionStatus>(scoped(businessId, '/subscription'), { token });
+
+/**
+ * Pede o cancelamento ao processador.
+ *
+ * Só funciona para o canal que o servidor consegue cancelar — hoje, a web. Loja
+ * de aplicativo não permite que o app cancele a assinatura de ninguém: a
+ * resposta é `409` e a interface precisa dizer onde cancelar.
+ */
+export const cancelSubscription = ({ token, businessId }: Scope, subscriptionId: string) =>
+  apiRequest<{ status: string; message: string }>(
+    scoped(businessId, `/subscription/${subscriptionId}/cancel`),
+    { method: 'POST', token },
+  );
 
 export const startCheckout = (
   { token, businessId }: Scope,

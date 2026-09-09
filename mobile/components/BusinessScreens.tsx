@@ -1,9 +1,9 @@
 import { colors } from '../theme';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, Text, View } from 'react-native';
 import { track } from '../lib/analytics';
 import { FIXED_COST_CATEGORIES, labelOf, slugOf } from '../lib/catalog';
-import { startCheckout, type AllocationMethod, type Calculation, type PricingResult, type RoundingStrategy, type Service } from '../lib/resources';
+import { startCheckout, type AllocationMethod, type Calculation, type PricingResult, type RoundingStrategy, type Service, type Subscription, type SubscriptionChannel } from '../lib/resources';
 import { centsToInput, formatCents, formatMoney, formatPercent, parseCents, parseNumber, useSubmit } from '../lib/useSubmit';
 import { useApp } from '../state/AppProvider';
 import { useDialog } from './Dialog';
@@ -599,6 +599,23 @@ export function PlansScreen({ onBack }: ScreenProps) {
   const limits = subscription.limits;
   const used = (value: number, limit: number | null) => (limit === null ? `${value} · ilimitado` : `${value} de ${limit}`);
 
+  // A assinatura que sustenta o plano em vigor. No gratuito não há nenhuma, e a
+  // seção de cancelamento simplesmente não aparece.
+  const paga = subscription.subscriptions.find(
+    item => item.plan === subscription.plan && subscription.plan !== 'FREE',
+  ) ?? null;
+
+  const cancelar = (id: string) => {
+    void run(async () => {
+      await app.cancelSubscription(id);
+      track('subscription_cancelled', { canal: paga?.channel ?? 'WEB' });
+      dialog.inform({
+        title: 'Cancelamento pedido',
+        message: 'Avisamos o processador. Assim que ele confirmar, seu plano volta ao gratuito — e nada do que você cadastrou é apagado.',
+      });
+    });
+  };
+
   const subscribe = () => {
     const token = app.token;
     const business = app.business;
@@ -644,10 +661,105 @@ export function PlansScreen({ onBack }: ScreenProps) {
       <Button label={busy ? 'Abrindo...' : 'Assinar o Premium'} icon="sparkle" onPress={busy ? undefined : subscribe} />
     </>}
 
+    {paga && <CancelSection subscription={paga} onCancel={cancelar} busy={busy} error={error} />}
+
     <Section title="Dúvidas" />
     <ListRow icon="help" title="Posso cancelar quando quiser?" subtitle="Sim, sem multa: o acesso segue até o fim do período pago." />
     <ListRow icon="lock" title="O que acontece com meus dados?" subtitle="Nada é apagado ao voltar para o gratuito." />
   </Screen>;
+}
+
+/** Onde cada loja manda a assinante para gerenciar o que comprou. */
+const storeSubscriptions: Record<Exclude<SubscriptionChannel, 'WEB'>, { label: string; url: string }> = {
+  ANDROID: { label: 'Google Play', url: 'https://play.google.com/store/account/subscriptions' },
+  IOS: { label: 'App Store', url: 'https://apps.apple.com/account/subscriptions' },
+};
+
+/**
+ * Cancelamento da assinatura.
+ *
+ * A regra da seção 4 do documento 11 aparece inteira aqui: **o cancelamento é
+ * feito no canal que originou a cobrança**. Compra de loja não pode ser
+ * cancelada pelo aplicativo — Google e Apple não expõem isso, e tentar
+ * esconder a diferença deixaria a assinante achando que cancelou quando a
+ * cobrança seguiria vindo. Então, quando a compra veio da loja, o que a tela
+ * faz é levar até o lugar certo.
+ */
+function CancelSection({
+  subscription,
+  onCancel,
+  busy,
+  error,
+}: {
+  subscription: Subscription;
+  onCancel: (id: string) => void;
+  busy: boolean;
+  error: string | null;
+}) {
+  const dialog = useDialog();
+  const ate = subscription.currentPeriodEnd
+    ? new Date(subscription.currentPeriodEnd).toLocaleDateString('pt-BR')
+    : null;
+
+  if (subscription.cancelAtPeriodEnd) {
+    return <>
+      <Section title="Assinatura" />
+      <Notice
+        tone="lilac"
+        message={ate
+          ? `Cancelamento pedido. Você continua com o Premium até ${ate}, e nada do que salvou é perdido.`
+          : 'Cancelamento pedido. Você continua com o Premium até o fim do período já pago.'}
+      />
+    </>;
+  }
+
+  if (subscription.channel !== 'WEB') {
+    const loja = storeSubscriptions[subscription.channel];
+    return <>
+      <Section title="Assinatura" />
+      <ListRow
+        icon="store"
+        title={`Gerenciada na ${loja.label}`}
+        subtitle={`O cancelamento é feito lá, e não por aqui — é a loja que cobra de você.${ate ? ` Período atual até ${ate}.` : ''}`}
+      />
+      <Button
+        label={`Abrir assinaturas na ${loja.label}`}
+        secondary
+        icon="arrow"
+        onPress={() => {
+          void Linking.openURL(loja.url).catch(() =>
+            dialog.inform({
+              title: 'Não conseguimos abrir',
+              message: `Procure por assinaturas nos ajustes da ${loja.label} para cancelar.`,
+            }),
+          );
+        }}
+      />
+    </>;
+  }
+
+  return <>
+    <Section title="Assinatura" />
+    <ListRow
+      icon="wallet"
+      title="Assinatura pelo site"
+      subtitle={ate ? `Renova em ${ate}` : 'Cobrança recorrente ativa'}
+    />
+    {error && <Notice message={error} />}
+    <Button
+      label={busy ? 'Cancelando...' : 'Cancelar assinatura'}
+      secondary
+      onPress={busy ? undefined : () => dialog.confirm({
+        title: 'Cancelar a assinatura?',
+        message: ate
+          ? `Você continua com o Premium até ${ate}. Depois disso, sua conta volta ao gratuito e nada do que você cadastrou é apagado.`
+          : 'Você continua com o Premium até o fim do período já pago. Depois disso, sua conta volta ao gratuito e nada do que você cadastrou é apagado.',
+        confirmLabel: 'Cancelar assinatura',
+        cancelLabel: 'Continuar assinante',
+        onConfirm: () => onCancel(subscription.id),
+      })}
+    />
+  </>;
 }
 
 const s = StyleSheet.create({

@@ -39,6 +39,7 @@ export type RateLimiters = {
   webhook: RateLimitRequestHandler;
   public: RateLimitRequestHandler;
   write: RateLimitRequestHandler;
+  booking: RateLimitRequestHandler;
 };
 
 /**
@@ -55,6 +56,7 @@ export function createRateLimiters(): RateLimiters {
     webhook: webhookLimiter(),
     public: publicLimiter(),
     write: writeLimiter(),
+    booking: bookingLimiter(),
   };
 }
 
@@ -101,3 +103,13 @@ const publicLimiter = () => criar(300);
  * derrubar a API para as demais.
  */
 const writeLimiter = () => criar(120);
+
+/**
+ * Agendamento pela agenda pública.
+ *
+ * Cria registro na agenda de outra pessoa sem exigir conta. O link secreto
+ * impede que estranhos achem a página, mas não impede que quem recebeu o link
+ * — ou quem o repassou — encha a agenda. Cinco por quinze minutos cobre a
+ * cliente que erra e tenta de novo, e trava o resto.
+ */
+const bookingLimiter = () => criar(5);

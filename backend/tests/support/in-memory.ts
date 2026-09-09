@@ -10,6 +10,7 @@ import type { Dependencies } from "../../src/application/ports/dependencies";
 import type {
   AppointmentRepository,
   BillingEventRepository,
+  BusinessHoursRepository,
   BusinessRepository,
   CalculationRepository,
   EquipmentRepository,
@@ -24,6 +25,7 @@ import type {
 import type {
   AppointmentRecord,
   BillingEventRecord,
+  BusinessHourRecord,
   BusinessRecord,
   BusinessSettingsRecord,
   EquipmentRecord,
@@ -186,6 +188,19 @@ export class InMemoryBusinessRepository implements BusinessRepository {
   findById(id: string): Promise<BusinessRecord | null> {
     const business = this.items.get(id);
     return Promise.resolve(business ? clone(business) : null);
+  }
+
+  findByBookingToken(token: string): Promise<BusinessRecord | null> {
+    const business = [...this.items.values()].find((item) => item.bookingToken === token);
+    return Promise.resolve(business ? clone(business) : null);
+  }
+
+  setBookingToken(businessId: string, token: string | null): Promise<BusinessRecord> {
+    const business = this.items.get(businessId);
+    if (!business) throw new Error("Negócio inexistente.");
+    const updated = { ...business, bookingToken: token, updatedAt: new Date() };
+    this.items.set(businessId, updated);
+    return Promise.resolve(clone(updated));
   }
 
   listByOwner(ownerUserId: string): Promise<BusinessRecord[]> {
@@ -450,6 +465,27 @@ export class InMemoryAppointmentRepository implements AppointmentRepository {
     return Promise.resolve(clone(appointment));
   }
 
+  /**
+   * Confere o conflito antes de gravar, como a versão do Prisma faz dentro da
+   * transação. Aqui não há corrida de verdade — nada roda entre a conferência e
+   * a gravação —, então o que este fake cobre é a **regra**, não a atomicidade.
+   */
+  createIfFree(
+    input: Omit<AppointmentRecord, "id" | "createdAt" | "updatedAt">,
+  ): Promise<AppointmentRecord | null> {
+    const fim = new Date(input.startsAt.getTime() + input.durationMinutes * 60_000);
+
+    const colide = [...this.items.values()].some((item) => {
+      if (item.businessId !== input.businessId) return false;
+      if (item.status === "CANCELED" || item.status === "NO_SHOW") return false;
+
+      const fimExistente = new Date(item.startsAt.getTime() + item.durationMinutes * 60_000);
+      return input.startsAt < fimExistente && fim > item.startsAt;
+    });
+
+    return colide ? Promise.resolve(null) : this.create(input);
+  }
+
   findById(businessId: string, id: string): Promise<AppointmentRecord | null> {
     const appointment = this.items.get(id);
     return Promise.resolve(
@@ -578,6 +614,32 @@ export class InMemoryEquipmentRepository implements EquipmentRepository {
     const record = this.items.get(id);
     if (record && record.businessId === businessId) this.items.delete(id);
     return Promise.resolve();
+  }
+}
+
+export class InMemoryBusinessHoursRepository implements BusinessHoursRepository {
+  readonly items: BusinessHourRecord[] = [];
+
+  list(businessId: string): Promise<BusinessHourRecord[]> {
+    return Promise.resolve(
+      this.items
+        .filter((item) => item.businessId === businessId)
+        .sort((a, b) => a.weekday - b.weekday || a.startMinute - b.startMinute)
+        .map(clone),
+    );
+  }
+
+  replaceAll(
+    businessId: string,
+    hours: readonly Omit<BusinessHourRecord, "id" | "businessId">[],
+  ): Promise<BusinessHourRecord[]> {
+    for (let i = this.items.length - 1; i >= 0; i -= 1) {
+      if (this.items[i]?.businessId === businessId) this.items.splice(i, 1);
+    }
+    for (const hour of hours) {
+      this.items.push({ ...hour, id: randomUUID(), businessId });
+    }
+    return this.list(businessId);
   }
 }
 
@@ -759,6 +821,7 @@ function toDate(value: unknown): Date | null {
 export type TestDependencies = Dependencies & {
   users: InMemoryUserRepository;
   businesses: InMemoryBusinessRepository;
+  businessHours: InMemoryBusinessHoursRepository;
   sessions: InMemorySessionRepository;
   materials: InMemoryMaterialRepository;
   fixedCosts: InMemoryFixedCostRepository;
@@ -785,6 +848,7 @@ export function createTestDependencies(): TestDependencies {
     users: new InMemoryUserRepository(),
     sessions: new InMemorySessionRepository(),
     businesses: new InMemoryBusinessRepository(),
+    businessHours: new InMemoryBusinessHoursRepository(),
     materials,
     fixedCosts: new InMemoryFixedCostRepository(),
     services,

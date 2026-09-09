@@ -186,6 +186,15 @@ describe("Mercado Pago", () => {
     expect(result?.externalEventId).toBe("subscription_preapproval:preapproval-1:updated");
   });
 
+  it("aceita identificador numérico, que algumas notificações usam", () => {
+    const comNumero = { ...notificacao, data: { id: 123456789 } };
+    const result = translator.translate(comNumero, assinar("123456789"));
+
+    // Recusar por causa do tipo faria o evento se perder: o provedor reenviaria,
+    // levaria 400 de novo e desistiria.
+    expect(result?.externalEventId).toBe("mp:12345");
+  });
+
   it("recusa corpo sem o identificador do recurso", () => {
     expect(translator.translate({ type: "payment" }, assinar())).toBeNull();
   });

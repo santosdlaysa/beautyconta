@@ -91,7 +91,7 @@ export class GetUser {
 
   async execute(id: string): Promise<UserRecord> {
     const user = await this.users.findById(id);
-    if (!user || user.deletedAt) throw new NotFoundError("Conta");
+    if (!user || user.deletedAt) throw new NotFoundError("Conta", "f");
     return user;
   }
 }

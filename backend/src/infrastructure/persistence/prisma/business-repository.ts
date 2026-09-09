@@ -38,6 +38,17 @@ export class PrismaBusinessRepository implements BusinessRepository {
     return business ? toRecord(business) : null;
   }
 
+  async findByBookingToken(token: string): Promise<BusinessRecord | null> {
+    const business = await this.prisma.business.findUnique({ where: { bookingToken: token } });
+    return business ? toRecord(business) : null;
+  }
+
+  async setBookingToken(businessId: string, token: string | null): Promise<BusinessRecord> {
+    return toRecord(
+      await this.prisma.business.update({ where: { id: businessId }, data: { bookingToken: token } }),
+    );
+  }
+
   async listByOwner(ownerUserId: string): Promise<BusinessRecord[]> {
     const businesses = await this.prisma.business.findMany({
       where: { ownerUserId },
@@ -88,6 +99,7 @@ function toData(input: Omit<BusinessRecord, "id" | "createdAt" | "updatedAt">) {
     workModel: input.workModel,
     currency: input.currency,
     timezone: input.timezone,
+    bookingToken: input.bookingToken,
   };
 }
 
@@ -100,6 +112,7 @@ function toRecord(business: Business): BusinessRecord {
     workModel: business.workModel as WorkModelSlug,
     currency: business.currency,
     timezone: business.timezone,
+    bookingToken: business.bookingToken,
     createdAt: business.createdAt,
     updatedAt: business.updatedAt,
   };
