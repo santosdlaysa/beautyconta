@@ -1,5 +1,5 @@
-import { PricingCalculator } from "@/presentation/web/calculator";
-import { ArrowIcon, CalculatorIcon, ChartIcon, CheckIcon, MenuIcon, ShieldIcon, SparkleIcon } from "@/presentation/web/icons";
+import { PricingCalculator } from "@/components/calculator";
+import { ArrowIcon, CalculatorIcon, ChartIcon, CheckIcon, MenuIcon, ShieldIcon, SparkleIcon } from "@/components/icons";
 
 const plans = [
   {

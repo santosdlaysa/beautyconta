@@ -11,6 +11,7 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
+  void _next;
   if (error instanceof DomainError) {
     res.status(422).json({ error: "domain_error", message: error.message, field: error.field });
     return;
