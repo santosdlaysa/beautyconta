@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 import { track } from '../lib/analytics';
 import { FIXED_COST_CATEGORIES, labelOf, slugOf } from '../lib/catalog';
-import { startCheckout, type AllocationMethod, type Calculation, type PricingResult, type RoundingStrategy, type Service, type Subscription, type SubscriptionChannel } from '../lib/resources';
+import { startCheckout, type AllocationMethod, type Calculation, type FixedCostBreakdown, type PricingResult, type RoundingStrategy, type Service, type Subscription, type SubscriptionChannel } from '../lib/resources';
 import { centsToInput, formatCents, formatMoney, formatPercent, parseCents, parseNumber, useSubmit } from '../lib/useSubmit';
 import { useApp } from '../state/AppProvider';
 import { useDialog } from './Dialog';
@@ -335,7 +335,7 @@ export function CostsScreen({ onBack, onUpgrade }: ScreenProps) {
  * calcular e decidir quanto cobrar. Quem ainda não cadastrou nada faz um
  * cálculo rápido com os números na mão e cadastra depois.
  */
-export function PricingScreen({ onBack, onUpgrade }: ScreenProps) {
+export function PricingScreen({ onBack, onUpgrade, onEquipment }: ScreenProps & { onEquipment?: () => void }) {
   const app = useApp();
   const { busy, error, setError, run } = useSubmit();
   const expense = useSubmit();
@@ -346,6 +346,14 @@ export function PricingScreen({ onBack, onUpgrade }: ScreenProps) {
   const [mode, setMode] = useState<string>(selectable.length ? 'Meus serviços' : 'Cálculo rápido');
   const [selected, setSelected] = useState<string | null>(selectable[0]?.id ?? null);
   const [result, setResult] = useState<PricingResult | null>(null);
+  /**
+   * De onde veio o custo fixo do último cálculo.
+   *
+   * Só o servidor sabe: a reserva dos equipamentos entra no custo fixo lá, e a
+   * tela não carrega a lista de equipamentos. Guardá-la é o que permite
+   * responder à pergunta da seção 11 do documento 07 — por que o preço subiu.
+   */
+  const [breakdown, setBreakdown] = useState<FixedCostBreakdown | null>(null);
   const [savedPrice, setSavedPrice] = useState<number | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [detail, setDetail] = useState<Calculation | null>(null);
@@ -365,6 +373,28 @@ export function PricingScreen({ onBack, onUpgrade }: ScreenProps) {
     }, 0)
     : 0;
 
+  /**
+   * O custo fixo do mês, separado como o servidor o somou.
+   *
+   * Antes do primeiro cálculo só existe a soma local das despesas; depois vale
+   * a do servidor, que é a que virou preço. A reserva dos equipamentos só
+   * aparece depois de calcular porque é ele quem a conhece.
+   */
+  const expensesTotal = breakdown?.expensesCents ?? fixedTotal;
+  const equipmentReserve = breakdown?.equipmentReserveCents ?? 0;
+  const monthlyFixedTotal = expensesTotal + equipmentReserve;
+
+  /**
+   * Quanto da parcela rateada neste atendimento é reserva de equipamento.
+   *
+   * O rateio é proporcional ao custo fixo do mês, então a parcela guarda a
+   * mesma proporção. É a resposta da seção 11 do documento 07 em números que a
+   * usuária pode conferir: sem ela, o custo fixo rateado simplesmente cresce.
+   */
+  const reserveShareCents = result && equipmentReserve > 0 && monthlyFixedTotal > 0
+    ? Math.round(result.allocatedFixedCost * 100 * equipmentReserve / monthlyFixedTotal)
+    : 0;
+
   const calculate = () => {
     if (!service) return;
     setSavedPrice(null);
@@ -372,6 +402,7 @@ export function PricingScreen({ onBack, onUpgrade }: ScreenProps) {
     void run(async () => {
       const priced = await app.priceService(service.id, {});
       setResult(priced.result);
+      setBreakdown(priced.fixedCostBreakdown);
       track('calculation_completed', { origem: 'servico' });
     });
   };
@@ -420,6 +451,7 @@ export function PricingScreen({ onBack, onUpgrade }: ScreenProps) {
       setExpenseForm({ name: '', category: FIXED_COST_CATEGORIES[0].label, amount: '' });
       setExpenseOpen(false);
       setResult(null);
+      setBreakdown(null);
     });
   };
 
@@ -434,6 +466,7 @@ export function PricingScreen({ onBack, onUpgrade }: ScreenProps) {
       onChange={name => {
         setSelected(selectable.find(item => item.name === name)?.id ?? null);
         setResult(null);
+        setBreakdown(null);
         setSavedPrice(null);
       }}
     />
@@ -452,7 +485,15 @@ export function PricingScreen({ onBack, onUpgrade }: ScreenProps) {
 
     <Section title="3. Seus custos fixos" />
     <Card onPress={app.fixedCosts.length ? () => setExpenseOpen(true) : undefined} accessibilityLabel="Adicionar despesa fixa">
-      <Line label="Total por mês" value={formatCents(fixedTotal)} strong />
+      <Line label="Despesas do mês" value={formatCents(expensesTotal)} />
+      {/*
+        A reserva aparece como linha do custo fixo, e não como termo novo: é
+        exatamente onde ela entra na conta, segundo a seção 6 do documento 07.
+        Sem esta linha, o total daqui não bateria com o do cálculo e a diferença
+        ficaria sem explicação.
+      */}
+      {equipmentReserve > 0 && <Line label="Reserva para repor equipamentos" value={formatCents(equipmentReserve)} />}
+      <Line label="Total por mês" value={formatCents(monthlyFixedTotal)} strong />
       <Line label="Despesas cadastradas" value={String(app.fixedCosts.length)} />
       <Text style={s.editHint}>
         {app.fixedCosts.length
@@ -465,7 +506,7 @@ export function PricingScreen({ onBack, onUpgrade }: ScreenProps) {
       : <Button label="Adicionar despesa fixa" icon="plus" secondary onPress={() => setExpenseOpen(true)} />}
 
     <Button label={busy ? 'Calculando...' : '4. Calcular meu preço'} icon="arrow" onPress={busy || !service ? undefined : calculate} />
-    <Button label="Fazer um cálculo avulso" icon="calculator" secondary onPress={() => { setMode('Cálculo rápido'); setResult(null); setSavedPrice(null); setError(null); }} />
+    <Button label="Fazer um cálculo avulso" icon="calculator" secondary onPress={() => { setMode('Cálculo rápido'); setResult(null); setBreakdown(null); setSavedPrice(null); setError(null); }} />
 
     {error && <Notice message={error} />}
 
@@ -475,10 +516,23 @@ export function PricingScreen({ onBack, onUpgrade }: ScreenProps) {
         <Line label="Materiais" value={formatMoney(result.materialCost)} />
         <Line label="Mão de obra" value={formatMoney(result.laborCost)} />
         <Line label="Custos fixos rateados" value={formatMoney(result.allocatedFixedCost)} />
+        {reserveShareCents > 0 && <Text style={s.subLine}>Deste rateio, {formatCents(reserveShareCents)} é reserva para repor equipamentos.</Text>}
         {result.otherDirectCosts > 0 && <Line label="Outros custos diretos" value={formatMoney(result.otherDirectCosts)} />}
         <Line label="Custo total" value={formatMoney(result.totalCost)} strong />
         <Text style={s.method}>Rateio por {result.allocationMethod === 'productive_hour' ? 'hora produtiva' : 'atendimento'} · sua hora a {formatMoney(result.hourlyRate)}</Text>
       </Card>
+
+      {/*
+        Vem antes do preço, e não depois: a seção 11 do documento 07 avisa que o
+        risco da reserva é a sensação de preço inflado, e a hora de explicar de
+        onde vem o aumento é antes de a usuária ver o número.
+      */}
+      {equipmentReserve > 0 && <Notice
+        tone="lilac"
+        message={`Dos ${formatCents(monthlyFixedTotal)} de custo fixo por mês, ${formatCents(equipmentReserve)} são a reserva para repor os seus equipamentos: um pouco guardado por mês para trocar o aparelho quando ele acabar. Por isso este preço é maior do que seria sem eles.`}
+        action={onEquipment ? 'Ver equipamentos' : undefined}
+        onAction={onEquipment}
+      />}
 
       <PriceChooser
         result={result}
@@ -565,7 +619,7 @@ export function PricingScreen({ onBack, onUpgrade }: ScreenProps) {
       </>}
     </DetailSheet>
 
-    <ServiceSheet visible={sheetOpen} service={service} onClose={() => setSheetOpen(false)} onSaved={() => setResult(null)} onUpgrade={onUpgrade} />
+    <ServiceSheet visible={sheetOpen} service={service} onClose={() => setSheetOpen(false)} onSaved={() => { setResult(null); setBreakdown(null); }} onUpgrade={onUpgrade} />
 
     <FormSheet
       visible={expenseOpen}
@@ -770,6 +824,8 @@ const s = StyleSheet.create({
   lineValue: { color: colors.ink, fontSize: 12, fontWeight: '500' },
   lineStrong: { color: colors.ink, fontSize: 13, fontWeight: '600' },
   method: { color: colors.faded, fontSize: 10, lineHeight: 16 },
+  // Detalhe de uma linha da composição: recuado, para se ler como parte dela.
+  subLine: { color: colors.ink3, fontSize: 11, lineHeight: 17, marginTop: -6, paddingLeft: 12 },
   groupLabel: { fontSize: 12, fontWeight: '500', color: colors.muted, marginBottom: 9 },
   hint: { color: colors.faded, fontSize: 11, lineHeight: 17, marginTop: 4 },
   editHint: { color: colors.faded, fontSize: 10, lineHeight: 16 },

@@ -9,7 +9,7 @@ import { useDialog } from './Dialog';
 import { Icon } from './AppChrome';
 import { EmptyState, HeroCard, ListRow, Notice, Row, Screen, Section, StatCard, TimelinePanel, TimelineRow, WeekStrip, ui } from './ui';
 
-export type HomeRoute = 'inicio' | 'calcular' | 'servicos' | 'custos' | 'planos' | 'clientes' | 'agenda' | 'agenda-online' | 'financeiro' | 'estoque' | 'relatorios' | 'perfil';
+export type HomeRoute = 'inicio' | 'calcular' | 'servicos' | 'custos' | 'planos' | 'clientes' | 'agenda' | 'agenda-online' | 'financeiro' | 'estoque' | 'equipamentos' | 'relatorios' | 'perfil';
 
 /**
  * Atalhos, na paleta da marca.
@@ -215,6 +215,22 @@ export function HomeScreen({ onNavigate }: { onNavigate: (route: HomeRoute) => v
           onPress={() => onNavigate('calcular')}
         />
       </Row>
+
+      {/*
+        Equipamentos entra logo abaixo do custo fixo porque é ali que ele
+        aparece: a reserva para repor a cabine soma no custo fixo do mês e
+        chega ao preço por esse caminho. Fica como linha, e não como quinto
+        atalho no topo — cinco círculos naquela faixa encolheriam os quatro
+        alvos de toque que a usuária mais usa, e cadastrar equipamento não é
+        tarefa de todo dia como calcular ou lançar um atendimento. Nada saiu da
+        Home para abrir espaço: a seção já existia e ganhou uma linha.
+      */}
+      <ListRow
+        icon="settings"
+        title="Meus equipamentos"
+        subtitle="Cabine, maca, autoclave: guarde um pouco por mês para repor cada um"
+        onPress={() => onNavigate('equipamentos')}
+      />
 
       {/*
         Fica junto da agenda porque é o mesmo assunto — e na Home porque

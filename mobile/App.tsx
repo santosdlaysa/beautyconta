@@ -25,6 +25,20 @@ function BeautyContaApp() {
   const app = useApp();
   const [authMode, setAuthMode] = useState<AuthScreen>('welcome');
   const [activeTab, setActiveTab] = useState<Tab>('inicio');
+  /**
+   * De onde a usuária entrou nos equipamentos.
+   *
+   * A tela passou a ter duas portas — a Home e o Perfil —, e voltar tem de
+   * devolvê-la à porta por onde ela entrou. Sem isto, quem chega pela Home é
+   * jogado no Perfil ao tocar em voltar.
+   */
+  const [equipmentOrigin, setEquipmentOrigin] = useState<Tab>('perfil');
+
+  const navigate = (tab: Tab) => {
+    if (tab === 'equipamentos' && activeTab !== 'equipamentos') setEquipmentOrigin(activeTab);
+    setActiveTab(tab);
+  };
+
   const home = () => setActiveTab('inicio');
   const plans = () => setActiveTab('planos');
 
@@ -49,27 +63,27 @@ function BeautyContaApp() {
 
   // Todas as telas seguem a mesma moldura da Home: cabeçalho, destaque e seções.
   const screen = {
-    inicio: <HomeScreen onNavigate={setActiveTab} />,
-    calcular: <PricingScreen onBack={home} onUpgrade={plans} />,
+    inicio: <HomeScreen onNavigate={navigate} />,
+    calcular: <PricingScreen onBack={home} onUpgrade={plans} onEquipment={() => navigate('equipamentos')} />,
     servicos: <ServicesScreen onBack={home} onUpgrade={plans} />,
     custos: <CostsScreen onBack={home} onUpgrade={plans} />,
     planos: <PlansScreen onBack={home} />,
     clientes: <ClientsScreen onBack={home} />,
-    agenda: <AgendaScreen onBack={home} onAction={(action) => setActiveTab(routeOf(action))} />,
-    'agenda-online': <BookingLinkScreen onBack={() => setActiveTab('agenda')} onAction={(action) => setActiveTab(routeOf(action))} />,
-    expediente: <BusinessHoursScreen onBack={() => setActiveTab('perfil')} onAction={(action) => setActiveTab(routeOf(action))} />,
-    financeiro: <FinanceScreen onBack={home} onAction={(action) => setActiveTab(routeOf(action))} />,
+    agenda: <AgendaScreen onBack={home} onAction={(action) => navigate(routeOf(action))} />,
+    'agenda-online': <BookingLinkScreen onBack={() => setActiveTab('agenda')} onAction={(action) => navigate(routeOf(action))} />,
+    expediente: <BusinessHoursScreen onBack={() => setActiveTab('perfil')} onAction={(action) => navigate(routeOf(action))} />,
+    financeiro: <FinanceScreen onBack={home} onAction={(action) => navigate(routeOf(action))} />,
     estoque: <InventoryScreen onBack={home} onAction={(action) => { if (action === 'plans') plans(); }} />,
-    equipamentos: <EquipmentScreen onBack={() => setActiveTab('perfil')} />,
-    relatorios: <ReportsScreen onBack={home} onAction={(action) => setActiveTab(routeOf(action))} />,
-    perfil: <ProfileScreen onBack={home} onAction={(action) => setActiveTab(routeOf(action))} />,
+    equipamentos: <EquipmentScreen onBack={() => setActiveTab(equipmentOrigin)} />,
+    relatorios: <ReportsScreen onBack={home} onAction={(action) => navigate(routeOf(action))} />,
+    perfil: <ProfileScreen onBack={home} onAction={(action) => navigate(routeOf(action))} />,
   }[activeTab];
 
   return (
     <View style={styles.screen}>
       <StatusBar style="dark" />
       {screen}
-      <AppTabs active={activeTab} onChange={setActiveTab} />
+      <AppTabs active={activeTab} onChange={navigate} />
     </View>
   );
 }

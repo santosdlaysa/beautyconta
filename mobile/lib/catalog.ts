@@ -103,37 +103,15 @@ export const FIXED_COST_CATEGORIES: Option[] = [
   { slug: 'other', label: 'Outro' },
 ];
 
-/**
- * Tipos de equipamento da seção do documento 07.
+/*
+ * Tipos de equipamento não moram aqui.
  *
- * `GET /api/catalog/equipment-types` devolve só os identificadores, sem nome
- * legível — o rótulo em português é decisão de interface e nasce aqui, como o
- * resto deste espelho. A ordem segue a do servidor, e não a alfabética: ela põe
- * na frente o que a profissional de unhas compra primeiro.
+ * `GET /api/catalog/equipment-types` passou a devolver o rótulo em português
+ * junto do identificador, e no documento 07 o rótulo deixou de ser enfeite: ele
+ * **é** o nome do equipamento que a profissional cadastra. Duas listas de nomes
+ * viveriam divergindo, e a divergência apareceria no cadastro dela. Quem busca
+ * a lista é `listEquipmentTypes`, em `lib/resources.ts`.
  */
-export const EQUIPMENT_TYPES: Option[] = [
-  { slug: 'uv_lamp', label: 'Cabine UV ou LED' },
-  { slug: 'nail_drill', label: 'Lixadeira elétrica' },
-  { slug: 'dust_collector', label: 'Aspirador de pó' },
-  { slug: 'autoclave', label: 'Autoclave' },
-  { slug: 'sterilizer', label: 'Esterilizador' },
-  { slug: 'bed', label: 'Maca' },
-  { slug: 'chair', label: 'Cadeira' },
-  { slug: 'stool', label: 'Mocho' },
-  { slug: 'table', label: 'Mesa' },
-  { slug: 'trolley', label: 'Carrinho auxiliar' },
-  { slug: 'ring_light', label: 'Ring light' },
-  { slug: 'lamp', label: 'Luminária' },
-  { slug: 'hair_dryer', label: 'Secador' },
-  { slug: 'flat_iron', label: 'Chapinha' },
-  { slug: 'steamer', label: 'Vaporizador' },
-  { slug: 'card_reader', label: 'Maquininha de cartão' },
-  { slug: 'computer', label: 'Computador' },
-  { slug: 'phone', label: 'Celular' },
-  { slug: 'air_conditioner', label: 'Ar-condicionado' },
-  { slug: 'cabinet', label: 'Armário' },
-  { slug: 'other', label: 'Outro' },
-];
 
 export const UNITS: Option[] = [
   { slug: 'unit', label: 'unidade' },

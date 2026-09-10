@@ -15,9 +15,11 @@ import * as api from '../lib/resources';
  * atualiza o servidor e o estado local na mesma operação.
  *
  * O que ainda não passa por aqui: clientes, que não tem API — o backlog o coloca
- * fora do MVP — e segue como demonstração na tela. Equipamentos tem API, mas
- * fica de fora de propósito: nenhum cálculo depende dele, e carregá-lo na
- * abertura custaria uma requisição a quem nunca abrir aquela tela.
+ * fora do MVP — e segue como demonstração na tela. Equipamentos tem API e
+ * continua de fora, mesmo depois de a reserva para reposição entrar no custo
+ * fixo: quem soma a reserva no preço é o servidor, e o resultado do cálculo já
+ * volta com a composição pronta. Carregar a lista na abertura custaria uma
+ * requisição a quem nunca abrir aquela tela para não mostrar nada de novo.
  */
 
 const SESSION_KEY = 'beautyconta.session.token';
@@ -106,10 +108,20 @@ type Actions = {
   removeService(id: string): Promise<void>;
   duplicateService(id: string): Promise<api.Service>;
   archiveService(id: string, archived: boolean): Promise<api.Service>;
+  /**
+   * Calcula o preço de um serviço.
+   *
+   * Devolve junto de onde veio o custo fixo (`fixedCostBreakdown`): a tela de
+   * preço precisa dizer quanto daquele custo é reserva para repor equipamentos.
+   */
   priceService(
     id: string,
     options?: { save?: boolean; currentPriceCents?: number | null },
-  ): Promise<{ result: api.PricingResult; saved: api.Calculation | null }>;
+  ): Promise<{
+    result: api.PricingResult;
+    fixedCostBreakdown: api.FixedCostBreakdown;
+    saved: api.Calculation | null;
+  }>;
   saveQuickCalculation(input: api.PublicPricingInput): Promise<api.Calculation>;
   createMaterial(input: api.MaterialInput): Promise<api.Material>;
   updateMaterial(id: string, input: Partial<api.MaterialInput>): Promise<api.Material>;
@@ -430,7 +442,11 @@ export function AppProvider({ children }: PropsWithChildren) {
           const saved = priced.saved;
           setState((current) => ({ ...current, calculations: [saved, ...current.calculations] }));
         }
-        return { result: priced.result, saved: priced.saved };
+        return {
+          result: priced.result,
+          fixedCostBreakdown: priced.fixedCostBreakdown,
+          saved: priced.saved,
+        };
       },
       async saveQuickCalculation(input) {
         const { saved } = await api.saveCalculation(requireScope(), input);

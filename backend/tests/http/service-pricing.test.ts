@@ -291,6 +291,43 @@ describe("equipamentos no preço", () => {
     expect(equipamento.body.field).toBe("residualValueCents");
   });
 
+  it("aplica as mesmas regras ao editar, não só ao cadastrar", async () => {
+    const { as, businessId, equipamento } = await comEquipamento();
+
+    // Validar só na criação deixava o `PATCH` gravar o que o `POST` recusa — e
+    // cada um desses valores distorce a reserva de todos os serviços.
+    const revenda = await as()
+      .patch(`/api/businesses/${businessId}/equipment/${equipamento.body.id}`)
+      .send({ residualValueCents: 200_000 });
+    expect(revenda.status).toBe(422);
+    expect(revenda.body.field).toBe("residualValueCents");
+
+    const futuro = await as()
+      .patch(`/api/businesses/${businessId}/equipment/${equipamento.body.id}`)
+      .send({ acquisitionDate: new Date(Date.now() + 86_400_000).toISOString().slice(0, 10) });
+    expect(futuro.status).toBe(422);
+
+    const vidaLonga = await as()
+      .patch(`/api/businesses/${businessId}/equipment/${equipamento.body.id}`)
+      .send({ usefulLifeMonths: 600 });
+    expect(vidaLonga.status).toBe(422);
+  });
+
+  it("aceita edição válida e o preço acompanha", async () => {
+    const { as, businessId, serviceId, equipamento } = await comEquipamento();
+
+    // Metade da vida útil, dobro da reserva.
+    await as()
+      .patch(`/api/businesses/${businessId}/equipment/${equipamento.body.id}`)
+      .send({ usefulLifeMonths: 18 });
+
+    const { body } = await as()
+      .post(`/api/businesses/${businessId}/services/${serviceId}/pricing`)
+      .send({});
+
+    expect(body.fixedCostBreakdown.equipmentReserveCents).toBe(6_667);
+  });
+
   it("recusa data de compra no futuro", async () => {
     const amanha = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
     const { equipamento } = await comEquipamento({ acquisitionDate: amanha });

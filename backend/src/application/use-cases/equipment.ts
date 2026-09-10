@@ -96,6 +96,7 @@ export class UpdateEquipment {
   constructor(
     private readonly access: BusinessAccess,
     private readonly equipment: EquipmentRepository,
+    private readonly clock: Clock,
   ) {}
 
   async execute(
@@ -104,7 +105,26 @@ export class UpdateEquipment {
     id: string,
     input: Partial<EquipmentInput> & { isArchived?: boolean },
   ): Promise<EquipmentRecord> {
-    await new GetEquipment(this.access, this.equipment).execute(userId, businessId, id);
+    const atual = await new GetEquipment(this.access, this.equipment).execute(
+      userId,
+      businessId,
+      id,
+    );
+
+    // As mesmas regras do cadastro, sobre o registro já mesclado.
+    //
+    // Validar só na criação deixava o `PATCH` gravar o que o `POST` recusa —
+    // revenda maior que a compra, vida útil absurda, data no futuro — e cada um
+    // desses distorce a reserva, que hoje entra no custo fixo de todos os
+    // serviços. A interface se protegia sozinha; qualquer outro cliente, não.
+    assertValidEquipment({
+      acquisitionPriceCents: input.acquisitionPriceCents ?? atual.acquisitionPriceCents,
+      residualValueCents: input.residualValueCents ?? atual.residualValueCents,
+      usefulLifeMonths: input.usefulLifeMonths ?? atual.usefulLifeMonths,
+      acquisitionDate: input.acquisitionDate ?? atual.acquisitionDate,
+      now: this.clock.now(),
+    });
+
     return this.equipment.update(businessId, id, {
       ...(input.name !== undefined ? { name: input.name.trim() } : {}),
       ...(input.type !== undefined ? { type: input.type } : {}),

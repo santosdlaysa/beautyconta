@@ -317,10 +317,13 @@ export const deleteFixedCost = ({ token, businessId }: Scope, id: string) =>
 /**
  * Equipamento do documento 07.
  *
- * O cadastro existe; a depreciação, não. Nenhum campo aqui entra em cálculo de
- * preço: a reserva mensal para reposição continua fora do rateio de custo fixo,
- * e o servidor bloqueia a categoria `equipment_reserve` para lançamento manual
- * justamente porque ela seria gerada por um cálculo que ainda não foi decidido.
+ * A reserva mensal para reposição **entra** no custo fixo do mês e, daí, no
+ * preço de todos os serviços. Ela não vem por equipamento nesta resposta: é
+ * derivada destes mesmos campos, e quem a recalcula para a tela é
+ * `lib/equipment.ts`.
+ *
+ * O `name` guarda o rótulo do tipo escolhido, e não um texto livre — quem tem
+ * duas cabines diferencia pelo complemento que a tela acrescenta ao rótulo.
  */
 export type Equipment = {
   id: string;
@@ -355,6 +358,16 @@ export const updateEquipment = ({ token, businessId }: Scope, id: string, input:
 
 export const deleteEquipment = ({ token, businessId }: Scope, id: string) =>
   apiRequest<void>(scoped(businessId, `/equipment/${id}`), { method: 'DELETE', token });
+
+/**
+ * Tipos de equipamento, com o rótulo que a usuária lê.
+ *
+ * É a lista que o formulário oferece e, ao mesmo tempo, o nome que ele grava:
+ * por isso ela vem do servidor a cada abertura da tela, e não de uma cópia no
+ * aparelho que envelheceria em silêncio.
+ */
+export const listEquipmentTypes = () =>
+  items(apiRequest<{ items: CatalogItem[] }>('/api/catalog/equipment-types'));
 
 export type ServiceInput = {
   name: string;
@@ -395,6 +408,22 @@ export const duplicateService = ({ token, businessId }: Scope, id: string) =>
   apiRequest<Service>(scoped(businessId, `/services/${id}/duplicate`), { method: 'POST', body: {}, token });
 
 /**
+ * De onde veio o custo fixo do mês que o cálculo usou, em centavos.
+ *
+ * Existe por causa da seção 11 do documento 07: a reserva para reposição
+ * aumenta o preço recomendado, e sem mostrar a composição a profissional vê o
+ * número subir sem entender por quê.
+ */
+export type FixedCostBreakdown = { expensesCents: number; equipmentReserveCents: number };
+
+export type PricedService = {
+  serviceId: string;
+  result: PricingResult;
+  fixedCostBreakdown: FixedCostBreakdown;
+  saved: Calculation | null;
+};
+
+/**
  * Calcula com os dados cadastrados; `save` grava no histórico imutável.
  *
  * `currentPriceCents` compara com um preço hipotético sem tocar no cadastro,
@@ -405,7 +434,7 @@ export const priceService = (
   id: string,
   options: { save?: boolean; currentPriceCents?: number | null } = {},
 ) =>
-  apiRequest<{ serviceId: string; result: PricingResult; saved: Calculation | null }>(
+  apiRequest<PricedService>(
     scoped(businessId, `/services/${id}/pricing`),
     { method: 'POST', body: options, token },
   );

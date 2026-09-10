@@ -112,14 +112,23 @@ export function Button({ label, onPress, secondary, icon }: { label: string; onP
   </Pressable>;
 }
 
-export function Field({ label, value, onChangeText, placeholder, numeric, email, secure, prefix, hint, right }: { label: string; value: string; onChangeText: (text: string) => void; placeholder?: string; numeric?: boolean; email?: boolean; secure?: boolean; prefix?: string; hint?: string; right?: ReactNode }) {
+/**
+ * Campo de texto.
+ *
+ * `error` põe a recusa no campo culpado, e não só no topo da folha: quando o
+ * servidor responde 422 com `field`, a usuária precisa ver qual dos números
+ * ela tem de corrigir. A mensagem entra no rótulo acessível junto do nome do
+ * campo, para que o leitor de tela anuncie os dois.
+ */
+export function Field({ label, value, onChangeText, placeholder, numeric, email, secure, prefix, hint, right, error }: { label: string; value: string; onChangeText: (text: string) => void; placeholder?: string; numeric?: boolean; email?: boolean; secure?: boolean; prefix?: string; hint?: string; right?: ReactNode; error?: string | null }) {
   return <View style={ui.field}>
     <View style={ui.fieldTop}><Text style={ui.label}>{label}</Text>{hint && <Text style={ui.fieldHint}>{hint}</Text>}</View>
-    <View style={ui.inputWrap}>
+    <View style={[ui.inputWrap, error ? ui.inputInvalid : null]}>
       {prefix && <Text style={ui.prefix}>{prefix}</Text>}
-      <TextInput accessibilityLabel={label} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={colors.faded} keyboardType={numeric ? 'decimal-pad' : email ? 'email-address' : 'default'} autoCapitalize={email ? 'none' : 'sentences'} secureTextEntry={secure} style={ui.input} />
+      <TextInput accessibilityLabel={error ? `${label}. ${error}` : label} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={colors.faded} keyboardType={numeric ? 'decimal-pad' : email ? 'email-address' : 'default'} autoCapitalize={email ? 'none' : 'sentences'} secureTextEntry={secure} style={ui.input} />
       {right}
     </View>
+    {error && <Text style={ui.fieldError}>{error}</Text>}
   </View>;
 }
 
@@ -299,6 +308,10 @@ export const ui = StyleSheet.create({
   label: { fontSize: 12, fontWeight: '500', color: colors.muted },
   fieldHint: { fontSize: 12, fontWeight: '600', color: colors.accent },
   inputWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 48, backgroundColor: colors.white, borderRadius: 16, borderColor: colors.border, borderWidth: 1, paddingHorizontal: 14 },
+  // A borda é sinal de apoio; quem diz o que houve é o texto abaixo, porque cor
+  // sozinha não chega a quem não a enxerga.
+  inputInvalid: { borderColor: colors.danger },
+  fieldError: { color: colors.danger, fontSize: 11, lineHeight: 17 },
   prefix: { fontSize: 12, color: colors.muted },
   input: { flex: 1, minWidth: 0, paddingVertical: 12, fontSize: 14, color: colors.ink },
   search: { flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 46, backgroundColor: colors.white, borderRadius: 23, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 16, marginBottom: 14 },

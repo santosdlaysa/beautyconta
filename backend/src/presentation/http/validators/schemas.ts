@@ -161,7 +161,9 @@ export const createEquipmentSchema = z.object({
   type: equipmentType,
   acquisitionPriceCents: moneyCents,
   residualValueCents: moneyCents.optional(),
-  usefulLifeMonths: z.number().int().min(1).max(600),
+  // 240 meses é o teto do documento 07 e do domínio. O esquema aceitava 600, e
+  // a divergência passava direto no `PATCH`, que não validava nada.
+  usefulLifeMonths: z.number().int().min(1).max(240),
   acquisitionDate: isoDate,
 });
 

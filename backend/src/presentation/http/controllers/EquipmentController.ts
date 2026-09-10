@@ -21,9 +21,11 @@ import {
 } from "../validators/schemas";
 
 /**
- * Equipamentos do documento 07. O cadastro existe; a reserva mensal ainda não
- * entra no rateio, por isso a categoria `equipment_reserve` segue bloqueada
- * para lançamento manual em custos fixos.
+ * Equipamentos do documento 07.
+ *
+ * A reserva mensal para reposição entra no custo fixo, e daí no rateio — é por
+ * isso que a categoria `equipment_reserve` é bloqueada para lançamento manual:
+ * quem lançasse a reserva à mão pagaria duas vezes pelo mesmo desgaste.
  */
 export class EquipmentController {
   private readonly access: BusinessAccess;
@@ -77,7 +79,11 @@ export class EquipmentController {
     const { id } = parse(idParamSchema, req.params);
     const input = parse(updateEquipmentSchema, req.body);
 
-    const equipment = await new UpdateEquipment(this.access, this.deps.equipment).execute(
+    const equipment = await new UpdateEquipment(
+      this.access,
+      this.deps.equipment,
+      this.deps.clock,
+    ).execute(
       userIdOf(req),
       businessId,
       id,
