@@ -94,11 +94,33 @@ export class MercadoPagoTranslator implements BillingWebhookTranslator {
     const received = parts.get("v1");
     if (!ts || !received) return false;
 
-    const manifest = `id:${dataId};request-id:${headers["x-request-id"] ?? ""};ts:${ts};`;
-    const expected = createHmac("sha256", this.webhookSecret).update(manifest).digest("hex");
+    const requestId = headers["x-request-id"] ?? "";
 
-    const a = Buffer.from(expected, "utf8");
-    const b = Buffer.from(received, "utf8");
-    return a.length === b.length && timingSafeEqual(a, b);
+    /**
+     * O identificador entra no manifesto de duas formas possíveis.
+     *
+     * A documentação do Mercado Pago manda usar o `data.id` **em minúsculas
+     * quando ele é alfanumérico** — e os identificadores de `preapproval` são
+     * alfanuméricos, ao contrário dos de pagamento, que são numéricos. Conferir
+     * só a forma original recusaria em silêncio toda notificação de assinatura
+     * cujo identificador viesse com alguma letra maiúscula: o evento levaria
+     * 400, o Mercado Pago tentaria de novo, e depois desistiria — com a
+     * assinatura paga e o plano nunca concedido.
+     *
+     * Aceitar as duas não enfraquece nada: as duas exigem HMAC válido feito com
+     * o mesmo segredo, que só quem o tem consegue produzir.
+     */
+    const candidatos = new Set([dataId, dataId.toLowerCase()]);
+
+    for (const id of candidatos) {
+      const manifest = `id:${id};request-id:${requestId};ts:${ts};`;
+      const expected = createHmac("sha256", this.webhookSecret).update(manifest).digest("hex");
+
+      const a = Buffer.from(expected, "utf8");
+      const b = Buffer.from(received, "utf8");
+      if (a.length === b.length && timingSafeEqual(a, b)) return true;
+    }
+
+    return false;
   }
 }

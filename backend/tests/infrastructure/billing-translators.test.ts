@@ -195,6 +195,30 @@ describe("Mercado Pago", () => {
     expect(result?.externalEventId).toBe("mp:12345");
   });
 
+  it("aceita identificador alfanumérico assinado em minúsculas", () => {
+    // A documentação do Mercado Pago manda usar o `data.id` em minúsculas
+    // quando ele é alfanumérico — e os de `preapproval` são. Conferir só a
+    // forma original recusaria em silêncio toda notificação de assinatura com
+    // letra maiúscula no identificador: 400, reenvio, e o plano nunca concedido.
+    const comMaiuscula = { ...notificacao, data: { id: "2C93A084Fab" } };
+
+    expect(translator.translate(comMaiuscula, assinar("2c93a084fab"))).not.toBeNull();
+    // A forma original também vale: o que não muda é a exigência do HMAC.
+    expect(translator.translate(comMaiuscula, assinar("2C93A084Fab"))).not.toBeNull();
+  });
+
+  it("continua recusando assinatura feita com outro segredo", () => {
+    const manifest = "id:preapproval-1;request-id:req-9;ts:1760000000;";
+    const v1 = createHmac("sha256", "segredo-de-outra-pessoa").update(manifest).digest("hex");
+
+    expect(
+      translator.translate(notificacao, {
+        "x-signature": `ts=1760000000,v1=${v1}`,
+        "x-request-id": "req-9",
+      }),
+    ).toBeNull();
+  });
+
   it("recusa corpo sem o identificador do recurso", () => {
     expect(translator.translate({ type: "payment" }, assinar())).toBeNull();
   });

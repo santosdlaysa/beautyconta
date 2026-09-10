@@ -650,10 +650,13 @@ const planNames: Record<string, string> = { FREE: 'Gratuito', PREMIUM: 'Premium'
  * vez. O equivalente mensal aparece embaixo na anual, para comparar — nunca no
  * lugar do valor cobrado, que seria vender 299,00 anunciando 24,92.
  */
-function OfferCard({ offer, selected, onSelect }: { offer: PlanOffer; selected: boolean; onSelect: () => void }) {
+function OfferCard({ offer, selected, onSelect }: { offer: PlanOffer; selected: boolean; onSelect?: () => void }) {
   const anual = offer.billingPeriod === 'ANNUAL';
 
-  return <Card tone={selected ? 'pink' : 'neutral'} onPress={onSelect} accessibilityLabel={`${anual ? 'Plano anual' : 'Plano mensal'}, ${formatCents(offer.priceCents)}`}>
+  // Sem `onSelect` o cartão não é botão: quando só há um plano à venda, um
+  // cartão que responde ao toque sem mudar nada é ruído, e a leitora de tela o
+  // anunciaria como algo a escolher.
+  return <Card tone={selected ? 'pink' : 'neutral'} onPress={onSelect} accessibilityLabel={onSelect ? `${anual ? 'Plano anual' : 'Plano mensal'}, ${formatCents(offer.priceCents)}` : undefined}>
     <View style={s.offerHead}>
       <Text style={s.offerPeriod}>{anual ? 'Anual' : 'Mensal'}</Text>
       {anual && offer.savingsPercent !== null && <Badge label={`Economize ${offer.savingsPercent}%`} />}
@@ -892,7 +895,7 @@ export function PlansScreen({ onBack }: ScreenProps) {
             key={item.billingPeriod}
             offer={item}
             selected={oferta?.billingPeriod === item.billingPeriod}
-            onSelect={() => setChosen(item.billingPeriod)}
+            {...(offers.length > 1 ? { onSelect: () => setChosen(item.billingPeriod) } : {})}
           />
         ))}
 
