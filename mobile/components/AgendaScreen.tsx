@@ -25,6 +25,8 @@ import {
   TimelinePanel,
   TimelineRow,
   WeekStrip,
+  weekAround,
+  CENTER_DAY,
   ui,
 } from './ui';
 
@@ -80,20 +82,9 @@ export function AgendaScreen({ onBack, onAction }: { onBack?: () => void; onActi
   const [incoming, setIncoming] = useState<Appointment[]>([]);
 
   const today = useMemo(() => new Date(), []);
-  const week = useMemo(() => Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() - today.getDay() + index);
-    return date;
-  }), [today]);
-
-  const selectedDay = week.findIndex(date => date.toDateString() === app.agendaDay.toDateString());
+  const week = useMemo(() => weekAround(app.agendaDay), [app.agendaDay]);
   const summary = app.daySummary;
   const serviceNames = ['Nenhum', ...app.services.map(item => item.name)];
-
-  // A agenda abre no dia de hoje; trocar de dia recarrega do servidor.
-  useEffect(() => {
-    if (selectedDay === -1) void app.showAgendaDay(today);
-  }, [selectedDay, today, app]);
 
   const token = app.token;
   const businessId = app.business?.id;
@@ -253,7 +244,8 @@ export function AgendaScreen({ onBack, onAction }: { onBack?: () => void; onActi
     </View>
     <WeekStrip
       dates={week}
-      selected={selectedDay === -1 ? today.getDay() : selectedDay}
+      selected={CENTER_DAY}
+      marked={index => week[index].toDateString() === today.toDateString()}
       onSelect={index => void app.showAgendaDay(week[index])}
     />
 

@@ -147,7 +147,10 @@ type Actions = {
   showAgendaDay(day: Date): Promise<void>;
   createAppointment(input: api.AppointmentInput): Promise<api.Appointment>;
   updateAppointment(id: string, input: Partial<api.AppointmentInput>): Promise<api.Appointment>;
-  settleAppointment(id: string, paidCents?: number): Promise<api.Appointment>;
+  settleAppointment(
+    id: string,
+    input?: { paidCents?: number; paymentMethod?: api.PaymentMethod | null },
+  ): Promise<api.Appointment>;
   removeAppointment(id: string): Promise<void>;
   createFixedCost(input: api.FixedCostInput): Promise<api.FixedCost>;
   updateFixedCost(id: string, input: Partial<api.FixedCostInput>): Promise<api.FixedCost>;
@@ -526,9 +529,9 @@ export function AppProvider({ children }: PropsWithChildren) {
         await refreshAgenda(scope);
         return appointment;
       },
-      async settleAppointment(id, paidCents) {
+      async settleAppointment(id, input = {}) {
         const scope = requireScope();
-        const appointment = await api.settleAppointment(scope, id, paidCents);
+        const appointment = await api.settleAppointment(scope, id, input);
         await refreshAgenda(scope);
         return appointment;
       },

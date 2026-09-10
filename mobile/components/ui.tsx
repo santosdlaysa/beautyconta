@@ -190,6 +190,27 @@ export function EmptyState({ icon = 'sparkle', title, description, action, onAct
 }
 
 const dayNames = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+
+/** Posição do dia escolhido dentro da faixa: sempre o meio. */
+export const CENTER_DAY = 3;
+
+/**
+ * Sete dias em torno de uma data, com ela no centro.
+ *
+ * A faixa deixou de mostrar a semana do calendário (domingo a sábado) porque o
+ * dia de hoje caía onde calhasse — quase na borda numa segunda, na ponta num
+ * sábado. Girando em torno do dia escolhido, ele fica sempre no mesmo lugar e a
+ * pessoa vê três dias para trás e três para a frente, que é o alcance que a
+ * agenda de um estúdio pede.
+ */
+export function weekAround(day: Date): Date[] {
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(day);
+    date.setDate(day.getDate() - CENTER_DAY + index);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  });
+}
 /** Faixa de dias da semana usada na Home e na Agenda. */
 export function WeekStrip({ dates, selected, onSelect, marked }: { dates: Date[]; selected: number; onSelect: (index: number) => void; marked?: (index: number) => boolean }) {
   return <View style={ui.week}>{dates.map((date, index) => {
@@ -351,17 +372,17 @@ export const ui = StyleSheet.create({
   timelineHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 28, marginBottom: 13 },
   timelineTitle: { color: colors.ink3, fontSize: 11, fontWeight: '500', textTransform: 'capitalize' },
   addButton: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: colors.white },
-  timelineRow: { flexDirection: 'row', alignItems: 'stretch', minHeight: 91 },
-  timeColumn: { width: 36, paddingTop: 15 },
+  timelineRow: { flexDirection: 'row', alignItems: 'stretch', minHeight: 74 },
+  timeColumn: { width: 36, paddingTop: 12 },
   time: { fontSize: 10, fontWeight: '500', color: colors.ink3 },
   endTime: { fontSize: 8, color: colors.ink3, marginTop: 5 },
-  timelineTrack: { width: 14, alignItems: 'center', paddingTop: 18 },
+  timelineTrack: { width: 14, alignItems: 'center', paddingTop: 15 },
   timelineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.marker, borderColor: colors.softLilac, borderWidth: 1, zIndex: 1 },
   pendingDot: { backgroundColor: colors.markerPending },
-  timelineLine: { position: 'absolute', top: 25, bottom: -18, width: 1, backgroundColor: colors.trail },
-  appointmentCard: { flex: 1, marginLeft: 6, marginBottom: 10, padding: 11, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: colors.white },
+  timelineLine: { position: 'absolute', top: 22, bottom: -12, width: 1, backgroundColor: colors.trail },
+  appointmentCard: { flex: 1, marginLeft: 6, marginBottom: 8, padding: 10, borderRadius: 15, flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: colors.white },
   titleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 7 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5 },
   statusDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.success },
   statusDotPending: { backgroundColor: colors.warning },
   statusText: { color: colors.ink3, fontSize: 10 },

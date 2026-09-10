@@ -656,9 +656,9 @@ function OfferCard({ offer, selected, onSelect }: { offer: PlanOffer; selected: 
   // Sem `onSelect` o cartão não é botão: quando só há um plano à venda, um
   // cartão que responde ao toque sem mudar nada é ruído, e a leitora de tela o
   // anunciaria como algo a escolher.
-  return <Card tone={selected ? 'pink' : 'neutral'} onPress={onSelect} accessibilityLabel={onSelect ? `${anual ? 'Plano anual' : 'Plano mensal'}, ${formatCents(offer.priceCents)}` : undefined}>
+  return <Card tone={selected ? 'pink' : 'neutral'} onPress={onSelect} accessibilityLabel={onSelect ? `${planNames[offer.plan]} ${anual ? 'anual' : 'mensal'}, ${formatCents(offer.priceCents)}` : undefined}>
     <View style={s.offerHead}>
-      <Text style={s.offerPeriod}>{anual ? 'Anual' : 'Mensal'}</Text>
+      <Text style={s.offerPeriod}>{planNames[offer.plan]} · {anual ? 'Anual' : 'Mensal'}</Text>
       {anual && offer.savingsPercent !== null && <Badge label={`Economize ${offer.savingsPercent}%`} />}
     </View>
     <Text style={s.offerPrice}>{formatCents(offer.priceCents)}</Text>
@@ -677,7 +677,9 @@ export function PlansScreen({ onBack }: ScreenProps) {
   const subscription = app.subscription;
 
   const [catalog, setCatalog] = useState<PlanCatalog | null>(null);
-  const [chosen, setChosen] = useState<'MONTHLY' | 'ANNUAL' | null>(null);
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const [method, setMethod] = useState<PaymentMethod>('card');
 
   /**
@@ -688,6 +690,7 @@ export function PlansScreen({ onBack }: ScreenProps) {
    * cobrado de verdade.
    */
   const [store, setStore] = useState<StoreOffering[]>([]);
+  const [storeLoading, setStoreLoading] = useState(true);
   const naLoja = storePurchaseAvailable();
 
   /**
@@ -697,11 +700,18 @@ export function PlansScreen({ onBack }: ScreenProps) {
    */
   useEffect(() => {
     let ativo = true;
+    setCatalog(null);
+    setCatalogError(null);
     void getPlans()
       .then(data => { if (ativo) setCatalog(data); })
-      .catch(() => { if (ativo) setCatalog({ offers: [], legal: LEGAL_FALLBACK }); });
+      .catch(() => {
+        if (ativo) {
+          setCatalog({ offers: [], legal: LEGAL_FALLBACK });
+          setCatalogError('Não conseguimos carregar os planos. Confira sua conexão e tente novamente.');
+        }
+      });
     return () => { ativo = false; };
-  }, []);
+  }, [attempt]);
 
   /**
    * Identifica a assinante na loja pelo **negócio**, nunca pelo e-mail: é esse
@@ -714,13 +724,16 @@ export function PlansScreen({ onBack }: ScreenProps) {
     if (!naLoja || !businessId) return;
 
     let ativo = true;
+    setStore([]);
+    setStoreLoading(true);
     void configurePurchases(businessId)
       .then(pronto => (pronto ? getStoreOfferings() : []))
       .then(ofertas => { if (ativo) setStore(ofertas); })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => { if (ativo) setStoreLoading(false); });
 
     return () => { ativo = false; };
-  }, [naLoja, businessId]);
+  }, [naLoja, businessId, attempt]);
 
   if (!subscription) return <Screen><ScreenHeader title="Meu plano" onBack={onBack} /><Loading label="Conferindo sua assinatura..." full /></Screen>;
 
@@ -728,7 +741,7 @@ export function PlansScreen({ onBack }: ScreenProps) {
   const used = (value: number, limit: number | null) => (limit === null ? `${value} · ilimitado` : `${value} de ${limit}`);
 
   const offers = catalog?.offers ?? [];
-  const oferta = offers.find(item => item.billingPeriod === chosen) ?? offers[0] ?? null;
+  const oferta = offers.find(item => `${item.plan}:${item.billingPeriod}` === chosen) ?? offers[0] ?? null;
 
   // A assinatura que sustenta o plano em vigor. No gratuito não há nenhuma, e a
   // seção de cancelamento simplesmente não aparece.
@@ -755,7 +768,7 @@ export function PlansScreen({ onBack }: ScreenProps) {
    * prometer o plano na hora seria afirmar o que ainda não é verdade.
    */
   const comprarNaLoja = (packageId: string) => {
-    track('checkout_started', { plan: 'PREMIUM', billingPeriod: chosen ?? 'MONTHLY', paymentMethod: 'store' });
+    track('checkout_started', { plan: 'PREMIUM', billingPeriod: store.find(item => item.id === packageId)?.billingPeriod ?? 'UNKNOWN', paymentMethod: 'store' });
 
     void run(async () => {
       const resultado = await purchasePackage(packageId);
@@ -843,7 +856,10 @@ export function PlansScreen({ onBack }: ScreenProps) {
       {!naLoja && catalog === null && <Loading label="Buscando os valores..." />}
 
       {!naLoja && catalog !== null && offers.length === 0 && (
-        <Notice tone="warning" message="Os valores da assinatura estão indisponíveis no momento. Tente de novo daqui a pouco." />
+        <>
+          <Notice tone="warning" message={catalogError ?? 'Os valores da assinatura estão indisponíveis no momento. Tente de novo daqui a pouco.'} />
+          <Button label="Tentar novamente" secondary onPress={() => setAttempt(value => value + 1)} />
+        </>
       )}
 
       {/*
@@ -853,7 +869,11 @@ export function PlansScreen({ onBack }: ScreenProps) {
         * exatamente o que faz a submissão ser recusada.
         */}
       {naLoja && <>
-        {store.length === 0 && <Loading label="Buscando os planos da loja..." />}
+        {storeLoading && <Loading label="Buscando os planos da loja..." />}
+        {!storeLoading && store.length === 0 && <>
+          <Notice tone="warning" message="Não foi possível carregar os planos da loja. Confira sua conexão e tente novamente." />
+          <Button label="Tentar novamente" secondary onPress={() => setAttempt(value => value + 1)} />
+        </>}
 
         {store.map(item => (
           <Card key={item.id} tone="lilac" onPress={busy ? undefined : () => comprarNaLoja(item.id)} accessibilityLabel={`Assinar ${item.billingPeriod === 'ANNUAL' ? 'plano anual' : 'plano mensal'} por ${item.priceLabel}`}>
@@ -892,10 +912,10 @@ export function PlansScreen({ onBack }: ScreenProps) {
       {!naLoja && offers.length > 0 && <>
         {offers.map(item => (
           <OfferCard
-            key={item.billingPeriod}
+            key={`${item.plan}:${item.billingPeriod}`}
             offer={item}
-            selected={oferta?.billingPeriod === item.billingPeriod}
-            {...(offers.length > 1 ? { onSelect: () => setChosen(item.billingPeriod) } : {})}
+            selected={oferta?.plan === item.plan && oferta.billingPeriod === item.billingPeriod}
+            {...(offers.length > 1 ? { onSelect: () => setChosen(`${item.plan}:${item.billingPeriod}`) } : {})}
           />
         ))}
 

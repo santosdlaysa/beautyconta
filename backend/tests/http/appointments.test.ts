@@ -22,6 +22,60 @@ async function agenda() {
   return { ...api, base, marcar };
 }
 
+describe("forma de pagamento", () => {
+  it("registra como a cliente pagou junto com o valor", async () => {
+    const { as, base, marcar } = await agenda();
+    const marcado = await marcar({
+      clientName: "Mariana",
+      startsAt: hoje(9),
+      durationMinutes: 60,
+      priceCents: 12_000,
+    });
+
+    const { status, body } = await as()
+      .post(`${base}/${marcado.body.id}/settle`)
+      .send({ paymentMethod: "PIX" });
+
+    expect(status).toBe(200);
+    expect(body.paymentMethod).toBe("PIX");
+    expect(body.paidCents).toBe(12_000);
+  });
+
+  it("esquece a forma quando o pagamento é desfeito", async () => {
+    const { as, base, marcar } = await agenda();
+    const marcado = await marcar({
+      clientName: "Ana",
+      startsAt: hoje(10),
+      durationMinutes: 60,
+      priceCents: 9_000,
+    });
+    await as().post(`${base}/${marcado.body.id}/settle`).send({ paymentMethod: "CASH" });
+
+    // Zerar o recebido desfaz a marcação inteira: valor, data e forma.
+    const { body } = await as().patch(`${base}/${marcado.body.id}`).send({ paidCents: 0 });
+
+    expect(body.paidCents).toBe(0);
+    expect(body.paymentMethod).toBeNull();
+    expect(body.paidAt).toBeNull();
+  });
+
+  it("não aceita forma de pagamento inventada", async () => {
+    const { as, base, marcar } = await agenda();
+    const marcado = await marcar({
+      clientName: "Júlia",
+      startsAt: hoje(11),
+      durationMinutes: 60,
+      priceCents: 9_000,
+    });
+
+    const { status } = await as()
+      .post(`${base}/${marcado.body.id}/settle`)
+      .send({ paymentMethod: "BITCOIN" });
+
+    expect(status).toBe(422);
+  });
+});
+
 describe("agenda do dia", () => {
   it("marca um atendimento e devolve o que falta receber", async () => {
     const { marcar } = await agenda();

@@ -125,6 +125,9 @@ export type ServiceRecord = {
   materials: ServiceMaterialRecord[];
 };
 
+/** Como o dinheiro entrou. Nulo enquanto nada foi recebido. */
+export type PaymentMethodSlug = "CASH" | "PIX" | "DEBIT_CARD" | "CREDIT_CARD" | "TRANSFER" | "OTHER";
+
 export type AppointmentStatusSlug = "SCHEDULED" | "CONFIRMED" | "DONE" | "CANCELED" | "NO_SHOW";
 
 /** Marcado pela profissional ou pela cliente, no link da agenda pública. */
@@ -154,6 +157,7 @@ export type AppointmentRecord = {
   /** Recebido de fato; zero enquanto não entra nada. */
   paidCents: number;
   paidAt: Date | null;
+  paymentMethod: PaymentMethodSlug | null;
   status: AppointmentStatusSlug;
   notes: string | null;
   createdAt: Date;
@@ -197,6 +201,22 @@ export type EquipmentRecord = {
 
 export type SubscriptionProviderSlug = "MERCADO_PAGO" | "REVENUECAT";
 export type BillingPeriodSlug = "MONTHLY" | "ANNUAL";
+
+/**
+ * Oferta de assinatura à venda, com o preço que a tela mostra.
+ *
+ * Vale para a venda pela web. Nas lojas quem manda no preço é a loja.
+ */
+export type PlanOfferRecord = {
+  id: string;
+  plan: "PREMIUM" | "MASTER";
+  billingPeriod: BillingPeriodSlug;
+  /** Centavos inteiros, conforme o ADR-0002. */
+  priceCents: number;
+  isActive: boolean;
+  benefits: string[];
+  updatedAt: Date;
+};
 
 export type SubscriptionRecord = {
   id: string;

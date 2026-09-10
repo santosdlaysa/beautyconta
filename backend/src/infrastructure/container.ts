@@ -5,7 +5,9 @@ import { MercadoPagoTranslator } from "./billing/mercado-pago/translator";
 import { MercadoPagoGateway } from "./billing/mercado-pago/gateway";
 import { NotConfiguredGateway } from "./billing/not-configured-gateway";
 import { RevenueCatTranslator } from "./billing/revenuecat/translator";
+import { PrismaAdminMetricsRepository } from "./persistence/prisma/admin-metrics-repository";
 import { PrismaMetricsRepository } from "./persistence/prisma/metrics-repository";
+import { PrismaPlanOfferRepository } from "./persistence/prisma/plan-offer-repository";
 import { SilentNotifier } from "./notifications/silent-notifier";
 import { TelegramNotifier } from "./notifications/telegram-notifier";
 import { prisma } from "./persistence/prisma/client";
@@ -75,6 +77,9 @@ export function createDependencies(): Dependencies {
     },
     billingResolver: gateway instanceof MercadoPagoGateway ? gateway : null,
     metrics: new PrismaMetricsRepository(prisma),
+    adminMetrics: new PrismaAdminMetricsRepository(prisma),
+    planOffers: new PrismaPlanOfferRepository(prisma),
+    admin: env.admin,
     plans: {
       prices: env.billing.prices,
       termsUrl: env.legal.termsUrl,

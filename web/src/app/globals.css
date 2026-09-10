@@ -406,3 +406,71 @@ footer small { display: block; color: #9f9499; font-size: 12px; }
   .booking-page { padding: 40px 24px 72px; }
   .booking-step { padding: 26px 24px; }
 }
+
+/* ---------------------------------------------------------------------------
+ * Painel administrativo
+ *
+ * Denso de propósito: aqui a pessoa vem conferir números e mexer em preço, não
+ * ser convencida de nada. Mesmas cores do produto, menos ar entre os elementos.
+ * --------------------------------------------------------------------------- */
+.admin { max-width: 1100px; margin: 0 auto; padding: 20px 16px 64px; }
+.admin-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.admin-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 22px; }
+.admin-tab { min-height: 40px; padding: 0 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.admin-tab[aria-pressed="true"] { background: var(--rose); border-color: var(--rose); color: #fff; }
+.admin-body { display: grid; gap: 26px; }
+
+.admin-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.admin-card { min-width: 0; display: grid; gap: 3px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.admin-card-titulo { color: var(--muted); font-size: 12px; }
+.admin-card-valor { font-size: 24px; font-weight: 700; overflow-wrap: anywhere; }
+.admin-card-nota { color: var(--muted); font-size: 11px; }
+
+.admin-h2 { margin: 0 0 10px; font-size: 17px; }
+.admin-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.admin-lista li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+
+.admin-planos { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.admin-plano { min-width: 0; display: grid; gap: 7px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.admin-plano h3 { margin: 0 0 4px; font-size: 15px; }
+.admin-plano label { color: var(--muted); font-size: 12px; }
+.admin-preco { display: flex; align-items: center; gap: 7px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: #fffcfb; }
+.admin-preco span { color: var(--muted); font-size: 14px; }
+.admin-preco input { flex: 1; min-width: 0; height: 42px; border: 0; outline: 0; background: transparent; font: inherit; font-size: 16px; }
+.admin-preview { margin: 0; color: var(--green); font-size: 12px; font-weight: 600; }
+.admin-plano textarea { width: 100%; max-width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fffcfb; font: inherit; font-size: 14px; resize: vertical; }
+.admin-check { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 13px; }
+.admin-acoes { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+
+.admin-primary { min-height: 42px; padding: 0 18px; border: 0; border-radius: 10px; background: var(--rose); color: #fff; font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; }
+.admin-primary:disabled { opacity: .55; cursor: not-allowed; }
+.admin-link { border: 0; background: none; color: var(--rose-dark); font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+.admin-erro { margin: 0; color: var(--danger); font-size: 13px; }
+.admin-ok { margin: 0; color: var(--green); font-size: 13px; }
+.admin-loading, .admin-vazio, .admin-nota { color: var(--muted); font-size: 13px; }
+.admin-nota { margin: 0 0 4px; line-height: 1.65; }
+
+.admin-busca { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-bottom: 16px; }
+.admin-busca label { flex-basis: 100%; color: var(--muted); font-size: 12px; }
+.admin-busca input { flex: 1; min-width: 180px; height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: #fffcfb; font: inherit; }
+
+/* A tabela rola dentro da própria caixa: sem isto ela empurra a página inteira
+   para o lado no celular. */
+.admin-tabela-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.admin-tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
+.admin-tabela caption { padding: 12px 14px; color: var(--muted); font-size: 12px; text-align: left; }
+.admin-tabela th, .admin-tabela td { padding: 11px 14px; text-align: left; border-top: 1px solid var(--line); vertical-align: top; }
+.admin-tabela th { color: var(--muted); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.admin-tabela td strong { display: block; font-weight: 650; }
+.admin-sub { display: block; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+
+.admin-tag { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 650; white-space: nowrap; }
+.admin-tag-ok { background: #e6f2ec; color: var(--green); }
+.admin-tag-warn { background: #fdf1e0; color: #8a5a1c; }
+.admin-tag-off { background: #f2eef0; color: var(--muted); }
+
+.admin-login { max-width: 340px; margin: 12vh auto; display: grid; gap: 9px; padding: 26px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); }
+.admin-login h1 { margin: 0 0 6px; font-size: 20px; }
+.admin-login label { color: var(--muted); font-size: 12px; }
+.admin-login input { height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: #fffcfb; font: inherit; }

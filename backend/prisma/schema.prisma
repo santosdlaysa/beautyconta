@@ -299,6 +299,8 @@ model Appointment {
   priceCents      BigInt            @map("price_cents")
   paidCents       BigInt            @default(0) @map("paid_cents")
   paidAt          DateTime?         @map("paid_at")
+  /// Nulo enquanto nada foi recebido; some junto quando o pagamento é desfeito.
+  paymentMethod   PaymentMethod?    @map("payment_method")
   status          AppointmentStatus @default(SCHEDULED)
   notes           String?
   createdAt       DateTime          @default(now()) @map("created_at")
@@ -370,6 +372,18 @@ model Equipment {
 // ---------------------------------------------------------------------------
 
 /// Situação do atendimento na agenda do dia.
+/// Como a cliente pagou. Interessa ao caixa do dia — dinheiro entra na hora,
+/// cartão de crédito entra depois e com taxa — e por isso é registrado junto
+/// com o valor, não deduzido dele.
+enum PaymentMethod {
+  CASH
+  PIX
+  DEBIT_CARD
+  CREDIT_CARD
+  TRANSFER
+  OTHER
+}
+
 enum AppointmentStatus {
   SCHEDULED
   CONFIRMED
@@ -414,6 +428,31 @@ enum SubscriptionProvider {
 enum BillingPeriod {
   MONTHLY
   ANNUAL
+}
+
+/// Oferta de assinatura: o preço que a tela mostra antes da compra.
+///
+/// Mora no banco, e não em variável de ambiente, para que o preço possa mudar
+/// sem publicar servidor. O painel administrativo é quem edita.
+///
+/// Vale para a venda pela web. Na App Store e no Google Play quem manda no
+/// preço é a loja — lá o valor é definido no console delas, varia por país e
+/// moeda, e é o que o SDK devolve que aparece na tela.
+model PlanOffer {
+  id            String        @id @default(uuid()) @db.Uuid
+  plan          Plan
+  billingPeriod BillingPeriod @map("billing_period")
+  /// Centavos inteiros, conforme o ADR-0002.
+  priceCents    Int           @map("price_cents")
+  /// Oferta desligada some da tela sem perder o preço já configurado.
+  isActive      Boolean       @default(true) @map("is_active")
+  /// O que a assinatura entrega, na ordem em que a tela lista.
+  benefits      String[]
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  @@unique([plan, billingPeriod])
+  @@map("plan_offers")
 }
 
 model Subscription {

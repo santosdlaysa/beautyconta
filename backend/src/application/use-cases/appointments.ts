@@ -1,7 +1,7 @@
 import { DomainError } from "../../domain/shared";
 import { NotFoundError } from "../errors";
 import type { AppointmentRepository, ServiceRepository } from "../ports/repositories";
-import type { AppointmentRecord, AppointmentStatusSlug } from "../ports/records";
+import type { AppointmentRecord, AppointmentStatusSlug, PaymentMethodSlug } from "../ports/records";
 import type { BusinessAccess } from "../services/business-access";
 
 /**
@@ -22,6 +22,7 @@ export type AppointmentInput = {
   priceCents: number;
   status?: AppointmentStatusSlug;
   paidCents?: number;
+  paymentMethod?: PaymentMethodSlug | null;
   notes?: string | null;
 };
 
@@ -59,6 +60,8 @@ export class CreateAppointment {
       status: input.status ?? "SCHEDULED",
       paidCents: paidFor(input),
       paidAt: paidFor(input) > 0 ? new Date() : null,
+      // A forma só faz sentido junto do valor: sem recebimento, não há como.
+      paymentMethod: paidFor(input) > 0 ? (input.paymentMethod ?? null) : null,
       notes: input.notes?.trim() || null,
     });
   }
@@ -131,11 +134,18 @@ export class UpdateAppointment {
       ...(input.paidCents !== undefined
         ? {
             paidCents,
-            // A data do pagamento acompanha o valor: zerar o pago desfaz a
-            // marcação, e não deixa uma data órfã dizendo que entrou dinheiro.
+            // A data e a forma acompanham o valor: zerar o pago desfaz a
+            // marcação inteira, e não deixa uma data nem uma forma órfãs
+            // dizendo que entrou dinheiro.
             paidAt: paidCents > 0 ? (current.paidAt ?? new Date()) : null,
+            paymentMethod:
+              paidCents > 0
+                ? (input.paymentMethod ?? current.paymentMethod ?? null)
+                : null,
           }
-        : {}),
+        : input.paymentMethod !== undefined
+          ? { paymentMethod: current.paidCents > 0 ? input.paymentMethod : null }
+          : {}),
     });
   }
 }
@@ -211,13 +221,14 @@ export class SettleAppointment {
     userId: string,
     businessId: string,
     id: string,
-    input: { paidCents?: number } = {},
+    input: { paidCents?: number; paymentMethod?: PaymentMethodSlug | null } = {},
   ): Promise<AppointmentRecord> {
     const current = await new GetAppointment(this.access, this.appointments).execute(userId, businessId, id);
     const paidCents = input.paidCents ?? current.priceCents;
 
     return new UpdateAppointment(this.access, this.appointments, this.services).execute(userId, businessId, id, {
       paidCents,
+      ...(input.paymentMethod !== undefined ? { paymentMethod: input.paymentMethod } : {}),
       status: "DONE",
     });
   }

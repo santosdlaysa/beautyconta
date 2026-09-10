@@ -8,7 +8,7 @@ import { useApp } from '../state/AppProvider';
 import { useDialog } from './Dialog';
 import { Icon } from './AppChrome';
 import { PrimeirosPassosCard, usePrimeirosPassos } from './PrimeirosPassos';
-import { EmptyState, HeroCard, ListRow, Notice, Row, Screen, Section, StatCard, TimelinePanel, TimelineRow, WeekStrip, ui } from './ui';
+import { CENTER_DAY, EmptyState, HeroCard, ListRow, Notice, Row, Screen, Section, StatCard, TimelinePanel, TimelineRow, WeekStrip, weekAround, ui } from './ui';
 
 export type HomeRoute = 'inicio' | 'calcular' | 'servicos' | 'custos' | 'planos' | 'clientes' | 'agenda' | 'agenda-online' | 'financeiro' | 'estoque' | 'equipamentos' | 'relatorios' | 'perfil';
 
@@ -40,18 +40,12 @@ export function HomeScreen({ onNavigate }: { onNavigate: (route: HomeRoute) => v
   const primeirosPassos = usePrimeirosPassos();
   const [today] = useState(() => new Date());
   const [visibleValues, setVisibleValues] = useState(true);
-  const selectedDay = app.agendaDay.getDay();
-
-  const week = useMemo(() => Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() - today.getDay() + index);
-    return date;
-  }), [today]);
-
-  const selectedDate = week[selectedDay];
+  // A faixa gira em torno do dia escolhido, que ocupa sempre a posição do meio.
+  const week = useMemo(() => weekAround(app.agendaDay), [app.agendaDay]);
+  const selectedDate = app.agendaDay;
   const appointments = app.appointments;
   const summary = app.daySummary;
-  const dateLabel = selectedDay === today.getDay() ? 'Hoje' : selectedDate.toLocaleDateString('pt-BR', { weekday: 'long' });
+  const dateLabel = selectedDate.toDateString() === today.toDateString() ? 'Hoje' : selectedDate.toLocaleDateString('pt-BR', { weekday: 'long' });
 
   // Serviço arquivado saiu da tabela: não conta na média nem no aviso de setup.
   const activeServices = app.services.filter(service => !service.isArchived);
@@ -188,7 +182,12 @@ export function HomeScreen({ onNavigate }: { onNavigate: (route: HomeRoute) => v
           <Text style={s.calendarHint}>{money(summary.receivedCents)} recebidos</Text>
         )}
       </View>
-      <WeekStrip dates={week} selected={selectedDay} onSelect={index => void app.showAgendaDay(week[index])} />
+      <WeekStrip
+        dates={week}
+        selected={CENTER_DAY}
+        marked={index => week[index].toDateString() === today.toDateString()}
+        onSelect={index => void app.showAgendaDay(week[index])}
+      />
 
       <TimelinePanel title={`${dateLabel}, ${selectedDate.getDate()}`} onAdd={() => onNavigate('agenda')}>
         {appointments.length === 0

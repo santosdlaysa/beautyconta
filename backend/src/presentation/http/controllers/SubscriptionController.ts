@@ -7,6 +7,7 @@ import {
   HandleBillingWebhook,
   StartSubscription,
 } from "../../../application/use-cases/subscriptions";
+import { GetCurrentOffers } from "../../../application/use-cases/plan-offers";
 import { serializeSubscription } from "../mappers/serializers";
 import { userIdOf } from "../middleware/identity";
 import { parse } from "../validators/parse";
@@ -47,11 +48,18 @@ export class SubscriptionController {
     const { businessId } = parse(businessParamSchema, req.params);
     const input = parse(checkoutSchema, req.body);
 
+    // O preço cobrado sai do que está à venda agora — nunca do corpo do
+    // pedido, que é escolhido por quem chama.
+    const vigentes = await new GetCurrentOffers(
+      this.deps.planOffers,
+      this.deps.plans.prices,
+    ).execute();
+
     const session = await new StartSubscription(
       this.access,
       this.deps.subscriptions,
       this.deps.gateway,
-      this.deps.plans.prices,
+      vigentes,
     ).execute(userIdOf(req), businessId, input);
 
     res.status(201).json(session);

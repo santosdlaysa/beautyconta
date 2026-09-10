@@ -7,6 +7,7 @@ import type {
   EquipmentRecord,
   FixedCostRecord,
   MaterialRecord,
+  PlanOfferRecord,
   PricingCalculationRecord,
   ServiceRecord,
   SessionRecord,
@@ -211,6 +212,98 @@ export interface EquipmentRepository {
   ): Promise<EquipmentRecord>;
   delete(businessId: string, id: string): Promise<void>;
 }
+
+/**
+ * Ofertas de assinatura, editadas pelo painel administrativo.
+ *
+ * A leitura acontece a cada consulta de preço em vez de na inicialização: o
+ * preço muda pelo painel, e um valor lido uma vez só continuaria valendo até
+ * alguém reiniciar o servidor.
+ */
+export interface PlanOfferRepository {
+  list(options?: { onlyActive?: boolean }): Promise<PlanOfferRecord[]>;
+  save(input: {
+    plan: PlanOfferRecord["plan"];
+    billingPeriod: PlanOfferRecord["billingPeriod"];
+    priceCents: number;
+    isActive: boolean;
+    benefits: string[];
+  }): Promise<PlanOfferRecord>;
+  delete(
+    plan: PlanOfferRecord["plan"],
+    billingPeriod: PlanOfferRecord["billingPeriod"],
+  ): Promise<void>;
+}
+
+/**
+ * Leituras do painel administrativo.
+ *
+ * Separada de `MetricsRepository`, que serve ao relatório automático: aqui as
+ * consultas atravessam contas de outras pessoas, e manter isso numa porta
+ * própria deixa explícito o que o painel alcança.
+ *
+ * Todas as leituras são somente leitura de propósito. Conceder plano à mão, se
+ * um dia for preciso, passa pelo mesmo caminho de cobrança que uma compra —
+ * escrever direto em `subscriptions` criaria um acesso que nenhum webhook
+ * consegue explicar depois.
+ */
+export interface AdminMetricsRepository {
+  overview(now: Date): Promise<AdminOverview>;
+  listUsers(options: {
+    search?: string;
+    limit: number;
+    offset: number;
+  }): Promise<{ items: AdminUserSummary[]; total: number }>;
+  findUser(userId: string): Promise<AdminUserDetail | null>;
+  listSubscriptions(options: {
+    limit: number;
+    offset: number;
+  }): Promise<{ items: AdminSubscriptionSummary[]; total: number }>;
+}
+
+export type AdminOverview = {
+  users: { total: number; today: number; last7Days: number; last30Days: number };
+  businesses: { total: number; withBookingOpen: number };
+  subscriptions: { active: number; byPlan: Record<string, number>; byChannel: Record<string, number> };
+  /** Receita reconhecida do mês corrente, em centavos, pelas ofertas vigentes. */
+  revenue: { monthlyRecurringCents: number };
+  usage: { services: number; materials: number; calculations: number; appointments: number };
+};
+
+export type AdminUserSummary = {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: Date;
+  businessName: string | null;
+  plan: string;
+};
+
+export type AdminUserDetail = AdminUserSummary & {
+  businesses: {
+    id: string;
+    name: string | null;
+    segment: string;
+    timezone: string;
+    bookingSlug: string | null;
+    counts: { services: number; materials: number; fixedCosts: number; calculations: number; appointments: number };
+    subscriptions: SubscriptionRecord[];
+  }[];
+};
+
+export type AdminSubscriptionSummary = {
+  id: string;
+  businessId: string;
+  businessName: string | null;
+  ownerEmail: string;
+  plan: string;
+  status: string;
+  channel: string;
+  billingPeriod: string;
+  currentPeriodEnd: Date | null;
+  cancelAtPeriodEnd: boolean;
+  createdAt: Date;
+};
 
 export interface SubscriptionRepository {
   listByBusiness(businessId: string): Promise<SubscriptionRecord[]>;

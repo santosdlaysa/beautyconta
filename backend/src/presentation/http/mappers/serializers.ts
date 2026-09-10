@@ -182,6 +182,7 @@ export function serializeAppointment(appointment: AppointmentRecord) {
     priceCents: appointment.priceCents,
     paidCents: appointment.paidCents,
     paidAt: iso(appointment.paidAt),
+    paymentMethod: appointment.paymentMethod,
     status: appointment.status,
     notes: appointment.notes,
     /** Derivado para a interface não repetir a subtração em cada tela. */

@@ -200,6 +200,7 @@ export class BookAppointment {
       priceCents: service.currentPriceCents,
       paidCents: 0,
       paidAt: null,
+      paymentMethod: null,
       status: "SCHEDULED",
       notes: request.notes?.trim() || null,
     });

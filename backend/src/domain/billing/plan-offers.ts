@@ -1,3 +1,4 @@
+import { DomainError } from "../shared/domain-error";
 import type { PlanSlug } from "./plan-limits";
 
 /**
@@ -35,6 +36,34 @@ export type PlanOffer = PlanPrice & {
    */
   savingsPercent: number | null;
 };
+
+/**
+ * Faixa aceita para o preço de uma oferta.
+ *
+ * O piso existe porque preço zerado publicaria assinatura de graça sem que
+ * ninguém notasse. O teto pega o dedo escorregado no teclado numérico — um zero
+ * a mais em R$ 29,90 vira R$ 299,00, e o engano só apareceria quando alguém
+ * tentasse pagar.
+ */
+export const MIN_PRICE_CENTS = 100;
+export const MAX_PRICE_CENTS = 100_000;
+
+export function assertValidOffer(input: { priceCents: number }): void {
+  if (!Number.isInteger(input.priceCents)) {
+    throw new DomainError("O preço precisa ser um valor em centavos inteiros.", "priceCents");
+  }
+  if (input.priceCents < MIN_PRICE_CENTS || input.priceCents > MAX_PRICE_CENTS) {
+    throw new DomainError(
+      `O preço precisa estar entre ${formatCents(MIN_PRICE_CENTS)} e ${formatCents(MAX_PRICE_CENTS)}.`,
+      "priceCents",
+    );
+  }
+}
+
+/** Só para a mensagem de erro: o resto do sistema não formata dinheiro aqui. */
+function formatCents(cents: number): string {
+  return `R$ ${(cents / 100).toFixed(2).replace(".", ",")}`;
+}
 
 const MONTHS_IN_YEAR = 12;
 

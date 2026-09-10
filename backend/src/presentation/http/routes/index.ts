@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { Dependencies } from "../../../application/ports/dependencies";
 import { AccountController } from "../controllers/AccountController";
+import { AdminController } from "../controllers/AdminController";
 import { BookingController } from "../controllers/BookingController";
 import { AppointmentController } from "../controllers/AppointmentController";
 import { BusinessController } from "../controllers/BusinessController";
@@ -13,6 +14,7 @@ import { ServiceController } from "../controllers/ServiceController";
 import { SessionController } from "../controllers/SessionController";
 import { SubscriptionController } from "../controllers/SubscriptionController";
 import { asyncHandler } from "../middleware/async-handler";
+import { createAdminGuard } from "../middleware/admin";
 import { requireUser } from "../middleware/identity";
 import { createRateLimiters, type RateLimiters } from "../middleware/rate-limit";
 import { catalogRoutes } from "./catalog.routes";
@@ -46,6 +48,7 @@ export function createApiRouter(deps: Dependencies): Router {
   router.use(accountRoutes(deps, limites));
   router.use("/businesses", businessRoutes(deps, limites));
   router.use("/billing", billingRoutes(deps, limites));
+  router.use("/admin", adminRoutes(deps, limites));
 
   return router;
 }
@@ -59,7 +62,46 @@ function planRoutes(deps: Dependencies): Router {
   const controller = new PlanController(deps);
   const router = Router();
 
-  router.get("/plans", controller.list);
+  router.get("/plans", asyncHandler(controller.list));
+
+  return router;
+}
+
+/**
+ * Painel administrativo.
+ *
+ * Fora dos três anéis: nenhuma destas rotas pertence a uma usuária, e todas
+ * atravessam contas de outras pessoas. A guarda vale para o roteador inteiro,
+ * de uma vez — assim a próxima rota adicionada aqui nasce protegida, em vez de
+ * depender de alguém lembrar de repetir a verificação.
+ *
+ * O teto de requisição é o das rotas abertas: o painel é chamado de fora, com
+ * um segredo que compensa tentar adivinhar.
+ */
+function adminRoutes(deps: Dependencies, limites: RateLimiters): Router {
+  const controller = new AdminController(deps);
+  const router = Router();
+
+  // A identidade já vem resolvida de `app.ts`, para toda a API: quem entra pelo
+  // segredo do painel não tem sessão, e quem entra pela sessão já a tem aqui.
+  router.use(limites.public);
+  router.use(
+    createAdminGuard(deps.admin, async (userId) => {
+      const user = await deps.users.findById(userId);
+      return user ? { email: user.email } : null;
+    }),
+  );
+
+  router.get("/overview", asyncHandler(controller.overview));
+
+  router.get("/plans", asyncHandler(controller.listOffers));
+  router.put("/plans", asyncHandler(controller.saveOffer));
+  router.delete("/plans/:plan/:billingPeriod", asyncHandler(controller.deleteOffer));
+
+  router.get("/users", asyncHandler(controller.listUsers));
+  router.get("/users/:id", asyncHandler(controller.getUser));
+
+  router.get("/subscriptions", asyncHandler(controller.listSubscriptions));
 
   return router;
 }

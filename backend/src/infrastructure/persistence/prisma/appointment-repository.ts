@@ -95,6 +95,7 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
         ...(input.priceCents !== undefined ? { priceCents: numberToCents(input.priceCents) } : {}),
         ...(input.paidCents !== undefined ? { paidCents: numberToCents(input.paidCents) } : {}),
         ...(input.paidAt !== undefined ? { paidAt: input.paidAt } : {}),
+        ...(input.paymentMethod !== undefined ? { paymentMethod: input.paymentMethod } : {}),
         ...(input.status !== undefined ? { status: input.status } : {}),
         ...(input.notes !== undefined ? { notes: input.notes } : {}),
       },
@@ -125,6 +126,7 @@ function toData(input: Omit<AppointmentRecord, "id" | "createdAt" | "updatedAt">
     priceCents: numberToCents(input.priceCents),
     paidCents: numberToCents(input.paidCents),
     paidAt: input.paidAt,
+    paymentMethod: input.paymentMethod,
     status: input.status,
     notes: input.notes,
   };
@@ -143,6 +145,7 @@ function toRecord(appointment: Appointment): AppointmentRecord {
     priceCents: centsToNumber(appointment.priceCents),
     paidCents: centsToNumber(appointment.paidCents),
     paidAt: appointment.paidAt,
+    paymentMethod: appointment.paymentMethod,
     status: appointment.status,
     notes: appointment.notes,
     createdAt: appointment.createdAt,

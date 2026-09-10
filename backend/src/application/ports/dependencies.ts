@@ -6,6 +6,7 @@ import type {
 } from "./billing";
 import type { Notifier } from "./notifications";
 import type {
+  AdminMetricsRepository,
   AppointmentRepository,
   BillingEventRepository,
   BusinessHoursRepository,
@@ -16,6 +17,7 @@ import type {
   FixedCostRepository,
   MaterialRepository,
   MetricsRepository,
+  PlanOfferRepository,
   ServiceRepository,
   SessionRepository,
   SubscriptionRepository,
@@ -52,6 +54,12 @@ export type Dependencies = {
    */
   billingResolver: BillingStateResolver | null;
   metrics: MetricsRepository;
+  /** Leituras do painel administrativo, que atravessam contas de outras pessoas. */
+  adminMetrics: AdminMetricsRepository;
+  /** Ofertas de assinatura, editadas pelo painel. */
+  planOffers: PlanOfferRepository;
+  /** Quem pode abrir o painel administrativo. */
+  admin: AdminConfig;
   /**
    * Preço de cada oferta e os documentos que a tela de assinatura precisa
    * linkar. Chega por aqui, e não por `process.env`, conforme o ADR-0008.
@@ -65,4 +73,18 @@ export type Dependencies = {
   /** Avisos administrativos. Silencioso quando o Telegram não está configurado. */
   notifier: Notifier;
   clock: Clock;
+};
+
+/**
+ * Quem pode abrir o painel administrativo.
+ *
+ * Mora na aplicação, e não no middleware que a aplica: é configuração do
+ * sistema, não detalhe do transporte. Fosse o contrário, a camada de aplicação
+ * dependeria da de apresentação — exatamente a inversão que o ADR-0008 proíbe.
+ */
+export type AdminConfig = {
+  /** Segredo do painel. Nulo desliga a entrada por cabeçalho. */
+  secret: string | null;
+  /** E-mails que podem administrar pela própria sessão do aplicativo. */
+  emails: readonly string[];
 };

@@ -10,9 +10,15 @@ import type { Dependencies } from "../../src/application/ports/dependencies";
 import type { AdminNotice, Notifier } from "../../src/application/ports/notifications";
 import type {
   AdminMetrics,
+  AdminMetricsRepository,
+  AdminOverview,
+  AdminSubscriptionSummary,
+  AdminUserDetail,
+  AdminUserSummary,
   AppointmentRepository,
   BillingEventRepository,
   MetricsRepository,
+  PlanOfferRepository,
   BusinessHoursRepository,
   BusinessRepository,
   CalculationRepository,
@@ -28,6 +34,7 @@ import type {
 import type {
   AppointmentRecord,
   BillingEventRecord,
+  PlanOfferRecord,
   BusinessHourRecord,
   BusinessRecord,
   BusinessSettingsRecord,
@@ -892,8 +899,91 @@ export type TestDependencies = Dependencies & {
   billingEvents: InMemoryBillingEventRepository;
   gateway: FakeGateway;
   metrics: StubMetricsRepository;
+  adminMetrics: StubAdminMetricsRepository;
+  planOffers: InMemoryPlanOfferRepository;
   notifier: RecordingNotifier;
 };
+
+
+/**
+ * Ofertas de assinatura em memória.
+ *
+ * Começa vazia: é o estado de um servidor recém-instalado, e é justamente esse
+ * o caso que precisa ser exercitado — sem oferta, a tela não pode vender.
+ */
+export class InMemoryPlanOfferRepository implements PlanOfferRepository {
+  readonly items = new Map<string, PlanOfferRecord>();
+
+  private key(plan: string, billingPeriod: string) {
+    return `${plan}:${billingPeriod}`;
+  }
+
+  list(options: { onlyActive?: boolean } = {}): Promise<PlanOfferRecord[]> {
+    const todas = [...this.items.values()];
+    return Promise.resolve(options.onlyActive ? todas.filter((item) => item.isActive) : todas);
+  }
+
+  save(input: {
+    plan: PlanOfferRecord["plan"];
+    billingPeriod: PlanOfferRecord["billingPeriod"];
+    priceCents: number;
+    isActive: boolean;
+    benefits: string[];
+  }): Promise<PlanOfferRecord> {
+    const key = this.key(input.plan, input.billingPeriod);
+    const record: PlanOfferRecord = {
+      id: this.items.get(key)?.id ?? `offer-${this.items.size + 1}`,
+      ...input,
+      updatedAt: new Date(),
+    };
+
+    this.items.set(key, record);
+    return Promise.resolve(record);
+  }
+
+  delete(
+    plan: PlanOfferRecord["plan"],
+    billingPeriod: PlanOfferRecord["billingPeriod"],
+  ): Promise<void> {
+    this.items.delete(this.key(plan, billingPeriod));
+    return Promise.resolve();
+  }
+}
+
+/**
+ * Leituras do painel, em memória.
+ *
+ * Os números saem zerados e os dados, vazios: os testes do painel montam o que
+ * precisam pela própria API, como uma usuária faria, em vez de plantar registros
+ * direto no repositório.
+ */
+export class StubAdminMetricsRepository implements AdminMetricsRepository {
+  overview(): Promise<AdminOverview> {
+    return Promise.resolve({
+      users: { total: 0, today: 0, last7Days: 0, last30Days: 0 },
+      businesses: { total: 0, withBookingOpen: 0 },
+      subscriptions: { active: 0, byPlan: {}, byChannel: {} },
+      revenue: { monthlyRecurringCents: 0 },
+      usage: { services: 0, materials: 0, calculations: 0, appointments: 0 },
+    });
+  }
+
+  listUsers(): Promise<{ items: AdminUserSummary[]; total: number }> {
+    return Promise.resolve({ items: [], total: 0 });
+  }
+
+  findUser(): Promise<AdminUserDetail | null> {
+    return Promise.resolve(null);
+  }
+
+  listSubscriptions(): Promise<{ items: AdminSubscriptionSummary[]; total: number }> {
+    return Promise.resolve({ items: [], total: 0 });
+  }
+}
+
+/** Credenciais do painel usadas pela suite. */
+export const SEGREDO_DO_PAINEL = "segredo-do-painel-de-teste";
+export const EMAIL_DA_ADMINISTRADORA = "admin@beautyconta.com.br";
 
 export function createTestDependencies(): TestDependencies {
   const materials = new InMemoryMaterialRepository();
@@ -923,6 +1013,11 @@ export function createTestDependencies(): TestDependencies {
     // Sem consulta ao provedor: o gateway real é exercitado em teste próprio.
     billingResolver: null,
     metrics: new StubMetricsRepository(),
+    adminMetrics: new StubAdminMetricsRepository(),
+    planOffers: new InMemoryPlanOfferRepository(),
+    // Segredo conhecido pela suíte, e um e-mail de administradora: os dois
+    // caminhos de entrada precisam ser exercitados.
+    admin: { secret: SEGREDO_DO_PAINEL, emails: [EMAIL_DA_ADMINISTRADORA] },
     // A suíte configura preço porque a tela de planos sem preço não vende, e
     // é justamente esse par — com e sem preço — que os testes exercitam.
     plans: {

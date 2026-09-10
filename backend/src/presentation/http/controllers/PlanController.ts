@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import type { Dependencies } from "../../../application/ports/dependencies";
+import { GetCurrentOffers } from "../../../application/use-cases/plan-offers";
 import { PLAN_LIMITS } from "../../../domain/billing/plan-limits";
-import { buildOffers, PLAN_BENEFITS } from "../../../domain/billing/plan-offers";
 
 /**
  * Catálogo de planos, público.
@@ -17,9 +17,10 @@ import { buildOffers, PLAN_BENEFITS } from "../../../domain/billing/plan-offers"
 export class PlanController {
   constructor(private readonly deps: Dependencies) {}
 
-  list = (_req: Request, res: Response): void => {
+  list = async (_req: Request, res: Response): Promise<void> => {
     const { plans } = this.deps;
-    const offers = buildOffers(plans.prices);
+
+    const offers = await new GetCurrentOffers(this.deps.planOffers, plans.prices).execute();
 
     res.json({
       /**
@@ -32,7 +33,7 @@ export class PlanController {
         priceCents: offer.priceCents,
         monthlyEquivalentCents: offer.monthlyEquivalentCents,
         savingsPercent: offer.savingsPercent,
-        benefits: PLAN_BENEFITS[offer.plan as keyof typeof PLAN_BENEFITS] ?? [],
+        benefits: offer.benefits,
       })),
       limits: PLAN_LIMITS,
       legal: {

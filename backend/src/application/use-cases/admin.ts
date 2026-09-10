@@ -1,0 +1,113 @@
+import { DomainError } from "../../domain/shared";
+import { MAX_PRICE_CENTS, MIN_PRICE_CENTS, assertValidOffer } from "../../domain/billing/plan-offers";
+import type { PlanOfferRecord } from "../ports/records";
+import type { AdminMetricsRepository, PlanOfferRepository } from "../ports/repositories";
+
+/**
+ * Casos de uso do painel administrativo.
+ *
+ * Nenhum deles confere permissão: quem faz isso é a guarda na borda HTTP, uma
+ * vez, para todas as rotas do painel. Repetir a verificação aqui daria a
+ * impressão de duas camadas de proteção onde há uma — e a que importa é a que
+ * não pode ser esquecida ao adicionar a próxima rota.
+ */
+
+export class ListPlanOffers {
+  constructor(private readonly offers: PlanOfferRepository) {}
+
+  execute(): Promise<PlanOfferRecord[]> {
+    return this.offers.list();
+  }
+}
+
+/**
+ * Grava o preço de um plano.
+ *
+ * O valor chega em centavos inteiros e é validado no domínio antes de tocar o
+ * banco: preço zerado publicaria uma assinatura de graça, e preço absurdo por
+ * dedo escorregado no teclado numérico é o tipo de engano que só aparece
+ * quando alguém tenta pagar.
+ */
+export class SavePlanOffer {
+  constructor(private readonly offers: PlanOfferRepository) {}
+
+  async execute(input: {
+    plan: PlanOfferRecord["plan"];
+    billingPeriod: PlanOfferRecord["billingPeriod"];
+    priceCents: number;
+    isActive?: boolean;
+    benefits?: string[];
+  }): Promise<PlanOfferRecord> {
+    assertValidOffer({ priceCents: input.priceCents });
+
+    const benefits = (input.benefits ?? [])
+      .map((benefit) => benefit.trim())
+      .filter(Boolean)
+      .slice(0, 12);
+
+    return this.offers.save({
+      plan: input.plan,
+      billingPeriod: input.billingPeriod,
+      priceCents: input.priceCents,
+      isActive: input.isActive ?? true,
+      benefits,
+    });
+  }
+}
+
+export class DeletePlanOffer {
+  constructor(private readonly offers: PlanOfferRepository) {}
+
+  execute(
+    plan: PlanOfferRecord["plan"],
+    billingPeriod: PlanOfferRecord["billingPeriod"],
+  ): Promise<void> {
+    return this.offers.delete(plan, billingPeriod);
+  }
+}
+
+/** Os números que o painel mostra na abertura. */
+export class GetAdminOverview {
+  constructor(private readonly metrics: AdminMetricsRepository) {}
+
+  execute(now: Date) {
+    return this.metrics.overview(now);
+  }
+}
+
+export class ListAdminUsers {
+  constructor(private readonly metrics: AdminMetricsRepository) {}
+
+  execute(options: { search?: string; limit?: number; offset?: number }) {
+    return this.metrics.listUsers({
+      ...(options.search ? { search: options.search.trim() } : {}),
+      // Teto para que um `limit` grande demais não vire uma varredura da tabela
+      // inteira numa requisição.
+      limit: Math.min(Math.max(options.limit ?? 50, 1), 200),
+      offset: Math.max(options.offset ?? 0, 0),
+    });
+  }
+}
+
+export class GetAdminUser {
+  constructor(private readonly metrics: AdminMetricsRepository) {}
+
+  async execute(userId: string) {
+    const user = await this.metrics.findUser(userId);
+    if (!user) throw new DomainError("Usuária não encontrada.", "userId");
+    return user;
+  }
+}
+
+export class ListAdminSubscriptions {
+  constructor(private readonly metrics: AdminMetricsRepository) {}
+
+  execute(options: { limit?: number; offset?: number }) {
+    return this.metrics.listSubscriptions({
+      limit: Math.min(Math.max(options.limit ?? 50, 1), 200),
+      offset: Math.max(options.offset ?? 0, 0),
+    });
+  }
+}
+
+export { MAX_PRICE_CENTS, MIN_PRICE_CENTS };

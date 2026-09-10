@@ -459,6 +459,9 @@ export const saveCalculation = ({ token, businessId }: Scope, input: PublicPrici
     token,
   });
 
+/** Como a cliente pagou. Nulo enquanto nada foi recebido. */
+export type PaymentMethod = 'CASH' | 'PIX' | 'DEBIT_CARD' | 'CREDIT_CARD' | 'TRANSFER' | 'OTHER';
+
 export type AppointmentStatus = 'SCHEDULED' | 'CONFIRMED' | 'DONE' | 'CANCELED' | 'NO_SHOW';
 
 /** Quem marcou: a profissional pelo aplicativo, ou a cliente pelo link. */
@@ -479,6 +482,7 @@ export type Appointment = {
   /** Recebido de fato. */
   paidCents: number;
   paidAt: string | null;
+  paymentMethod: PaymentMethod | null;
   status: AppointmentStatus;
   notes: string | null;
   /** Quanto do combinado ainda não entrou. */
@@ -500,6 +504,7 @@ export type AppointmentInput = {
   durationMinutes: number;
   priceCents: number;
   paidCents?: number;
+  paymentMethod?: PaymentMethod | null;
   status?: AppointmentStatus;
   notes?: string | null;
 };
@@ -525,10 +530,14 @@ export const updateAppointment = ({ token, businessId }: Scope, id: string, inpu
   apiRequest<Appointment>(scoped(businessId, `/appointments/${id}`), { method: 'PATCH', body: input, token });
 
 /** Sem valor, quita o combinado; com valor, registra pagamento parcial. */
-export const settleAppointment = ({ token, businessId }: Scope, id: string, paidCents?: number) =>
+export const settleAppointment = (
+  { token, businessId }: Scope,
+  id: string,
+  input: { paidCents?: number; paymentMethod?: PaymentMethod | null } = {},
+) =>
   apiRequest<Appointment>(scoped(businessId, `/appointments/${id}/settle`), {
     method: 'POST',
-    body: paidCents === undefined ? {} : { paidCents },
+    body: input,
     token,
   });
 

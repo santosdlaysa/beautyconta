@@ -119,6 +119,7 @@ export const priceServiceSchema = z.object({
   save: z.boolean().optional(),
 });
 
+const paymentMethod = z.enum(["CASH", "PIX", "DEBIT_CARD", "CREDIT_CARD", "TRANSFER", "OTHER"]);
 const appointmentStatus = z.enum(["SCHEDULED", "CONFIRMED", "DONE", "CANCELED", "NO_SHOW"]);
 /** Momento com fuso, como o aparelho envia. */
 const isoDateTime = z.string().datetime({ offset: true });
@@ -136,6 +137,7 @@ export const createAppointmentSchema = z.object({
   durationMinutes: z.number().int().min(1).max(1440),
   priceCents: moneyCents,
   paidCents: moneyCents.optional(),
+  paymentMethod: paymentMethod.nullish(),
   status: appointmentStatus.optional(),
   notes: z.string().trim().max(500).nullish(),
 });
@@ -143,7 +145,10 @@ export const createAppointmentSchema = z.object({
 export const updateAppointmentSchema = createAppointmentSchema.partial();
 
 /** Sem valor, quita o combinado; com valor, registra pagamento parcial. */
-export const settleAppointmentSchema = z.object({ paidCents: moneyCents.optional() });
+export const settleAppointmentSchema = z.object({
+  paidCents: moneyCents.optional(),
+  paymentMethod: paymentMethod.nullish(),
+});
 
 /**
  * Período da agenda em data local. `day` sozinho vale um dia; `from` e `to`
@@ -252,4 +257,39 @@ export const businessHoursSchema = z.object({
       }),
     )
     .max(21),
+});
+
+// --- painel administrativo -------------------------------------------------
+
+/**
+ * Preço de uma oferta.
+ *
+ * O valor chega em centavos inteiros, como todo dinheiro nesta API. A faixa
+ * aceita é conferida no domínio: aqui o que se garante é o formato.
+ */
+export const planOfferSchema = z.object({
+  plan: z.enum(["PREMIUM", "MASTER"]),
+  billingPeriod: z.enum(["MONTHLY", "ANNUAL"]),
+  priceCents: z.int(),
+  isActive: z.boolean().optional(),
+  benefits: z.array(z.string().max(120)).max(12).optional(),
+});
+
+export const planOfferParamSchema = z.object({
+  plan: z.enum(["PREMIUM", "MASTER"]),
+  billingPeriod: z.enum(["MONTHLY", "ANNUAL"]),
+});
+
+export const adminUserParamSchema = z.object({ id: z.uuid() });
+
+/**
+ * Paginação e busca das listas do painel.
+ *
+ * Os números chegam como texto na query e são convertidos aqui; o teto real
+ * fica no caso de uso, junto da regra que ele protege.
+ */
+export const listAdminQuerySchema = z.object({
+  search: z.string().max(120).optional(),
+  limit: z.coerce.number().int().positive().optional(),
+  offset: z.coerce.number().int().min(0).optional(),
 });

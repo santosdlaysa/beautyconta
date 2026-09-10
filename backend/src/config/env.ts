@@ -1,5 +1,5 @@
 import "dotenv/config";
-import type { PlanPrice } from "../domain/billing/plan-offers";
+import { parsePriceList } from "./plan-prices";
 
 /**
  * Configuração lida uma única vez, na borda do processo.
@@ -75,12 +75,25 @@ export const env = {
      * Formato: `PLANO:PERIODO:CENTAVOS`, separados por vírgula. Exemplo:
      * `PREMIUM:MONTHLY:2990,PREMIUM:ANNUAL:29900`.
      *
-     * Sem esta variável a tela de planos não mostra botão de compra. É de
-     * propósito: Apple e Google recusam a submissão quando o valor não aparece
-     * antes da compra, e é melhor a venda não aparecer do que aparecer sem
-     * preço.
+     * Sem esta variável, usa os preços publicados do Premium. Uma variável
+     * explicitamente vazia desativa as ofertas deste catálogo.
      */
     prices: parsePriceList(process.env.PLAN_PRICES),
+  },
+  /**
+   * Acesso ao painel administrativo.
+   *
+   * Sem `ADMIN_SECRET` a entrada por cabeçalho não existe, e sem `ADMIN_EMAILS`
+   * a entrada pela sessão também não. Falha fechada nas duas: um painel que
+   * aceita qualquer requisição quando alguém esquece a variável não avisa
+   * ninguém — só entrega a lista de usuárias a quem descobrir a URL.
+   */
+  admin: {
+    secret: process.env.ADMIN_SECRET ?? null,
+    emails: (process.env.ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((email) => email.trim())
+      .filter(Boolean),
   },
   /**
    * Documentos que a tela de assinatura precisa linkar. As lojas exigem os dois
@@ -92,34 +105,6 @@ export const env = {
     supportEmail: process.env.SUPPORT_EMAIL ?? "suporte@beautyconta.com.br",
   },
 };
-
-/**
- * Lê `PLAN_PRICES`. Entrada malformada é descartada com aviso, e não derruba o
- * processo: preço quebrado tira a oferta do ar, o que é ruim, mas servidor fora
- * do ar tira o produto inteiro.
- */
-function parsePriceList(raw: string | undefined): PlanPrice[] {
-  if (!raw) return [];
-
-  return raw
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    .flatMap((entry) => {
-      const [plan, period, cents] = entry.split(":").map((part) => part.trim());
-      const centavos = Number(cents);
-
-      const planoValido = plan === "PREMIUM" || plan === "MASTER";
-      const periodoValido = period === "MONTHLY" || period === "ANNUAL";
-
-      if (!planoValido || !periodoValido || !Number.isInteger(centavos) || centavos <= 0) {
-        console.warn(`[env] Entrada inválida em PLAN_PRICES: "${entry}"`);
-        return [];
-      }
-
-      return [{ plan, billingPeriod: period, priceCents: centavos }];
-    });
-}
 
 export type ProductMapping = {
   productId: string;
