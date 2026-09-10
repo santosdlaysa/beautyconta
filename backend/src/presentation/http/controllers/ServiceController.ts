@@ -138,6 +138,8 @@ export class ServiceController {
       this.deps.materials,
       this.deps.fixedCosts,
       this.deps.businesses,
+      this.deps.equipment,
+      this.deps.clock,
     ).execute(userId, businessId, id, {
       ...(options.currentPriceCents !== undefined
         ? { currentPriceCents: options.currentPriceCents ?? null }
@@ -145,7 +147,12 @@ export class ServiceController {
     });
 
     if (!options.save) {
-      res.json({ serviceId: id, result: priced.result, saved: null });
+      res.json({
+        serviceId: id,
+        result: priced.result,
+        fixedCostBreakdown: priced.fixedCostBreakdown,
+        saved: null,
+      });
       return;
     }
 
@@ -158,6 +165,7 @@ export class ServiceController {
     res.status(201).json({
       serviceId: id,
       result: priced.result,
+      fixedCostBreakdown: priced.fixedCostBreakdown,
       saved: serializeCalculation(saved),
     });
   };

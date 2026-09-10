@@ -200,3 +200,102 @@ describe("preço do serviço cadastrado", () => {
     expect(body.result.allocationMethod).toBe("appointment");
   });
 });
+
+/** Seção 6 do documento 07: a reserva entra no custo fixo e daí no rateio. */
+describe("equipamentos no preço", () => {
+  async function comEquipamento(campos: Record<string, unknown> = {}) {
+    const setup = await setupApi();
+    const { as, businessId } = setup;
+
+    await as().post(`/api/businesses/${businessId}/fixed-costs`).send({
+      name: "Aluguel",
+      category: "rent",
+      monthlyAmountCents: 120_000,
+    });
+
+    const servico = await as().post(`/api/businesses/${businessId}/services`).send({
+      name: "Alongamento",
+      category: "extension",
+      durationMinutes: 150,
+      desiredMarginPercent: 30,
+    });
+
+    const equipamento = await as().post(`/api/businesses/${businessId}/equipment`).send({
+      name: "Cabine de luz",
+      type: "uv_lamp",
+      acquisitionPriceCents: 120_000,
+      usefulLifeMonths: 36,
+      acquisitionDate: new Date().toISOString().slice(0, 10),
+      ...campos,
+    });
+
+    return { ...setup, serviceId: servico.body.id as string, equipamento };
+  }
+
+  it("a reserva soma ao custo fixo e aparece separada na composição", async () => {
+    const { as, businessId, serviceId } = await comEquipamento();
+
+    const { body } = await as()
+      .post(`/api/businesses/${businessId}/services/${serviceId}/pricing`)
+      .send({});
+
+    // 1200 de aluguel mais 33,33 de reserva, rateados por 150 horas em 2,5 h.
+    expect(body.fixedCostBreakdown).toEqual({
+      expensesCents: 120_000,
+      equipmentReserveCents: 3_333,
+    });
+    expect(body.result.allocatedFixedCost).toBeCloseTo(20.56, 2);
+  });
+
+  it("sem equipamento, o preço é o mesmo de antes", async () => {
+    const { as, businessId } = await setupApi();
+
+    await as().post(`/api/businesses/${businessId}/fixed-costs`).send({
+      name: "Aluguel",
+      category: "rent",
+      monthlyAmountCents: 120_000,
+    });
+    const servico = await as().post(`/api/businesses/${businessId}/services`).send({
+      name: "Alongamento",
+      category: "extension",
+      durationMinutes: 150,
+      desiredMarginPercent: 30,
+    });
+
+    const { body } = await as()
+      .post(`/api/businesses/${businessId}/services/${servico.body.id}/pricing`)
+      .send({});
+
+    expect(body.fixedCostBreakdown.equipmentReserveCents).toBe(0);
+    expect(body.result.allocatedFixedCost).toBe(20);
+  });
+
+  it("equipamento com vida útil vencida não encarece mais o preço", async () => {
+    const { as, businessId, serviceId } = await comEquipamento({
+      usefulLifeMonths: 12,
+      acquisitionDate: "2020-01-10",
+    });
+
+    const { body } = await as()
+      .post(`/api/businesses/${businessId}/services/${serviceId}/pricing`)
+      .send({});
+
+    // Continuar cobrando por ele seria guardar dinheiro que já foi guardado.
+    expect(body.fixedCostBreakdown.equipmentReserveCents).toBe(0);
+  });
+
+  it("recusa revenda maior que a compra, que distorceria todos os preços", async () => {
+    const { equipamento } = await comEquipamento({ residualValueCents: 200_000 });
+
+    expect(equipamento.status).toBe(422);
+    expect(equipamento.body.field).toBe("residualValueCents");
+  });
+
+  it("recusa data de compra no futuro", async () => {
+    const amanha = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const { equipamento } = await comEquipamento({ acquisitionDate: amanha });
+
+    expect(equipamento.status).toBe(422);
+    expect(equipamento.body.field).toBe("acquisitionDate");
+  });
+});

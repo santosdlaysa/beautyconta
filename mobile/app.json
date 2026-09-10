@@ -32,7 +32,7 @@
         "CFBundleDisplayName": "BeautyConta",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "2"
+      "buildNumber": "3"
     },
     "web": {
       "favicon": "./assets/favicon.png"

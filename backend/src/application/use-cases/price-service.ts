@@ -1,9 +1,12 @@
 import { calculatePrice, type PricingInput, type PricingResult } from "../../domain/pricing/calculate-price";
+import { totalMonthlyReserveCents } from "../../domain/equipment/reserve";
 import { DomainError } from "../../domain/shared";
 import { NotFoundError } from "../errors";
 import type {
   BusinessRepository,
   CalculationRepository,
+  Clock,
+  EquipmentRepository,
   FixedCostRepository,
   MaterialRepository,
   ServiceRepository,
@@ -35,6 +38,13 @@ export type PricedService = {
   serviceId: string;
   input: PricingInput;
   result: PricingResult;
+  /**
+   * De onde veio o custo fixo do mês.
+   *
+   * O documento 07 pede que a composição continue explicável: a reserva
+   * aumenta o preço recomendado, e quem vê o número precisa saber por quê.
+   */
+  fixedCostBreakdown: { expensesCents: number; equipmentReserveCents: number };
 };
 
 /**
@@ -52,6 +62,8 @@ export class PriceService {
     private readonly materials: MaterialRepository,
     private readonly fixedCosts: FixedCostRepository,
     private readonly businesses: BusinessRepository,
+    private readonly equipment: EquipmentRepository,
+    private readonly clock: Clock,
   ) {}
 
   async execute(
@@ -73,13 +85,24 @@ export class PriceService {
       );
     }
 
-    const [materials, monthlyFixedCostCents] = await Promise.all([
+    const [materials, despesasCents, equipamentos] = await Promise.all([
       this.materials.findManyByIds(
         businessId,
         service.materials.map((item) => item.materialId),
       ),
       this.fixedCosts.monthlyTotalCents(businessId),
+      this.equipment.list(businessId, { includeArchived: false }),
     ]);
+
+    /**
+     * `RE` do documento 07: a reserva para repor os equipamentos.
+     *
+     * Não é termo novo na fórmula — entra no custo fixo mensal, e o rateio
+     * segue igual. Sem isso, o preço recomendado ignora que a cabine de luz vai
+     * morrer um dia e alguém vai ter que comprar outra.
+     */
+    const reservaCents = totalMonthlyReserveCents(equipamentos, this.clock.now());
+    const monthlyFixedCostCents = despesasCents + reservaCents;
 
     const byId = new Map(materials.map((material) => [material.id, material]));
 
@@ -124,7 +147,15 @@ export class PriceService {
       ...(currentPriceCents !== null ? { currentPrice: currentPriceCents / 100 } : {}),
     };
 
-    return { serviceId, input, result: calculatePrice(input) };
+    return {
+      serviceId,
+      input,
+      result: calculatePrice(input),
+      fixedCostBreakdown: {
+        expensesCents: despesasCents,
+        equipmentReserveCents: reservaCents,
+      },
+    };
   }
 }
 

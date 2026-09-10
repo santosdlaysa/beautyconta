@@ -1,15 +1,19 @@
 import { NotFoundError } from "../errors";
-import type { EquipmentRepository } from "../ports/repositories";
+import { assertValidEquipment } from "../../domain/equipment/reserve";
+import type { Clock, EquipmentRepository } from "../ports/repositories";
 import type { EquipmentRecord } from "../ports/records";
 import type { BusinessAccess } from "../services/business-access";
 
 /**
  * Cadastro de equipamentos do documento 07.
  *
- * Está fora do MVP: a reserva mensal para reposição ainda não entra no rateio
- * de custo fixo. O cadastro existe para que o dado comece a ser coletado sem
- * migração depois — e a categoria `equipment_reserve` continua bloqueada para
- * lançamento manual até que o cálculo exista.
+ * A reserva mensal para reposição **entra no custo fixo** desde 2026-09-10, e
+ * daí no rateio, exatamente como manda a seção 6 do documento: ela não cria
+ * termo novo na fórmula do documento 03.
+ *
+ * É por isso que a categoria `equipment_reserve` do catálogo de custos fixos é
+ * bloqueada para lançamento manual: quem lançasse a reserva à mão pagaria duas
+ * vezes pelo mesmo desgaste.
  */
 export type EquipmentInput = {
   name: string;
@@ -24,6 +28,7 @@ export class RegisterEquipment {
   constructor(
     private readonly access: BusinessAccess,
     private readonly equipment: EquipmentRepository,
+    private readonly clock: Clock,
   ) {}
 
   async execute(
@@ -32,6 +37,18 @@ export class RegisterEquipment {
     input: EquipmentInput,
   ): Promise<EquipmentRecord> {
     await this.access.authorize(userId, businessId);
+
+    // Regras da seção 8 do documento 07. Elas importam mais do que parece: a
+    // reserva entra no custo fixo, e revenda maior que a compra ou vida útil de
+    // um mês distorcem o preço de todos os serviços.
+    assertValidEquipment({
+      acquisitionPriceCents: input.acquisitionPriceCents,
+      residualValueCents: input.residualValueCents ?? 0,
+      usefulLifeMonths: input.usefulLifeMonths,
+      acquisitionDate: input.acquisitionDate,
+      now: this.clock.now(),
+    });
+
     return this.equipment.create({
       businessId,
       name: input.name.trim(),

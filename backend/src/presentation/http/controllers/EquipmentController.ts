@@ -36,7 +36,11 @@ export class EquipmentController {
     const { businessId } = parse(businessParamSchema, req.params);
     const input = parse(createEquipmentSchema, req.body);
 
-    const equipment = await new RegisterEquipment(this.access, this.deps.equipment).execute(
+    const equipment = await new RegisterEquipment(
+      this.access,
+      this.deps.equipment,
+      this.deps.clock,
+    ).execute(
       userIdOf(req),
       businessId,
       { ...input, acquisitionDate: toDate(input.acquisitionDate) },
