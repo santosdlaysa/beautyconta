@@ -98,16 +98,13 @@ function AdminLogin() {
 
     setEntrando(true);
     setErro(null);
-    saveSecret(secret.trim());
 
     // O segredo é conferido contra o servidor antes de a tela abrir: guardar e
     // acreditar deixaria a pessoa navegando num painel que falha em tudo.
     try {
-      // Guardar o segredo já avisa a tela: o painel abre porque o armazenamento
-      // mudou, não porque alguém disse que abriu.
-      await adminApi.overview();
+      await adminApi.verifySecret(secret.trim());
+      saveSecret(secret.trim());
     } catch (falha) {
-      clearSecret();
       setErro(falha instanceof AdminAuthError ? "Segredo inválido." : (falha as Error).message);
     } finally {
       setEntrando(false);

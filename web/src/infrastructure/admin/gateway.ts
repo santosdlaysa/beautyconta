@@ -1,4 +1,3 @@
-import { API_URL } from "@/config/api";
 import type {
   AdminOffer,
   AdminOverview,
@@ -77,10 +76,8 @@ export function subscribeToSecret(ouvinte: () => void): () => void {
 export const hasSecret = (): boolean => loadSecret() !== null;
 export const hasSecretOnServer = (): boolean => false;
 
-async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const secret = loadSecret();
-
-  const response = await fetch(`${API_URL}/api/admin${path}`, {
+async function call<T>(path: string, init: RequestInit = {}, secret = loadSecret()): Promise<T> {
+  const response = await fetch(`/api/admin${path}`, {
     ...init,
     headers: {
       "content-type": "application/json",
@@ -102,6 +99,7 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const adminApi = {
+  verifySecret: (secret: string) => call<AdminOverview>("/overview", {}, secret),
   overview: () => call<AdminOverview>("/overview"),
 
   plans: () =>
