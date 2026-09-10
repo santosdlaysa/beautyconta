@@ -633,6 +633,42 @@ export const cancelSubscription = ({ token, businessId }: Scope, subscriptionId:
     { method: 'POST', token },
   );
 
+/**
+ * Preço das assinaturas, vindo do servidor.
+ *
+ * O valor não fica escrito no aplicativo de propósito: aplicativo publicado não
+ * muda quando o preço muda, e um número velho na tela é promessa que a cobrança
+ * não cumpre.
+ *
+ * **Quando a compra for pela loja**, quem manda no preço é a loja: o valor
+ * daqui serve para a venda pela web. Ao ligar o RevenueCat, a tela precisa
+ * passar a mostrar o preço localizado que o SDK devolve, porque ele varia por
+ * país e moeda e é o que a pessoa realmente paga.
+ */
+export type PlanOffer = {
+  plan: 'PREMIUM' | 'MASTER';
+  billingPeriod: 'MONTHLY' | 'ANNUAL';
+  priceCents: number;
+  /** Quanto sai por mês; na anual é o número que a pessoa usa para comparar. */
+  monthlyEquivalentCents: number;
+  /** Economia da anual contra doze mensalidades, em pontos percentuais. */
+  savingsPercent: number | null;
+  benefits: string[];
+};
+
+export type PlanCatalog = {
+  /**
+   * Vazio quando o servidor não tem preço configurado. Nesse caso a tela não
+   * mostra botão de compra: Apple e Google recusam a submissão quando o valor
+   * não aparece antes da compra.
+   */
+  offers: PlanOffer[];
+  legal: { termsUrl: string; privacyUrl: string; supportEmail: string };
+};
+
+/** Público: a tela de preços precisa existir antes de a pessoa ter conta. */
+export const getPlans = () => apiRequest<PlanCatalog>('/api/plans');
+
 export const startCheckout = (
   { token, businessId }: Scope,
   input: { plan: 'PREMIUM' | 'MASTER'; billingPeriod: 'MONTHLY' | 'ANNUAL' },

@@ -8,6 +8,7 @@ import { CalculationController } from "../controllers/CalculationController";
 import { EquipmentController } from "../controllers/EquipmentController";
 import { FixedCostController } from "../controllers/FixedCostController";
 import { MaterialController } from "../controllers/MaterialController";
+import { PlanController } from "../controllers/PlanController";
 import { ServiceController } from "../controllers/ServiceController";
 import { SessionController } from "../controllers/SessionController";
 import { SubscriptionController } from "../controllers/SubscriptionController";
@@ -38,12 +39,27 @@ export function createApiRouter(deps: Dependencies): Router {
   // sessão como barreira e o custo por requisição é baixo.
   router.use(limites.public, pricingRoutes);
   router.use(limites.public, catalogRoutes);
+  router.use(limites.public, planRoutes(deps));
   router.use("/booking", bookingRoutes(deps, limites));
 
   router.use(sessionRoutes(deps, limites));
   router.use(accountRoutes(deps, limites));
   router.use("/businesses", businessRoutes(deps, limites));
   router.use("/billing", billingRoutes(deps, limites));
+
+  return router;
+}
+
+/**
+ * Preços e limites de cada plano. Fica no anel público porque a tela de preços
+ * precisa existir antes da conta, e porque as lojas exigem o valor visível
+ * antes da compra.
+ */
+function planRoutes(deps: Dependencies): Router {
+  const controller = new PlanController(deps);
+  const router = Router();
+
+  router.get("/plans", controller.list);
 
   return router;
 }

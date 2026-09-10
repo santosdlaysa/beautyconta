@@ -918,6 +918,17 @@ export function createTestDependencies(): TestDependencies {
     gateway: new FakeGateway(),
     translators: { "mercado-pago": translator, revenuecat: translator },
     metrics: new StubMetricsRepository(),
+    // A suíte configura preço porque a tela de planos sem preço não vende, e
+    // é justamente esse par — com e sem preço — que os testes exercitam.
+    plans: {
+      prices: [
+        { plan: "PREMIUM", billingPeriod: "MONTHLY", priceCents: 2_990 },
+        { plan: "PREMIUM", billingPeriod: "ANNUAL", priceCents: 29_900 },
+      ],
+      termsUrl: "https://beautyconta.com.br/termos",
+      privacyUrl: "https://beautyconta.com.br/privacidade",
+      supportEmail: "suporte@beautyconta.com.br",
+    },
     notifier: new RecordingNotifier(),
     clock: { now: () => new Date() },
   };

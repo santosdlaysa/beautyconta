@@ -1,9 +1,9 @@
 import { colors } from '../theme';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 import { track } from '../lib/analytics';
 import { FIXED_COST_CATEGORIES, labelOf, slugOf } from '../lib/catalog';
-import { startCheckout, type AllocationMethod, type Calculation, type FixedCostBreakdown, type PricingResult, type RoundingStrategy, type Service, type Subscription, type SubscriptionChannel } from '../lib/resources';
+import { getPlans, startCheckout, type AllocationMethod, type Calculation, type FixedCostBreakdown, type PlanCatalog, type PlanOffer, type PricingResult, type RoundingStrategy, type Service, type Subscription, type SubscriptionChannel } from '../lib/resources';
 import { centsToInput, formatCents, formatMoney, formatPercent, parseCents, parseNumber, useSubmit } from '../lib/useSubmit';
 import { useApp } from '../state/AppProvider';
 import { useDialog } from './Dialog';
@@ -642,7 +642,29 @@ export function PricingScreen({ onBack, onUpgrade, onEquipment }: ScreenProps & 
 // --- planos ---------------------------------------------------------------
 
 const planNames: Record<string, string> = { FREE: 'Gratuito', PREMIUM: 'Premium', MASTER: 'Master' };
-const benefits = ['Serviços e materiais ilimitados', 'Custos detalhados e metas do mês', 'Histórico completo de cálculos', 'Relatórios do seu negócio'];
+/**
+ * Cartão de uma oferta: o preço que a pessoa lê antes de decidir.
+ *
+ * O valor grande é o do período escolhido, porque é o que será cobrado de uma
+ * vez. O equivalente mensal aparece embaixo na anual, para comparar — nunca no
+ * lugar do valor cobrado, que seria vender 299,00 anunciando 24,92.
+ */
+function OfferCard({ offer, selected, onSelect }: { offer: PlanOffer; selected: boolean; onSelect: () => void }) {
+  const anual = offer.billingPeriod === 'ANNUAL';
+
+  return <Card tone={selected ? 'pink' : 'neutral'} onPress={onSelect} accessibilityLabel={`${anual ? 'Plano anual' : 'Plano mensal'}, ${formatCents(offer.priceCents)}`}>
+    <View style={s.offerHead}>
+      <Text style={s.offerPeriod}>{anual ? 'Anual' : 'Mensal'}</Text>
+      {anual && offer.savingsPercent !== null && <Badge label={`Economize ${offer.savingsPercent}%`} />}
+    </View>
+    <Text style={s.offerPrice}>{formatCents(offer.priceCents)}</Text>
+    <Text style={s.offerCaption}>
+      {anual
+        ? `Cobrado uma vez por ano · sai por ${formatCents(offer.monthlyEquivalentCents)} por mês`
+        : 'Cobrado todo mês'}
+    </Text>
+  </Card>;
+}
 
 export function PlansScreen({ onBack }: ScreenProps) {
   const app = useApp();
@@ -650,10 +672,29 @@ export function PlansScreen({ onBack }: ScreenProps) {
   const { busy, error, run } = useSubmit();
   const subscription = app.subscription;
 
+  const [catalog, setCatalog] = useState<PlanCatalog | null>(null);
+  const [chosen, setChosen] = useState<'MONTHLY' | 'ANNUAL' | null>(null);
+
+  /**
+   * O catálogo é público e não depende da sessão, então a falha aqui não é
+   * motivo para esconder o resto da tela: sem ele o que some é a compra, e o
+   * plano em vigor e os limites continuam visíveis.
+   */
+  useEffect(() => {
+    let ativo = true;
+    void getPlans()
+      .then(data => { if (ativo) setCatalog(data); })
+      .catch(() => { if (ativo) setCatalog({ offers: [], legal: LEGAL_FALLBACK }); });
+    return () => { ativo = false; };
+  }, []);
+
   if (!subscription) return <Screen><ScreenHeader title="Meu plano" onBack={onBack} /><Loading label="Conferindo sua assinatura..." full /></Screen>;
 
   const limits = subscription.limits;
   const used = (value: number, limit: number | null) => (limit === null ? `${value} · ilimitado` : `${value} de ${limit}`);
+
+  const offers = catalog?.offers ?? [];
+  const oferta = offers.find(item => item.billingPeriod === chosen) ?? offers[0] ?? null;
 
   // A assinatura que sustenta o plano em vigor. No gratuito não há nenhuma, e a
   // seção de cancelamento simplesmente não aparece.
@@ -675,16 +716,16 @@ export function PlansScreen({ onBack }: ScreenProps) {
   const subscribe = () => {
     const token = app.token;
     const business = app.business;
-    if (!token || !business) return;
+    if (!token || !business || !oferta) return;
 
-    track('checkout_started', { plan: 'PREMIUM', billingPeriod: 'MONTHLY' });
+    track('checkout_started', { plan: oferta.plan, billingPeriod: oferta.billingPeriod });
 
     // O processador ainda não está configurado no servidor; quando não estiver,
     // a resposta explica isso e a mensagem sobe como está para a assinante.
     void run(async () => {
       const session = await startCheckout(
         { token, businessId: business.id },
-        { plan: 'PREMIUM', billingPeriod: 'MONTHLY' },
+        { plan: oferta.plan, billingPeriod: oferta.billingPeriod },
       );
       if (session.url) dialog.inform({ title: 'Continue no navegador', message: `Abra ${session.url} para concluir a assinatura.` });
     });
@@ -710,11 +751,43 @@ export function PlansScreen({ onBack }: ScreenProps) {
 
     {subscription.plan === 'FREE' && <>
       <Section title="Premium" />
-      <Card tone="lilac">
-        {benefits.map(benefit => <View key={benefit} style={s.benefit}><Icon name="check" size={16} color={colors.accent} /><Text style={s.benefitText}>{benefit}</Text></View>)}
-      </Card>
-      {error && <Notice message={error} />}
-      <Button label={busy ? 'Abrindo...' : 'Assinar o Premium'} icon="sparkle" onPress={busy ? undefined : subscribe} />
+
+      {catalog === null && <Loading label="Buscando os valores..." />}
+
+      {catalog !== null && offers.length === 0 && (
+        <Notice tone="warning" message="Os valores da assinatura estão indisponíveis no momento. Tente de novo daqui a pouco." />
+      )}
+
+      {offers.length > 0 && <>
+        {offers.map(item => (
+          <OfferCard
+            key={item.billingPeriod}
+            offer={item}
+            selected={oferta?.billingPeriod === item.billingPeriod}
+            onSelect={() => setChosen(item.billingPeriod)}
+          />
+        ))}
+
+        <Card tone="lilac">
+          {(oferta?.benefits ?? []).map(benefit => <View key={benefit} style={s.benefit}><Icon name="check" size={16} color={colors.accent} /><Text style={s.benefitText}>{benefit}</Text></View>)}
+        </Card>
+
+        {error && <Notice message={error} />}
+        <Button label={busy ? 'Abrindo...' : `Assinar por ${formatCents(oferta?.priceCents ?? 0)}`} icon="sparkle" onPress={busy ? undefined : subscribe} />
+
+        <Text style={s.legalText}>
+          {oferta?.billingPeriod === 'ANNUAL'
+            ? 'A assinatura é renovada automaticamente a cada ano, pelo preço vigente, até que você cancele.'
+            : 'A assinatura é renovada automaticamente todo mês, pelo preço vigente, até que você cancele.'}
+          {' '}Você pode cancelar quando quiser, sem multa, e o acesso continua até o fim do período já pago. Nada do que você cadastrou é apagado ao voltar para o gratuito.
+        </Text>
+
+        <View style={s.legalLinks}>
+          <Text style={s.legalLink} onPress={() => void Linking.openURL(catalog?.legal.termsUrl ?? LEGAL_FALLBACK.termsUrl)}>Termos de Uso</Text>
+          <Text style={s.legalSeparator}>·</Text>
+          <Text style={s.legalLink} onPress={() => void Linking.openURL(catalog?.legal.privacyUrl ?? LEGAL_FALLBACK.privacyUrl)}>Política de Privacidade</Text>
+        </View>
+      </>}
     </>}
 
     {paga && <CancelSection subscription={paga} onCancel={cancelar} busy={busy} error={error} />}
@@ -724,6 +797,18 @@ export function PlansScreen({ onBack }: ScreenProps) {
     <ListRow icon="lock" title="O que acontece com meus dados?" subtitle="Nada é apagado ao voltar para o gratuito." />
   </Screen>;
 }
+
+/**
+ * Endereços usados quando o catálogo não chega.
+ *
+ * Os documentos precisam estar alcançáveis mesmo com a rede ruim: um link morto
+ * na tela de assinatura é motivo de recusa nas lojas.
+ */
+const LEGAL_FALLBACK = {
+  termsUrl: 'https://beautyconta.com.br/termos',
+  privacyUrl: 'https://beautyconta.com.br/privacidade',
+  supportEmail: 'suporte@beautyconta.com.br',
+};
 
 /** Onde cada loja manda a assinante para gerenciar o que comprou. */
 const storeSubscriptions: Record<Exclude<SubscriptionChannel, 'WEB'>, { label: string; url: string }> = {
@@ -830,5 +915,13 @@ const s = StyleSheet.create({
   hint: { color: colors.faded, fontSize: 11, lineHeight: 17, marginTop: 4 },
   editHint: { color: colors.faded, fontSize: 10, lineHeight: 16 },
   benefit: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  offerHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  offerPeriod: { color: colors.ink3, fontSize: 12, fontWeight: '600' },
+  offerPrice: { color: colors.ink, fontSize: 26, fontWeight: '700', marginTop: 4 },
+  offerCaption: { color: colors.muted, fontSize: 11, lineHeight: 17, marginTop: 2 },
+  legalText: { color: colors.faded, fontSize: 11, lineHeight: 17, marginTop: -8, marginBottom: 12 },
+  legalLinks: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16 },
+  legalLink: { color: colors.accent, fontSize: 12, textDecorationLine: 'underline' },
+  legalSeparator: { color: colors.faded, fontSize: 12 },
   benefitText: { color: colors.ink2, fontSize: 12, flex: 1 },
 });

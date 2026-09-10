@@ -1,3 +1,4 @@
+import type { PlanPrice } from "../../domain/billing/plan-offers";
 import type { BillingWebhookTranslator, SubscriptionGateway } from "./billing";
 import type { Notifier } from "./notifications";
 import type {
@@ -40,6 +41,16 @@ export type Dependencies = {
   gateway: SubscriptionGateway;
   translators: Record<"mercado-pago" | "revenuecat", BillingWebhookTranslator>;
   metrics: MetricsRepository;
+  /**
+   * Preço de cada oferta e os documentos que a tela de assinatura precisa
+   * linkar. Chega por aqui, e não por `process.env`, conforme o ADR-0008.
+   */
+  plans: {
+    prices: readonly PlanPrice[];
+    termsUrl: string;
+    privacyUrl: string;
+    supportEmail: string;
+  };
   /** Avisos administrativos. Silencioso quando o Telegram não está configurado. */
   notifier: Notifier;
   clock: Clock;

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
-import styles from "./privacy.module.css";
+import styles from "@/components/legal.module.css";
 
 export const metadata: Metadata = {
   title: "Política de Privacidade | BeautyConta",

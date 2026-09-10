@@ -208,12 +208,14 @@ cd web
 npm run dev
 ```
 
-Copie `web/.env.example` para `web/.env.local` e defina `NEXT_PUBLIC_SITE_URL`
-antes de publicar — sem ela, as canônicas e as imagens de compartilhamento
-apontam para `localhost`.
+Para desenvolvimento, copie `web/.env.example` para `web/.env.local`.
 
-O endereço público é `https://beautyconta.vercel.app`. Na Vercel, configure
-`NEXT_PUBLIC_SITE_URL=https://beautyconta.vercel.app` antes do build. A política
+O endereço público é `https://beautyconta.vercel.app`. O arquivo versionado
+`web/.env.production` define `NEXT_PUBLIC_SITE_URL` para o build mesmo quando
+a variável não está cadastrada na Vercel. Uma variável definida na hospedagem
+tem prioridade. Configure também `NEXT_PUBLIC_API_URL` na Vercel com o endereço
+público da API para a agenda; o endereço local de desenvolvimento não serve.
+A política
 de privacidade fica em `https://beautyconta.vercel.app/privacidade`, endereço
 para o campo **URL da política de privacidade** em **Privacidade do app**.
 

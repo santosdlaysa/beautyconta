@@ -5,6 +5,7 @@ mobile/node_modules/
 out/
 .env*
 !.env.example
+!web/.env.production
 *.log
 .DS_Store
 

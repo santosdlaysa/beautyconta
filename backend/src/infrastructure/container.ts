@@ -50,6 +50,12 @@ export function createDependencies(): Dependencies {
       ),
     },
     metrics: new PrismaMetricsRepository(prisma),
+    plans: {
+      prices: env.billing.prices,
+      termsUrl: env.legal.termsUrl,
+      privacyUrl: env.legal.privacyUrl,
+      supportEmail: env.legal.supportEmail,
+    },
     notifier: createNotifier(),
     clock: { now: () => new Date() },
   };
