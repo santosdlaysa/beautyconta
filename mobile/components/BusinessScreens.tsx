@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import { track } from '../lib/analytics';
 import { FIXED_COST_CATEGORIES, labelOf, slugOf } from '../lib/catalog';
+import { configurePurchases, getStoreOfferings, purchasePackage, restorePurchases, storePurchaseAvailable, type StoreOffering } from '../lib/purchases';
 import { getPlans, startCheckout, type AllocationMethod, type Calculation, type FixedCostBreakdown, type PaymentMethod, type PlanCatalog, type PlanOffer, type PricingResult, type RoundingStrategy, type Service, type Subscription, type SubscriptionChannel } from '../lib/resources';
 import { centsToInput, formatCents, formatMoney, formatPercent, parseCents, parseNumber, useSubmit } from '../lib/useSubmit';
 import { useApp } from '../state/AppProvider';
@@ -677,6 +678,16 @@ export function PlansScreen({ onBack }: ScreenProps) {
   const [method, setMethod] = useState<PaymentMethod>('card');
 
   /**
+   * O que a loja tem à venda, quando estamos dentro de um aplicativo de loja.
+   *
+   * Vazio na web e em Expo Go. Quando há, **o preço mostrado é o da loja**, não
+   * o do nosso catálogo: o valor varia por país e moeda, e é o da loja que será
+   * cobrado de verdade.
+   */
+  const [store, setStore] = useState<StoreOffering[]>([]);
+  const naLoja = storePurchaseAvailable();
+
+  /**
    * O catálogo é público e não depende da sessão, então a falha aqui não é
    * motivo para esconder o resto da tela: sem ele o que some é a compra, e o
    * plano em vigor e os limites continuam visíveis.
@@ -688,6 +699,25 @@ export function PlansScreen({ onBack }: ScreenProps) {
       .catch(() => { if (ativo) setCatalog({ offers: [], legal: LEGAL_FALLBACK }); });
     return () => { ativo = false; };
   }, []);
+
+  /**
+   * Identifica a assinante na loja pelo **negócio**, nunca pelo e-mail: é esse
+   * identificador que o webhook usa para saber a quem conceder o plano, e é o
+   * único dado que precisa chegar ao RevenueCat.
+   */
+  const businessId = app.business?.id;
+
+  useEffect(() => {
+    if (!naLoja || !businessId) return;
+
+    let ativo = true;
+    void configurePurchases(businessId)
+      .then(pronto => (pronto ? getStoreOfferings() : []))
+      .then(ofertas => { if (ativo) setStore(ofertas); })
+      .catch(() => undefined);
+
+    return () => { ativo = false; };
+  }, [naLoja, businessId]);
 
   if (!subscription) return <Screen><ScreenHeader title="Meu plano" onBack={onBack} /><Loading label="Conferindo sua assinatura..." full /></Screen>;
 
@@ -710,6 +740,48 @@ export function PlansScreen({ onBack }: ScreenProps) {
       dialog.inform({
         title: 'Cancelamento pedido',
         message: 'Avisamos o processador. Assim que ele confirmar, seu plano volta ao gratuito — e nada do que você cadastrou é apagado.',
+      });
+    });
+  };
+
+  /**
+   * Compra pela loja.
+   *
+   * O plano **não** é concedido aqui: a loja confirma, o RevenueCat avisa o
+   * servidor, e o servidor decide. Por isso a mensagem fala em "confirmando" —
+   * prometer o plano na hora seria afirmar o que ainda não é verdade.
+   */
+  const comprarNaLoja = (packageId: string) => {
+    track('checkout_started', { plan: 'PREMIUM', billingPeriod: chosen ?? 'MONTHLY', paymentMethod: 'store' });
+
+    void run(async () => {
+      const resultado = await purchasePackage(packageId);
+      if (resultado.status === 'cancelled') return;
+      if (resultado.status === 'error') throw new Error(resultado.message);
+
+      await app.reload();
+      dialog.inform({
+        title: 'Compra recebida',
+        message: 'A loja confirmou. Seu plano é liberado assim que o pagamento for processado — costuma levar poucos instantes.',
+      });
+    });
+  };
+
+  /**
+   * Restaurar compras.
+   *
+   * A Apple exige este caminho em todo aplicativo com assinatura: quem trocou de
+   * aparelho ou reinstalou precisa recuperar o que já pagou sem pagar de novo.
+   */
+  const restaurar = () => {
+    void run(async () => {
+      const resultado = await restorePurchases();
+      if (resultado.status === 'error') throw new Error(resultado.message);
+
+      await app.reload();
+      dialog.inform({
+        title: 'Compras restauradas',
+        message: 'Se havia uma assinatura ativa nesta conta da loja, ela volta a valer aqui.',
       });
     });
   };
@@ -765,13 +837,56 @@ export function PlansScreen({ onBack }: ScreenProps) {
     {subscription.plan === 'FREE' && <>
       <Section title="Premium" />
 
-      {catalog === null && <Loading label="Buscando os valores..." />}
+      {!naLoja && catalog === null && <Loading label="Buscando os valores..." />}
 
-      {catalog !== null && offers.length === 0 && (
+      {!naLoja && catalog !== null && offers.length === 0 && (
         <Notice tone="warning" message="Os valores da assinatura estão indisponíveis no momento. Tente de novo daqui a pouco." />
       )}
 
-      {offers.length > 0 && <>
+      {/*
+        * Dentro do aplicativo de loja, quem vende é a loja — e quem manda no
+        * preço é ela. O valor do nosso catálogo não aparece aqui: ele varia por
+        * país e moeda, e mostrar um número diferente do que será cobrado é
+        * exatamente o que faz a submissão ser recusada.
+        */}
+      {naLoja && <>
+        {store.length === 0 && <Loading label="Buscando os planos da loja..." />}
+
+        {store.map(item => (
+          <Card key={item.id} tone="lilac" onPress={busy ? undefined : () => comprarNaLoja(item.id)} accessibilityLabel={`Assinar ${item.billingPeriod === 'ANNUAL' ? 'plano anual' : 'plano mensal'} por ${item.priceLabel}`}>
+            <View style={s.offerHead}>
+              <Text style={s.offerPeriod}>{item.billingPeriod === 'ANNUAL' ? 'Anual' : 'Mensal'}</Text>
+            </View>
+            <Text style={s.offerPrice}>{item.priceLabel}</Text>
+            <Text style={s.offerCaption}>Cobrado pela loja do seu aparelho</Text>
+          </Card>
+        ))}
+
+        {store.length > 0 && <Card tone="lilac">
+          {(offers[0]?.benefits ?? []).map(benefit => <View key={benefit} style={s.benefit}><Icon name="check" size={16} color={colors.accent} /><Text style={s.benefitText}>{benefit}</Text></View>)}
+        </Card>}
+
+        {error && <Notice message={error} />}
+
+        <Text style={s.legalText}>
+          A assinatura é renovada automaticamente ao fim de cada período, pelo preço vigente, até que você cancele. O cancelamento é feito nas assinaturas da sua conta da loja, e o acesso continua até o fim do período já pago. Nada do que você cadastrou é apagado ao voltar para o gratuito.
+        </Text>
+
+        {/*
+          * Exigência da Apple em todo aplicativo com assinatura: quem trocou de
+          * aparelho ou reinstalou precisa recuperar o que já pagou sem pagar de
+          * novo. Sem este botão, a submissão é recusada.
+          */}
+        <Button label={busy ? 'Restaurando...' : 'Restaurar compras'} icon="download" secondary onPress={busy ? undefined : restaurar} />
+
+        <View style={s.legalLinks}>
+          <Text style={s.legalLink} onPress={() => void Linking.openURL(catalog?.legal.termsUrl ?? LEGAL_FALLBACK.termsUrl)}>Termos de Uso</Text>
+          <Text style={s.legalSeparator}>·</Text>
+          <Text style={s.legalLink} onPress={() => void Linking.openURL(catalog?.legal.privacyUrl ?? LEGAL_FALLBACK.privacyUrl)}>Política de Privacidade</Text>
+        </View>
+      </>}
+
+      {!naLoja && offers.length > 0 && <>
         {offers.map(item => (
           <OfferCard
             key={item.billingPeriod}
