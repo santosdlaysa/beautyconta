@@ -12,16 +12,15 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FBF7F4"
+      "backgroundColor": "#fffbfd"
     },
     "android": {
       "package": "com.laysadiniz.sweetpricing",
       "permissions": [],
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#fad7f2",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundImage": "./assets/android-icon-background.png"
       },
       "predictiveBackGestureEnabled": false,
       "versionCode": 16
@@ -43,6 +42,9 @@
       "eas": {
         "projectId": "ffb8dd18-e8ee-4830-80c3-bc409314cab7"
       }
-    }
+    },
+    "plugins": [
+      "expo-sharing"
+    ]
   }
 }

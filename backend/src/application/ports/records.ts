@@ -43,6 +43,8 @@ export type BusinessRecord = {
   ownerUserId: string;
   name: string | null;
   primaryCategory: SegmentSlug;
+  /** Outros segmentos atendidos; não entra em cálculo, orienta catálogo. */
+  secondaryCategories: SegmentSlug[];
   workModel: WorkModelSlug;
   currency: string;
   timezone: string;
@@ -67,6 +69,8 @@ export type BusinessSettingsRecord = {
   estimatedAppointmentsPerMonth: number;
   fixedCostAllocationMethod: AllocationMethodSlug;
   roundingStrategy: RoundingStrategySlug;
+  /** Meta de lucro mensal, além da retirada. Nulo é "não disse". */
+  monthlyProfitGoalCents: number | null;
   createdAt: Date;
   updatedAt: Date;
 };

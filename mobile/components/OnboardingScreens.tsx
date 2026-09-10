@@ -9,7 +9,6 @@ import {
   forgetDraft,
   readDraft,
   saveDraft,
-  saveMonthlyProfitGoal,
   type OnboardingDraft,
   type Step,
 } from '../lib/onboarding';
@@ -49,9 +48,9 @@ import {
  * campos.
  *
  * Pular nunca deixa buraco: a etapa pulada usa o padrão sugerido e o resumo
- * final diz em que tela completá-la depois. O que a API ainda não guarda — as
- * outras categorias atendidas e a meta de lucro — fica declarado como tal, sem
- * fingir que foi salvo na conta.
+ * final diz em que tela completá-la depois. Nada do que a usuária responde fica
+ * só no aparelho: as outras categorias atendidas sobem junto com o negócio, e a
+ * meta de lucro junto com a configuração.
  */
 
 const HOURLY_MODES = ['Calcular pela minha retirada', 'Eu digo quanto quero por hora'] as const;
@@ -109,6 +108,7 @@ export function OnboardingView() {
         ...(business
           ? {
             primaryCategory: business.primaryCategory,
+            otherCategories: business.secondaryCategories,
             workModel: business.workModel,
             businessName: business.name ?? base.businessName,
           }
@@ -161,6 +161,7 @@ export function OnboardingView() {
         await app.saveOnboardingBusiness({
           businessName: next.businessName,
           primaryCategory: next.primaryCategory,
+          secondaryCategories: next.otherCategories,
           workModel: next.workModel,
         });
         await persist(next);
@@ -182,8 +183,10 @@ export function OnboardingView() {
           estimatedAppointmentsPerMonth: appointments,
           fixedCostAllocationMethod: 'PRODUCTIVE_HOUR',
           roundingStrategy: 'NONE',
+          // Campo em branco é `null`, e não zero: "não disse" e "não quero
+          // lucro" são respostas diferentes, e o servidor trata as duas assim.
+          monthlyProfitGoalCents: draft.profitGoal.trim() ? parseCents(draft.profitGoal) : null,
         });
-        await saveMonthlyProfitGoal(parseCents(draft.profitGoal));
         await persist(next);
       });
       return;
@@ -274,7 +277,7 @@ export function OnboardingView() {
             items={SEGMENTS.filter((item) => item.slug !== draft.primaryCategory)}
             selected={draft.otherCategories}
             onChange={(slugs) => void persist({ ...draft, otherCategories: slugs })}
-            hint="Ainda não há campo para elas no servidor: por enquanto ficam só neste aparelho."
+            hint="Ficam salvas na sua conta e acompanham você na troca de celular."
           />
           <Field
             label="Nome do seu negócio"
@@ -363,8 +366,7 @@ export function OnboardingView() {
         />
         <Text style={s.hint}>
           A retirada é o seu salário e já está no valor da hora. A meta de lucro é o que sobra para o
-          negócio — ela alimenta o simulador de meta e fica neste aparelho, porque a API ainda não tem
-          campo para ela.
+          negócio: ela fica salva na sua conta e vira o ponto de partida do simulador de meta.
         </Text>
       </Card>}
 

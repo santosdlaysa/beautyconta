@@ -35,6 +35,8 @@ export type CalculatorPrefill = {
   desiredMonthlyWithdrawal?: number;
   /** Só o simulador de meta usa: quantos atendimentos o negócio espera no mês. */
   monthlyAppointments?: number;
+  /** Também só do simulador: a meta de lucro guardada na configuração. */
+  monthlyProfitGoalCents?: number | null;
 };
 
 type Props = {
@@ -217,6 +219,7 @@ export function PublicCalculator({ onBack, prefill, onSignUp, onSave }: Props) {
           feePercent={sent.salesFeePercent}
           currentPrice={sent.currentPrice ?? null}
           monthlyAppointments={prefill?.monthlyAppointments ?? null}
+          initialGoalCents={prefill?.monthlyProfitGoalCents ?? null}
         />
 
         <Button label="Compartilhar resumo" icon="arrow" secondary onPress={share} />

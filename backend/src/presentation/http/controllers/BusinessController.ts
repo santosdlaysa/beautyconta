@@ -41,8 +41,12 @@ export class BusinessController {
     ).execute(
       userIdOf(req),
       {
-        ...input,
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
         primaryCategory: input.primaryCategory as SegmentSlug,
+        ...(input.secondaryCategories !== undefined
+          ? { secondaryCategories: input.secondaryCategories as SegmentSlug[] }
+          : {}),
         workModel: input.workModel as WorkModelSlug,
       },
     );
@@ -75,6 +79,9 @@ export class BusinessController {
           : {}),
         ...(input.workModel !== undefined
           ? { workModel: input.workModel as WorkModelSlug }
+          : {}),
+        ...(input.secondaryCategories !== undefined
+          ? { secondaryCategories: input.secondaryCategories as SegmentSlug[] }
           : {}),
       },
     );

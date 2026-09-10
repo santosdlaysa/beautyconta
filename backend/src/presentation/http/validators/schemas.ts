@@ -24,7 +24,7 @@ export const categorySlug = z.string().trim().min(1).max(60);
 const segmentSlug = z.enum(SEGMENTS.map((item) => item.slug) as [string, ...string[]]);
 const workModelSlug = z.enum(WORK_MODELS.map((item) => item.slug) as [string, ...string[]]);
 const unitSlug = z.enum(UNITS.map((item) => item.slug) as [string, ...string[]]);
-const equipmentType = z.enum(EQUIPMENT_TYPES as unknown as [string, ...string[]]);
+const equipmentType = z.enum(EQUIPMENT_TYPES.map((item) => item.slug) as [string, ...string[]]);
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use o formato AAAA-MM-DD");
 
 /** O tamanho mínimo é regra de domínio; aqui só limitamos o que trafega. */
@@ -51,6 +51,8 @@ export const updateUserSchema = z.object({ name: nonEmptyText() });
 export const createBusinessSchema = z.object({
   name: nonEmptyText().nullish(),
   primaryCategory: segmentSlug,
+  /** Outros segmentos atendidos; o principal é ignorado se vier repetido. */
+  secondaryCategories: z.array(segmentSlug).max(8).optional(),
   workModel: workModelSlug,
   timezone: z.string().trim().min(1).max(60).optional(),
 });
@@ -64,6 +66,8 @@ export const settingsSchema = z.object({
   estimatedAppointmentsPerMonth: z.number().int().positive().max(100_000),
   fixedCostAllocationMethod: z.enum(["PRODUCTIVE_HOUR", "APPOINTMENT"]),
   roundingStrategy: z.enum(["NONE", "NEAREST_1", "NEAREST_5", "NEAREST_10", "ENDING_90"]),
+  /** Meta de lucro mensal. Ausente mantém a que já existe; `null` apaga. */
+  monthlyProfitGoalCents: moneyCents.nullish(),
 });
 
 export const createMaterialSchema = z.object({

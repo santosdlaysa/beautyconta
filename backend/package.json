@@ -23,6 +23,7 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "express-rate-limit": "^8.7.0",
+    "node-cron": "^4.6.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {

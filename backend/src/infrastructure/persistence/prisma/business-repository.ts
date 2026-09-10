@@ -67,7 +67,12 @@ export class PrismaBusinessRepository implements BusinessRepository {
 
   async update(
     id: string,
-    input: Partial<Pick<BusinessRecord, "name" | "primaryCategory" | "workModel" | "timezone">>,
+    input: Partial<
+      Pick<
+        BusinessRecord,
+        "name" | "primaryCategory" | "secondaryCategories" | "workModel" | "timezone"
+      >
+    >,
   ): Promise<BusinessRecord> {
     return toRecord(await this.prisma.business.update({ where: { id }, data: input }));
   }
@@ -87,6 +92,8 @@ export class PrismaBusinessRepository implements BusinessRepository {
       estimatedAppointmentsPerMonth: input.estimatedAppointmentsPerMonth,
       fixedCostAllocationMethod: input.fixedCostAllocationMethod,
       roundingStrategy: input.roundingStrategy,
+      monthlyProfitGoal:
+        input.monthlyProfitGoalCents === null ? null : numberToCents(input.monthlyProfitGoalCents),
     };
 
     return toSettingsRecord(
@@ -104,6 +111,7 @@ function toData(input: Omit<BusinessRecord, "id" | "createdAt" | "updatedAt">) {
     ownerUserId: input.ownerUserId,
     name: input.name,
     primaryCategory: input.primaryCategory,
+    secondaryCategories: input.secondaryCategories,
     workModel: input.workModel,
     currency: input.currency,
     timezone: input.timezone,
@@ -117,6 +125,7 @@ function toRecord(business: Business): BusinessRecord {
     ownerUserId: business.ownerUserId,
     name: business.name,
     primaryCategory: business.primaryCategory as SegmentSlug,
+    secondaryCategories: business.secondaryCategories as SegmentSlug[],
     workModel: business.workModel as WorkModelSlug,
     currency: business.currency,
     timezone: business.timezone,
@@ -134,6 +143,8 @@ function toSettingsRecord(settings: BusinessSettings): BusinessSettingsRecord {
     estimatedAppointmentsPerMonth: settings.estimatedAppointmentsPerMonth,
     fixedCostAllocationMethod: settings.fixedCostAllocationMethod as AllocationMethodSlug,
     roundingStrategy: settings.roundingStrategy as RoundingStrategySlug,
+    monthlyProfitGoalCents:
+      settings.monthlyProfitGoal === null ? null : centsToNumber(settings.monthlyProfitGoal),
     createdAt: settings.createdAt,
     updatedAt: settings.updatedAt,
   };

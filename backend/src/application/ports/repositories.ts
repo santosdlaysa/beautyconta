@@ -65,7 +65,12 @@ export interface BusinessRepository {
   listByOwner(ownerUserId: string): Promise<BusinessRecord[]>;
   update(
     id: string,
-    input: Partial<Pick<BusinessRecord, "name" | "primaryCategory" | "workModel" | "timezone">>,
+    input: Partial<
+      Pick<
+        BusinessRecord,
+        "name" | "primaryCategory" | "secondaryCategories" | "workModel" | "timezone"
+      >
+    >,
   ): Promise<BusinessRecord>;
   /** Busca pelo apelido da agenda pública, sem exigir sessão. */
   findByBookingSlug(slug: string): Promise<BusinessRecord | null>;
@@ -241,4 +246,25 @@ export interface BillingEventRepository {
     externalEventId: string,
   ): Promise<BillingEventRecord | null>;
   markProcessed(id: string, processedAt: Date): Promise<void>;
+}
+
+/**
+ * Números do dia para o relatório administrativo.
+ *
+ * Contagem agregada, sem `businessId`: é a única leitura do sistema que olha a
+ * base inteira, porque quem lê é a dona do produto e não uma profissional. Por
+ * isso nada aqui identifica pessoa — o relatório responde "quantas", nunca
+ * "quem", e um aviso que vaza para o grupo errado não expõe cliente nenhum.
+ */
+export type AdminMetrics = {
+  totalUsers: number;
+  newUsersToday: number;
+  totalBusinesses: number;
+  appointmentsToday: number;
+  activeSubscriptions: number;
+};
+
+export interface MetricsRepository {
+  /** `since` marca o início do dia corrente no fuso de Brasília. */
+  snapshot(since: Date): Promise<AdminMetrics>;
 }

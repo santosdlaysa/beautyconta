@@ -10,14 +10,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * fica completo, e o resto espera no aparelho. Quem fecha o aplicativo na
  * etapa 3 volta na etapa 3, com o que já digitou.
  *
- * Uma parte do que o documento 02 pede não tem campo na API: as outras
- * categorias atendidas e a meta de lucro mensal. Elas ficam aqui, no aparelho,
- * até existir lugar para elas no servidor — a meta ainda serve de valor inicial
- * do simulador do item A-04.
+ * O rascunho é só a memória do formulário entre uma etapa e outra: **nada mora
+ * aqui**. Tudo o que a usuária responde acaba no servidor, inclusive as outras
+ * categorias atendidas e a meta de lucro mensal, que passaram a ter campo em
+ * `POST /businesses` e em `PUT /businesses/:id/settings`.
  */
 
 const DRAFT_KEY = 'beautyconta.onboarding.rascunho';
-const GOAL_KEY = 'beautyconta.meta.lucro.centavos';
 
 /** Etapas da seção 3 do documento 02, na ordem em que aparecem. */
 export const STEPS = ['atuacao', 'trabalho', 'capacidade', 'objetivo', 'resultado'] as const;
@@ -28,7 +27,7 @@ export type OnboardingDraft = {
   /** Etapas que a usuária pulou: o resumo final diz onde completá-las depois. */
   skipped: Step[];
   primaryCategory: string;
-  /** Sem campo na API; guardado para quando houver. */
+  /** Vira `secondaryCategories` do negócio ao fim da etapa "trabalho". */
   otherCategories: string[];
   businessName: string;
   workModel: string;
@@ -83,19 +82,4 @@ export async function readDraft(): Promise<OnboardingDraft | null> {
 
 export async function forgetDraft(): Promise<void> {
   await AsyncStorage.removeItem(DRAFT_KEY).catch(() => undefined);
-}
-
-/** Meta de lucro mensal em centavos inteiros, como todo dinheiro do produto. */
-export async function saveMonthlyProfitGoal(cents: number): Promise<void> {
-  if (cents <= 0) {
-    await AsyncStorage.removeItem(GOAL_KEY).catch(() => undefined);
-    return;
-  }
-  await AsyncStorage.setItem(GOAL_KEY, String(Math.round(cents))).catch(() => undefined);
-}
-
-export async function readMonthlyProfitGoal(): Promise<number | null> {
-  const stored = await AsyncStorage.getItem(GOAL_KEY).catch(() => null);
-  const cents = stored === null ? Number.NaN : Number(stored);
-  return Number.isFinite(cents) && cents > 0 ? cents : null;
 }

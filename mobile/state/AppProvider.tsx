@@ -14,8 +14,10 @@ import * as api from '../lib/resources';
  * usuária. As telas nunca chamam a API direto — pedem uma ação daqui, que
  * atualiza o servidor e o estado local na mesma operação.
  *
- * O que ainda não passa por aqui: clientes, agenda e financeiro. Eles não têm
- * API — o backlog os coloca fora do MVP — e seguem como demonstração nas telas.
+ * O que ainda não passa por aqui: clientes, que não tem API — o backlog o coloca
+ * fora do MVP — e segue como demonstração na tela. Equipamentos tem API, mas
+ * fica de fora de propósito: nenhum cálculo depende dele, e carregá-lo na
+ * abertura custaria uma requisição a quem nunca abrir aquela tela.
  */
 
 const SESSION_KEY = 'beautyconta.session.token';
@@ -88,6 +90,8 @@ type Actions = {
   saveOnboardingBusiness(input: {
     businessName: string;
     primaryCategory: string;
+    /** Outros segmentos atendidos; o servidor descarta o principal repetido. */
+    secondaryCategories: string[];
     workModel: string;
   }): Promise<api.Business>;
   /** Última etapa do onboarding: recarrega tudo e leva a usuária para dentro. */
@@ -96,7 +100,7 @@ type Actions = {
   updateProfile(input: { name: string }): Promise<void>;
   changePassword(input: { currentPassword: string; newPassword: string }): Promise<void>;
   deleteAccount(): Promise<void>;
-  saveSettings(input: Omit<api.Settings, 'businessId' | 'hourlyRateCents'>): Promise<void>;
+  saveSettings(input: api.SettingsInput): Promise<void>;
   createService(input: api.ServiceInput): Promise<api.Service>;
   updateService(id: string, input: Partial<api.ServiceInput>): Promise<api.Service>;
   removeService(id: string): Promise<void>;
@@ -348,11 +352,13 @@ export function AppProvider({ children }: PropsWithChildren) {
           ? await api.updateBusiness(sessionToken, state.business.id, {
             name,
             primaryCategory: input.primaryCategory,
+            secondaryCategories: input.secondaryCategories,
             workModel: input.workModel,
           })
           : await api.createBusiness(sessionToken, {
             name,
             primaryCategory: input.primaryCategory,
+            secondaryCategories: input.secondaryCategories,
             workModel: input.workModel,
           });
 

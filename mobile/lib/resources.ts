@@ -1,4 +1,4 @@
-import { ApiError, apiRequest } from './api';
+import { ApiError, apiDownload, apiRequest } from './api';
 
 /**
  * Recursos da API, um por endpoint.
@@ -16,6 +16,8 @@ export type Business = {
   id: string;
   name: string | null;
   primaryCategory: SegmentSlug;
+  /** Outros segmentos que ela atende, sem o principal. Vem do servidor. */
+  secondaryCategories: SegmentSlug[];
   workModel: string;
   currency: string;
   timezone: string;
@@ -37,7 +39,24 @@ export type Settings = {
   estimatedAppointmentsPerMonth: number;
   fixedCostAllocationMethod: AllocationMethod;
   roundingStrategy: RoundingStrategy;
+  /**
+   * Meta de lucro do negócio no mês, em centavos.
+   *
+   * `null` quer dizer "não disse" — e é diferente de zero, que seria uma meta
+   * declarada de não lucrar.
+   */
+  monthlyProfitGoalCents: number | null;
   hourlyRateCents: number | null;
+};
+
+/**
+ * O que a interface envia ao gravar a configuração.
+ *
+ * A meta é a única opcional, e a ausência tem significado no servidor: ele
+ * mantém a que já existe. Quem quer apagá-la manda `null` de propósito.
+ */
+export type SettingsInput = Omit<Settings, 'businessId' | 'hourlyRateCents' | 'monthlyProfitGoalCents'> & {
+  monthlyProfitGoalCents?: number | null;
 };
 
 export type Material = {
@@ -213,16 +232,19 @@ const items = async <T>(promise: Promise<{ items: T[] }>): Promise<T[]> => (awai
 export const listBusinesses = (token: string) =>
   items(apiRequest<{ items: Business[] }>('/api/businesses', { token }));
 
-export const createBusiness = (
-  token: string,
-  input: { name?: string | null; primaryCategory: string; workModel: string },
-) => apiRequest<Business>('/api/businesses', { method: 'POST', body: input, token });
+/** O servidor descarta o segmento principal se ele vier repetido nos outros. */
+export type BusinessInput = {
+  name?: string | null;
+  primaryCategory: string;
+  secondaryCategories?: string[];
+  workModel: string;
+};
 
-export const updateBusiness = (
-  token: string,
-  businessId: string,
-  input: { name?: string | null; primaryCategory?: string; workModel?: string },
-) => apiRequest<Business>(`/api/businesses/${businessId}`, { method: 'PATCH', body: input, token });
+export const createBusiness = (token: string, input: BusinessInput) =>
+  apiRequest<Business>('/api/businesses', { method: 'POST', body: input, token });
+
+export const updateBusiness = (token: string, businessId: string, input: Partial<BusinessInput>) =>
+  apiRequest<Business>(`/api/businesses/${businessId}`, { method: 'PATCH', body: input, token });
 
 /**
  * Negócio recém-criado ainda não tem configuração, e o servidor responde 404.
@@ -237,11 +259,8 @@ export const getSettings = async (token: string, businessId: string): Promise<Se
   }
 };
 
-export const saveSettings = (
-  token: string,
-  businessId: string,
-  input: Omit<Settings, 'businessId' | 'hourlyRateCents'>,
-) => apiRequest<Settings>(`/api/businesses/${businessId}/settings`, { method: 'PUT', body: input, token });
+export const saveSettings = (token: string, businessId: string, input: SettingsInput) =>
+  apiRequest<Settings>(`/api/businesses/${businessId}/settings`, { method: 'PUT', body: input, token });
 
 // --- cadastros ------------------------------------------------------------
 
@@ -294,6 +313,48 @@ export const updateFixedCost = ({ token, businessId }: Scope, id: string, input:
 
 export const deleteFixedCost = ({ token, businessId }: Scope, id: string) =>
   apiRequest<void>(scoped(businessId, `/fixed-costs/${id}`), { method: 'DELETE', token });
+
+/**
+ * Equipamento do documento 07.
+ *
+ * O cadastro existe; a depreciação, não. Nenhum campo aqui entra em cálculo de
+ * preço: a reserva mensal para reposição continua fora do rateio de custo fixo,
+ * e o servidor bloqueia a categoria `equipment_reserve` para lançamento manual
+ * justamente porque ela seria gerada por um cálculo que ainda não foi decidido.
+ */
+export type Equipment = {
+  id: string;
+  name: string;
+  type: string;
+  acquisitionPriceCents: number;
+  /** Quanto ele ainda deve valer no fim da vida útil. Zero quando não se sabe. */
+  residualValueCents: number;
+  usefulLifeMonths: number;
+  /** Data da compra em `AAAA-MM-DD`. */
+  acquisitionDate: string;
+  isArchived: boolean;
+};
+
+export type EquipmentInput = {
+  name: string;
+  type: string;
+  acquisitionPriceCents: number;
+  residualValueCents?: number;
+  usefulLifeMonths: number;
+  acquisitionDate: string;
+};
+
+export const listEquipment = ({ token, businessId }: Scope) =>
+  items(apiRequest<{ items: Equipment[] }>(scoped(businessId, '/equipment'), { token }));
+
+export const createEquipment = ({ token, businessId }: Scope, input: EquipmentInput) =>
+  apiRequest<Equipment>(scoped(businessId, '/equipment'), { method: 'POST', body: input, token });
+
+export const updateEquipment = ({ token, businessId }: Scope, id: string, input: Partial<EquipmentInput>) =>
+  apiRequest<Equipment>(scoped(businessId, `/equipment/${id}`), { method: 'PATCH', body: input, token });
+
+export const deleteEquipment = ({ token, businessId }: Scope, id: string) =>
+  apiRequest<void>(scoped(businessId, `/equipment/${id}`), { method: 'DELETE', token });
 
 export type ServiceInput = {
   name: string;
@@ -586,3 +647,20 @@ export const simulateGoal = (input: GoalInput) =>
 
 export const getCatalog = (segment?: string) =>
   apiRequest<Catalog>(`/api/catalog${segment ? `?segment=${segment}` : ''}`);
+
+// --- levar os dados embora ------------------------------------------------
+
+/**
+ * Cópia completa do negócio, pronta para virar arquivo (`RF-12`).
+ *
+ * Volta como texto, e não como objeto: é arquivo para a usuária guardar, não
+ * dado para a tela ler. O nome vem do `content-disposition` quando ele chega —
+ * no navegador ele costuma não chegar, porque o CORS não o libera por padrão, e
+ * aí vale o mesmo nome que o servidor usaria, montado com a data de hoje.
+ */
+export const exportBusinessData = async (
+  { token, businessId }: Scope,
+): Promise<{ text: string; filename: string }> => {
+  const file = await apiDownload(scoped(businessId, '/export'), { token });
+  return { text: file.text, filename: file.filename ?? `beautyconta-${dayParam(new Date())}.json` };
+};

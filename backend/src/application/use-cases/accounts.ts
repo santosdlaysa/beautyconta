@@ -1,5 +1,6 @@
 import { assertUsablePassword, hashPassword, verifyPassword } from "../../domain/auth/password";
 import { ConflictError, NotFoundError, UnauthenticatedError } from "../errors";
+import type { Notifier } from "../ports/notifications";
 import type { SessionRepository, UserRepository } from "../ports/repositories";
 import type { UserRecord } from "../ports/records";
 
@@ -13,7 +14,10 @@ import type { UserRecord } from "../ports/records";
  * trocar quem chama `RegisterUser`, não o que ele faz.
  */
 export class RegisterUser {
-  constructor(private readonly users: UserRepository) {}
+  constructor(
+    private readonly users: UserRepository,
+    private readonly notifier: Notifier,
+  ) {}
 
   async execute(input: { name: string; email: string; password: string }): Promise<UserRecord> {
     const email = normalizeEmail(input.email);
@@ -26,11 +30,17 @@ export class RegisterUser {
       throw new ConflictError("Já existe uma conta com este e-mail.");
     }
 
-    return this.users.create({
+    const user = await this.users.create({
       name: input.name.trim(),
       email,
       passwordHash: await hashPassword(input.password),
     });
+
+    // Depois de criar, nunca antes: avisar sobre um cadastro que ainda pode
+    // falhar por e-mail repetido produziria alarme falso.
+    await this.notifier.notify({ kind: "new_user", name: user.name, email: user.email });
+
+    return user;
   }
 }
 

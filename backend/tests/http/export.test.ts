@@ -57,6 +57,9 @@ describe("exportação de dados", () => {
 
     expect(status).toBe(200);
     expect(headers["content-disposition"]).toContain("attachment");
+    // O CORS precisa liberar o cabeçalho: sem isso o navegador o esconde e o
+    // nome que o servidor escolheu se perde no caminho.
+    expect(headers["access-control-expose-headers"]).toContain("content-disposition");
     expect(headers["content-disposition"]).toContain("beautyconta-");
 
     expect(body.business.id).toBe(businessId);

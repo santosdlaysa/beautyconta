@@ -1,9 +1,8 @@
 import { colors } from '../theme';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { track } from '../lib/analytics';
 import { simulateGoal, type GoalResult } from '../lib/resources';
-import { readMonthlyProfitGoal } from '../lib/onboarding';
 import { formatMoney, parseCents, parseNumber, useSubmit } from '../lib/useSubmit';
 import { Button, Card, Field, Loading, Notice, Row, Section, StatCard } from './ui';
 
@@ -31,26 +30,26 @@ type Props = {
   currentPrice?: number | null;
   /** Atendimentos por mês da configuração do negócio, quando já configurada. */
   monthlyAppointments?: number | null;
+  /**
+   * Meta de lucro guardada na configuração, em centavos.
+   *
+   * É o que a usuária respondeu no onboarding. Chega pronta de quem já leu a
+   * configuração, para o simulador não fazer uma requisição própria só por um
+   * valor inicial de campo.
+   */
+  initialGoalCents?: number | null;
 };
 
 const toInput = (value: number) => value.toFixed(2).replace('.', ',');
 
-export function GoalSimulator({ totalCost, feePercent, currentPrice, monthlyAppointments }: Props) {
+export function GoalSimulator({ totalCost, feePercent, currentPrice, monthlyAppointments, initialGoalCents }: Props) {
   const { busy, error, setError, run } = useSubmit();
-  const [goal, setGoal] = useState('');
+  // A meta que a usuária declarou no onboarding começa preenchida em vez de ser
+  // perguntada de novo; ela continua livre para simular outro número aqui.
+  const [goal, setGoal] = useState(initialGoalCents ? toInput(initialGoalCents / 100) : '');
   const [appointments, setAppointments] = useState(String(monthlyAppointments ?? 60));
   const [price, setPrice] = useState(currentPrice ? toInput(currentPrice) : '');
   const [result, setResult] = useState<GoalResult | null>(null);
-
-  // A meta de lucro que a usuária informou no onboarding não tem campo na API e
-  // ficou no aparelho; aqui ela vira o valor inicial em vez de ser esquecida.
-  useEffect(() => {
-    let alive = true;
-    void readMonthlyProfitGoal().then((cents) => {
-      if (alive && cents !== null) setGoal(toInput(cents / 100));
-    });
-    return () => { alive = false; };
-  }, []);
 
   const simulate = () => {
     const monthlyProfitGoal = parseCents(goal) / 100;

@@ -28,6 +28,62 @@ describe("limite de tentativas", () => {
     expect(barrada.body.message).toMatch(/tentativas/i);
   });
 
+  it("barra a força bruta contra uma conta mesmo trocando de origem", async () => {
+    const app = createApp(createTestDependencies());
+
+    // Quem ataca de uma botnet tem endereços de sobra e nunca esbarra no teto
+    // por origem. O teto por e-mail faz o custo acompanhar o alvo.
+    const tentar = (origem: string) =>
+      request(app)
+        .post("/api/sessions")
+        .set("x-forwarded-for", origem)
+        .send({ email: "alvo@exemplo.com", password: "chute" });
+
+    for (let i = 0; i < 20; i += 1) {
+      const origem = `203.0.113.${i}`;
+      expect((await tentar(origem)).status).toBe(401);
+    }
+
+    const barrada = await tentar("203.0.113.99");
+
+    expect(barrada.status).toBe(429);
+    expect(barrada.body.error).toBe("too_many_requests");
+  });
+
+  it("o teto de uma conta não tranca a de outra pessoa", async () => {
+    const app = createApp(createTestDependencies());
+    const tentar = (email: string, origem: string) =>
+      request(app).post("/api/sessions").set("x-forwarded-for", origem).send({ email, password: "x" });
+
+    for (let i = 0; i < 20; i += 1) {
+      await tentar("alvo@exemplo.com", `198.51.100.${i}`);
+    }
+
+    // Outra conta, outra chave: quem não é alvo continua conseguindo entrar.
+    const outra = await tentar("outra@exemplo.com", "198.51.100.200");
+    expect(outra.status).toBe(401);
+  });
+
+  it("não deixa IPv6 burlar o teto trocando de endereço na mesma faixa", async () => {
+    const app = createApp(createTestDependencies());
+
+    // Um provedor entrega um bloco /64 inteiro a cada assinante: sem agrupar a
+    // faixa, quem tem IPv6 teria endereços de sobra e nunca esbarraria no teto.
+    // Sem `email` no corpo, a chave cai no endereço — é esse caminho aqui.
+    const tentar = (sufixo: string) =>
+      request(app)
+        .post("/api/sessions")
+        .set("x-forwarded-for", `2001:db8:1234:5678::${sufixo}`)
+        .send({ password: "sem-email" });
+
+    for (let i = 1; i <= 20; i += 1) {
+      await tentar(String(i));
+    }
+
+    const barrada = await tentar("ffff");
+    expect(barrada.status).toBe(429);
+  });
+
   it("não barra a calculadora pública no mesmo ritmo", async () => {
     const app = createApp(createTestDependencies());
 

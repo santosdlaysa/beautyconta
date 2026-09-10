@@ -32,6 +32,15 @@ export const metadata: Metadata = {
     locale: "pt_BR",
     siteName: "BeautyConta",
   },
+  /**
+   * A imagem de `app/opengraph-image` é retangular e larga. Sem declarar o
+   * formato do cartão, o X a recorta em um quadrado pequeno e o título fica
+   * ilegível — as páginas do item C-04 já declaravam uma a uma; aqui vale para
+   * a página inicial e para a agenda pública.
+   */
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

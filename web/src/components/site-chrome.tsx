@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SERVICE_PAGES } from "@/content/service-pages";
+import { BrandLogo } from "./brand";
 import { MenuIcon } from "./icons";
 
 /**
@@ -14,7 +15,7 @@ export function SiteHeader() {
   return (
     <header className="site-header">
       <a href="#conteudo" className="skip-link">Pular para o conteúdo</a>
-      <Link href="/" className="logo" aria-label="BeautyConta, início"><span aria-hidden="true">B</span>BeautyConta</Link>
+      <Link href="/" className="logo" aria-label="BeautyConta, início"><BrandLogo /></Link>
       <nav aria-label="Navegação principal">
         <Link href="/#como-funciona">Como funciona</Link>
         <Link href="/#calculadoras">Calculadoras</Link>
@@ -33,7 +34,7 @@ export function SiteFooter() {
   return (
     <footer>
       <div className="footer-brand">
-        <Link href="/" className="logo"><span aria-hidden="true">B</span>BeautyConta</Link>
+        <Link href="/" className="logo" aria-label="BeautyConta, início"><BrandLogo /></Link>
         <p>Precificação simples para quem transforma beleza em negócio.</p>
         <small>© 2026 BeautyConta</small>
       </div>

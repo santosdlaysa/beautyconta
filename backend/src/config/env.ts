@@ -21,6 +21,25 @@ export const env = {
     .map((origin) => origin.trim())
     .filter(Boolean),
   nodeEnv: process.env.NODE_ENV ?? "development",
+  /**
+   * Avisos administrativos pelo Telegram.
+   *
+   * Sem as duas variáveis o sistema usa o `SilentNotifier` e nada é enviado —
+   * é o padrão em desenvolvimento e na suíte. O par é tudo ou nada de
+   * propósito: token sem destino não entrega nada, e falhar em silêncio a cada
+   * evento seria pior do que não ligar.
+   */
+  telegram: {
+    botToken: process.env.TELEGRAM_BOT_TOKEN ?? null,
+    chatId: process.env.TELEGRAM_CHAT_ID ?? null,
+    /**
+     * Erro 5xx vira aviso. Desligável porque uma falha em laço pode virar
+     * enxurrada de mensagem e derrubar o limite de envio do próprio Telegram.
+     */
+    alertOnServerError: process.env.TELEGRAM_ALERT_ON_ERROR !== "false",
+    /** Horário do relatório diário, em cron, no fuso de Brasília. */
+    dailyReportCron: process.env.TELEGRAM_DAILY_REPORT_CRON ?? "0 8 * * *",
+  },
   billing: {
     /** Segredo do webhook do Mercado Pago; sem ele a assinatura não é conferida. */
     mercadoPagoWebhookSecret: process.env.MERCADO_PAGO_WEBHOOK_SECRET ?? null,

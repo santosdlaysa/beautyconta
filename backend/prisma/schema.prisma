@@ -115,6 +115,13 @@ model Business {
   workModel       WorkModel @map("work_model")
   currency        String    @default("BRL") @db.Char(3)
   timezone        String    @default("America/Sao_Paulo")
+  /// Outros segmentos que ela atende além do principal.
+  ///
+  /// Coletado na primeira etapa do onboarding e guardado só no aparelho até
+  /// agora — o que significava perdê-lo na troca de celular. Não entra em
+  /// nenhuma fórmula: serve para priorizar catálogo e conteúdo.
+  secondaryCategories Segment[] @map("secondary_categories")
+
   /// Apelido da agenda pública: `/agendar/studio-marina`.
   ///
   /// **Público e adivinhável, por decisão de produto**: é bonito de falar e de
@@ -148,6 +155,11 @@ model BusinessSettings {
   estimatedAppointmentsPerMonth Int                       @map("estimated_appointments_per_month")
   fixedCostAllocationMethod     FixedCostAllocationMethod @default(PRODUCTIVE_HOUR) @map("fixed_cost_allocation_method")
   roundingStrategy              RoundingStrategy          @default(NONE) @map("rounding_strategy")
+  /// Quanto ela quer que sobre no mês, além da própria retirada.
+  ///
+  /// Alimenta o simulador de meta do documento 03, seção 10. Nulo enquanto ela
+  /// não disser — e nulo é diferente de zero: zero seria uma meta declarada.
+  monthlyProfitGoal             BigInt?                   @map("monthly_profit_goal_cents")
   createdAt                     DateTime                  @default(now()) @map("created_at")
   updatedAt                     DateTime                  @updatedAt @map("updated_at")
 

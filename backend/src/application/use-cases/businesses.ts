@@ -18,6 +18,8 @@ import type { BusinessAccess } from "../services/business-access";
 export type CreateBusinessInput = {
   name?: string | null;
   primaryCategory: SegmentSlug;
+  /** Outros segmentos atendidos, da primeira etapa do onboarding. */
+  secondaryCategories?: SegmentSlug[];
   workModel: WorkModelSlug;
   timezone?: string;
 };
@@ -48,6 +50,11 @@ export class CreateBusiness {
         ownerUserId,
         name: input.name?.trim() || null,
         primaryCategory: input.primaryCategory,
+        // O principal nunca se repete entre os outros: a lista responde "o que
+        // mais ela faz", e não "tudo que ela faz".
+        secondaryCategories: (input.secondaryCategories ?? []).filter(
+          (segmento) => segmento !== input.primaryCategory,
+        ),
         workModel: input.workModel,
         currency: "BRL",
         timezone: input.timezone ?? "America/Sao_Paulo",
@@ -89,12 +96,25 @@ export class UpdateBusiness {
     businessId: string,
     input: Partial<CreateBusinessInput>,
   ): Promise<BusinessRecord> {
-    await this.access.authorize(userId, businessId);
+    const atual = await this.access.authorize(userId, businessId);
+
+    // O principal nunca entra na lista dos outros — a lista responde "o que
+    // mais ela faz". Quando o update não traz o principal, vale o que já está
+    // gravado.
+    const principal = input.primaryCategory ?? atual.primaryCategory;
+
     return this.businesses.update(businessId, {
       ...(input.name !== undefined ? { name: input.name?.trim() || null } : {}),
       ...(input.primaryCategory !== undefined ? { primaryCategory: input.primaryCategory } : {}),
       ...(input.workModel !== undefined ? { workModel: input.workModel } : {}),
       ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
+      ...(input.secondaryCategories !== undefined
+        ? {
+            secondaryCategories: input.secondaryCategories.filter(
+              (segmento) => segmento !== principal,
+            ),
+          }
+        : {}),
     });
   }
 }
@@ -115,6 +135,8 @@ export class GetBusinessSettings {
 
 export type SaveSettingsInput = {
   desiredMonthlyWithdrawalCents: number;
+  /** Meta de lucro mensal, além da retirada. Omitir mantém o que já existe. */
+  monthlyProfitGoalCents?: number | null;
   productiveHoursPerMonth: number;
   estimatedAppointmentsPerMonth: number;
   fixedCostAllocationMethod: AllocationMethodSlug;
@@ -139,6 +161,18 @@ export class SaveBusinessSettings {
     input: SaveSettingsInput,
   ): Promise<BusinessSettingsRecord> {
     await this.access.authorize(userId, businessId);
-    return this.businesses.saveSettings({ businessId, ...input });
+
+    // A meta é opcional e a gravação substitui tudo: sem preservar o valor
+    // anterior, salvar o expediente apagaria a meta em silêncio.
+    const atual = await this.businesses.getSettings(businessId);
+
+    return this.businesses.saveSettings({
+      businessId,
+      ...input,
+      monthlyProfitGoalCents:
+        input.monthlyProfitGoalCents !== undefined
+          ? input.monthlyProfitGoalCents
+          : (atual?.monthlyProfitGoalCents ?? null),
+    });
   }
 }

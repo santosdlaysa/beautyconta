@@ -9,6 +9,7 @@ import type {
   CheckoutSession,
   SubscriptionGateway,
 } from "../ports/billing";
+import type { Notifier } from "../ports/notifications";
 import type {
   BillingEventRepository,
   BusinessRepository,
@@ -143,6 +144,7 @@ export class HandleBillingWebhook {
     private readonly subscriptions: SubscriptionRepository,
     private readonly clock: Clock,
     private readonly businesses: BusinessRepository,
+    private readonly notifier: Notifier,
   ) {}
 
   async execute(
@@ -210,6 +212,18 @@ export class HandleBillingWebhook {
     }
 
     await this.events.markProcessed(event.id, this.clock.now());
+
+    // Só depois de processado, e só uma vez por evento: a reentrega de um
+    // evento já concluído sai por "duplicated" acima, sem avisar de novo. Sem
+    // isso, um provedor que reenvia três vezes viraria três mensagens iguais.
+    const business = knownBusiness ? await this.businesses.findById(knownBusiness) : null;
+    await this.notifier.notify({
+      kind: "subscription",
+      businessName: business?.name ?? null,
+      eventType: translation.type,
+      plan: translation.subscription?.plan ?? null,
+      channel: translation.subscription?.channel ?? null,
+    });
 
     return { status: "recorded", eventId: event.id, subscriptionId };
   }

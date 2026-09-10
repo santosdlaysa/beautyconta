@@ -22,7 +22,7 @@ export class AccountController {
    */
   create = async (req: Request, res: Response): Promise<void> => {
     const input = parse(createUserSchema, req.body);
-    const user = await new RegisterUser(this.deps.users).execute(input);
+    const user = await new RegisterUser(this.deps.users, this.deps.notifier).execute(input);
     const session = await new StartSession(this.deps.sessions, this.deps.clock).execute(user);
 
     res.status(201).json(serializeSession(session));

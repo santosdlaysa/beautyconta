@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { ClientsScreen, FinanceScreen, InventoryScreen, ProfileScreen, ReportsScreen } from './components/ProfessionalScreens';
 import { AgendaScreen } from './components/AgendaScreen';
+import { EquipmentScreen } from './components/EquipmentScreen';
 import { BookingLinkScreen, BusinessHoursScreen } from './components/BookingScreens';
 import { CostsScreen, PlansScreen, PricingScreen, ServicesScreen } from './components/BusinessScreens';
 import { AuthView, type AuthScreen } from './components/AuthScreens';
@@ -14,7 +15,7 @@ import { Button, Loading, Notice, Screen, ScreenHeader } from './components/ui';
 import { AppProvider, useApp } from './state/AppProvider';
 import { DialogProvider } from './components/Dialog';
 
-type Tab = 'inicio' | 'calcular' | 'servicos' | 'custos' | 'planos' | 'clientes' | 'agenda' | 'agenda-online' | 'expediente' | 'financeiro' | 'estoque' | 'relatorios' | 'perfil';
+type Tab = 'inicio' | 'calcular' | 'servicos' | 'custos' | 'planos' | 'clientes' | 'agenda' | 'agenda-online' | 'expediente' | 'financeiro' | 'estoque' | 'equipamentos' | 'relatorios' | 'perfil';
 
 export default function App() {
   return <AppFrame><AppProvider><DialogProvider><BeautyContaApp /></DialogProvider></AppProvider></AppFrame>;
@@ -59,6 +60,7 @@ function BeautyContaApp() {
     expediente: <BusinessHoursScreen onBack={() => setActiveTab('perfil')} onAction={(action) => setActiveTab(routeOf(action))} />,
     financeiro: <FinanceScreen onBack={home} onAction={(action) => setActiveTab(routeOf(action))} />,
     estoque: <InventoryScreen onBack={home} onAction={(action) => { if (action === 'plans') plans(); }} />,
+    equipamentos: <EquipmentScreen onBack={() => setActiveTab('perfil')} />,
     relatorios: <ReportsScreen onBack={home} onAction={(action) => setActiveTab(routeOf(action))} />,
     perfil: <ProfileScreen onBack={home} onAction={(action) => setActiveTab(routeOf(action))} />,
   }[activeTab];
@@ -80,6 +82,7 @@ function routeOf(action: string): Tab {
   if (action === 'plans') return 'planos';
   if (action === 'booking') return 'agenda-online';
   if (action === 'hours') return 'expediente';
+  if (action === 'equipment') return 'equipamentos';
   return 'inicio';
 }
 

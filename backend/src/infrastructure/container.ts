@@ -1,8 +1,12 @@
 import type { Dependencies } from "../application/ports/dependencies";
+import type { Notifier } from "../application/ports/notifications";
 import { env } from "../config/env";
 import { MercadoPagoTranslator } from "./billing/mercado-pago/translator";
 import { NotConfiguredGateway } from "./billing/not-configured-gateway";
 import { RevenueCatTranslator } from "./billing/revenuecat/translator";
+import { PrismaMetricsRepository } from "./persistence/prisma/metrics-repository";
+import { SilentNotifier } from "./notifications/silent-notifier";
+import { TelegramNotifier } from "./notifications/telegram-notifier";
 import { prisma } from "./persistence/prisma/client";
 import { PrismaBusinessHoursRepository } from "./persistence/prisma/business-hours-repository";
 import { PrismaBusinessRepository } from "./persistence/prisma/business-repository";
@@ -45,6 +49,20 @@ export function createDependencies(): Dependencies {
         env.billing.revenueCatAcceptSandbox,
       ),
     },
+    metrics: new PrismaMetricsRepository(prisma),
+    notifier: createNotifier(),
     clock: { now: () => new Date() },
   };
+}
+
+/**
+ * Telegram quando há token e destino; silêncio caso contrário.
+ *
+ * A escolha acontece uma vez, na composição, e não a cada aviso: assim nenhum
+ * caso de uso precisa perguntar se a integração existe.
+ */
+function createNotifier(): Notifier {
+  const { botToken, chatId } = env.telegram;
+  if (!botToken || !chatId) return new SilentNotifier();
+  return new TelegramNotifier(botToken, chatId);
 }

@@ -1,4 +1,4 @@
-import rateLimit, { type RateLimitRequestHandler } from "express-rate-limit";
+import rateLimit, { ipKeyGenerator, type RateLimitRequestHandler } from "express-rate-limit";
 
 /**
  * Limites de requisição das rotas abertas.
@@ -35,6 +35,8 @@ function criar(limite: number, janelaMs = 15 * 60 * 1000): RateLimitRequestHandl
 
 export type RateLimiters = {
   session: RateLimitRequestHandler;
+  /** Segundo teto da entrada, contado por e-mail em vez de por endereço. */
+  sessionByEmail: RateLimitRequestHandler;
   account: RateLimitRequestHandler;
   webhook: RateLimitRequestHandler;
   public: RateLimitRequestHandler;
@@ -52,6 +54,7 @@ export type RateLimiters = {
 export function createRateLimiters(): RateLimiters {
   return {
     session: sessionLimiter(),
+    sessionByEmail: emailLimiter(),
     account: accountLimiter(),
     webhook: webhookLimiter(),
     public: publicLimiter(),
@@ -61,13 +64,49 @@ export function createRateLimiters(): RateLimiters {
 }
 
 /**
- * Entrada na conta: o alvo da força bruta.
+ * Entrada na conta, contada por endereço de rede.
  *
- * O teto conta por endereço, e não por e-mail, porque quem ataca controla o
- * e-mail que envia. Contar só por conta deixaria passar a varredura de muitas
- * contas com uma senha comum em cada.
+ * Pega a força bruta clássica — muitas senhas contra a mesma origem — e a
+ * varredura de muitas contas com uma senha comum em cada.
  */
 const sessionLimiter = () => criar(10);
+
+/**
+ * Entrada na conta, contada por e-mail.
+ *
+ * O teto por endereço sozinho não protege a conta: quem ataca de uma botnet, ou
+ * simplesmente trocando de rede móvel, tem endereços de sobra e nunca esbarra
+ * nele. Contar também por e-mail faz o custo do ataque acompanhar o alvo, e não
+ * a origem.
+ *
+ * O teto é mais generoso que o por endereço porque aqui o falso positivo é
+ * outro: quem erra a própria senha várias vezes é a dona da conta, e trancá-la
+ * cedo demais transforma esquecimento em suporte — ainda mais sem recuperação
+ * de senha por e-mail, que este produto não tem.
+ */
+const emailLimiter = () =>
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    message: RESPOSTA,
+    /**
+     * A chave é o e-mail tentado, normalizado como o cadastro normaliza.
+     *
+     * Corpo sem e-mail cai no endereço, para nunca ficar sem chave — e aí passa
+     * por `ipKeyGenerator`, que agrupa o bloco /64 do IPv6. Usar `req.ip` cru
+     * ali deixaria quem tem IPv6 burlar o teto trocando de endereço dentro da
+     * própria faixa, que é coisa que um provedor entrega aos milhares.
+     */
+    keyGenerator: (req) => {
+      const email = (req.body as { email?: unknown } | undefined)?.email;
+      if (typeof email === "string" && email.trim()) {
+        return `email:${email.trim().toLowerCase()}`;
+      }
+      return `ip:${ipKeyGenerator(req.ip ?? "desconhecido")}`;
+    },
+  });
 
 /** Cadastro e troca de senha: mesmo custo de CPU da entrada. */
 const accountLimiter = () => criar(20);

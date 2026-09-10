@@ -398,6 +398,7 @@ export function PricingScreen({ onBack, onUpgrade }: ScreenProps) {
         monthlyProductiveHours: settings?.productiveHoursPerMonth,
         desiredMonthlyWithdrawal: settings ? settings.desiredMonthlyWithdrawalCents / 100 : undefined,
         monthlyAppointments: settings?.estimatedAppointmentsPerMonth,
+        monthlyProfitGoalCents: settings?.monthlyProfitGoalCents,
       }}
       onSave={async input => { await app.saveQuickCalculation(input); }}
     />;
@@ -511,6 +512,7 @@ export function PricingScreen({ onBack, onUpgrade }: ScreenProps) {
         feePercent={service ? service.salesFeePercent : 0}
         currentPrice={service?.currentPriceCents ? service.currentPriceCents / 100 : null}
         monthlyAppointments={settings?.estimatedAppointmentsPerMonth ?? null}
+        initialGoalCents={settings?.monthlyProfitGoalCents ?? null}
       />
     </View>}
 

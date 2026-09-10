@@ -4,7 +4,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
-export type IconName = 'home' | 'calculator' | 'users' | 'calendar' | 'chart' | 'box' | 'settings' | 'sparkle' | 'arrow' | 'eye' | 'eye-off' | 'chevron' | 'check' | 'plus' | 'wallet' | 'search' | 'filter' | 'bell' | 'lock' | 'help' | 'logout' | 'store' | 'alert' | 'clock' | 'tag' | 'trend' | 'edit';
+export type IconName = 'home' | 'calculator' | 'users' | 'calendar' | 'chart' | 'box' | 'settings' | 'sparkle' | 'arrow' | 'eye' | 'eye-off' | 'chevron' | 'check' | 'plus' | 'wallet' | 'search' | 'filter' | 'bell' | 'lock' | 'help' | 'logout' | 'store' | 'alert' | 'clock' | 'tag' | 'trend' | 'edit' | 'download';
 const paths: Record<IconName, string> = {
   home: 'M3 10 12 3l9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z',
   calculator: 'M8 7h8M8 12h1m6 0h1m-8 5h1m6 0h1',
@@ -33,6 +33,7 @@ const paths: Record<IconName, string> = {
   tag: 'M3.5 12.2V4h8.2l8.8 8.8-8.2 8.2ZM7.6 7.7h.01',
   trend: 'm3 17 6-6 4 4 8-8m0 0h-5m5 0v5',
   edit: 'M4 20h4L20 8l-4-4L4 16ZM15 5l4 4',
+  download: 'M12 3v12m0 0 4-4m-4 4-4-4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3',
 };
 /**
  * Ícone sempre decorativo: quem carrega o significado é o texto ou o rótulo de

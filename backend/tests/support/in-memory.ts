@@ -7,9 +7,12 @@ import type {
   SubscriptionGateway,
 } from "../../src/application/ports/billing";
 import type { Dependencies } from "../../src/application/ports/dependencies";
+import type { AdminNotice, Notifier } from "../../src/application/ports/notifications";
 import type {
+  AdminMetrics,
   AppointmentRepository,
   BillingEventRepository,
+  MetricsRepository,
   BusinessHoursRepository,
   BusinessRepository,
   CalculationRepository,
@@ -219,7 +222,12 @@ export class InMemoryBusinessRepository implements BusinessRepository {
 
   update(
     id: string,
-    input: Partial<Pick<BusinessRecord, "name" | "primaryCategory" | "workModel" | "timezone">>,
+        input: Partial<
+      Pick<
+        BusinessRecord,
+        "name" | "primaryCategory" | "secondaryCategories" | "workModel" | "timezone"
+      >
+    >,
   ): Promise<BusinessRecord> {
     const business = this.items.get(id);
     if (!business) throw new Error("Negócio inexistente.");
@@ -826,6 +834,46 @@ function toDate(value: unknown): Date | null {
   return null;
 }
 
+/**
+ * Notificador que guarda em vez de enviar.
+ *
+ * Deixa o teste afirmar que o aviso saiu — e o que ele dizia — sem tocar em
+ * rede. `SilentNotifier` não serviria aqui: ele descarta, e um aviso que
+ * deixasse de ser disparado passaria despercebido.
+ */
+export class RecordingNotifier implements Notifier {
+  readonly sent: AdminNotice[] = [];
+
+  notify(notice: AdminNotice): Promise<void> {
+    this.sent.push(notice);
+    return Promise.resolve();
+  }
+
+  /** Avisos de um tipo, na ordem em que foram disparados. */
+  ofKind<K extends AdminNotice["kind"]>(kind: K): Extract<AdminNotice, { kind: K }>[] {
+    return this.sent.filter((notice): notice is Extract<AdminNotice, { kind: K }> => notice.kind === kind);
+  }
+}
+
+/** Contagens fixas: quem exercita o relatório decide o que o banco responderia. */
+export class StubMetricsRepository implements MetricsRepository {
+  snapshot_ = {
+    totalUsers: 0,
+    newUsersToday: 0,
+    totalBusinesses: 0,
+    appointmentsToday: 0,
+    activeSubscriptions: 0,
+  };
+
+  /** Último corte de dia recebido, para conferir o fuso usado no relatório. */
+  lastSince: Date | null = null;
+
+  snapshot(since: Date): Promise<AdminMetrics> {
+    this.lastSince = since;
+    return Promise.resolve(this.snapshot_);
+  }
+}
+
 export type TestDependencies = Dependencies & {
   users: InMemoryUserRepository;
   businesses: InMemoryBusinessRepository;
@@ -840,6 +888,8 @@ export type TestDependencies = Dependencies & {
   subscriptions: InMemorySubscriptionRepository;
   billingEvents: InMemoryBillingEventRepository;
   gateway: FakeGateway;
+  metrics: StubMetricsRepository;
+  notifier: RecordingNotifier;
 };
 
 export function createTestDependencies(): TestDependencies {
@@ -867,6 +917,8 @@ export function createTestDependencies(): TestDependencies {
     billingEvents: new InMemoryBillingEventRepository(),
     gateway: new FakeGateway(),
     translators: { "mercado-pago": translator, revenuecat: translator },
+    metrics: new StubMetricsRepository(),
+    notifier: new RecordingNotifier(),
     clock: { now: () => new Date() },
   };
 }

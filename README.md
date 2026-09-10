@@ -20,7 +20,10 @@ desenvolvimento.
 - etapas A e B do [backlog](docs/09-backlog-do-mvp.md) concluídas: motor
   completo com a suíte obrigatória do documento 03, esquema no PostgreSQL e
   catálogos servidos pela API;
-- API dos cadastros da etapa E pronta e testada; falta a interface consumi-la;
+- etapas C, D e E concluídas: calculadora pública, onboarding, cadastros,
+  cálculo salvo e histórico, no aplicativo e na web;
+- agenda e [agenda pública](docs/13-agenda-publica.md) construídas fora do
+  backlog, a pedido — a cliente marca sozinha por um link;
 - hospedagem, analytics e política de assinatura seguem propostas e bloqueiam
   publicação, métricas e cobrança.
 
@@ -46,9 +49,14 @@ contratado.
 10. [Identidade visual mínima](docs/10-identidade-visual.md)
 11. [Pagamentos e assinaturas](docs/11-pagamentos-e-assinaturas.md)
 12. [Arquitetura de código e convenções](docs/12-arquitetura-de-codigo.md)
+13. [Agenda pública](docs/13-agenda-publica.md)
+14. [O que falta](docs/14-pendencias.md)
 
-Decisões técnicas: [registros de arquitetura](docs/adr/README.md); quatro ADRs
-ainda estão no estado proposto.
+Decisões técnicas: [registros de arquitetura](docs/adr/README.md); três ADRs
+ainda estão no estado proposto — hospedagem, analytics e política de assinatura.
+
+**O que está parado e por quê fica em [O que falta](docs/14-pendencias.md)**,
+agrupado por quem consegue destravar cada item.
 
 ## Executar o app Expo
 
@@ -135,6 +143,12 @@ editar, `POST /:id/settle` para dar baixa e `GET /appointments/summary`.
 > [backlog](docs/09-backlog-do-mvp.md) a coloca fora do MVP, junto com clientes,
 > financeiro e estoque. A API existe; vender o recurso como disponível depende
 > da regra de comunicação dos planos da seção 6 do documento 01.
+
+Agenda pública, aberta, para a cliente que só tem o link:
+`GET /api/booking/:slug`, `GET /api/booking/:slug/slots` e
+`POST /api/booking/:slug/appointments`. O expediente e o endereço ficam em
+`/hours` e `/booking-link`, sob o negócio. Detalhes e o que ela ainda não faz
+no [documento 13](docs/13-agenda-publica.md).
 
 Webhooks de cobrança, chamados pelo processador:
 `POST /api/billing/webhooks/mercado-pago` e `.../revenuecat`. O evento bruto é

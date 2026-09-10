@@ -1,4 +1,5 @@
 import type { BillingWebhookTranslator, SubscriptionGateway } from "./billing";
+import type { Notifier } from "./notifications";
 import type {
   AppointmentRepository,
   BillingEventRepository,
@@ -9,6 +10,7 @@ import type {
   EquipmentRepository,
   FixedCostRepository,
   MaterialRepository,
+  MetricsRepository,
   ServiceRepository,
   SessionRepository,
   SubscriptionRepository,
@@ -37,5 +39,8 @@ export type Dependencies = {
   billingEvents: BillingEventRepository;
   gateway: SubscriptionGateway;
   translators: Record<"mercado-pago" | "revenuecat", BillingWebhookTranslator>;
+  metrics: MetricsRepository;
+  /** Avisos administrativos. Silencioso quando o Telegram não está configurado. */
+  notifier: Notifier;
   clock: Clock;
 };

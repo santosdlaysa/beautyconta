@@ -77,9 +77,23 @@ Coerente com a seção 7 do documento 01:
 - todo resultado carrega a frase de que é estimativa baseada nos dados
   informados.
 
-## 7. O que ainda não existe
+## 7. O que já existe e o que falta
 
-- logotipo em arquivo vetorial; hoje a marca é o losango com a letra B em CSS;
-- favicon e ícones de instalação do PWA;
-- imagem de compartilhamento para as páginas de conteúdo;
-- versão escura, que não é requisito do MVP.
+Feito em 2026-09-10, em `web/src/config/brand.ts` e `web/src/components/brand.tsx`:
+
+- **logotipo vetorial**, com a forma da seção 4 transcrita para SVG e a faísca
+  que o produto já usava — o losango e a letra B em CSS saíram;
+- **favicon** em 16 e 32 pixels, desenhado para o tamanho pequeno e não
+  reduzido a partir do logotipo: só a marca, sem o nome;
+- **imagem de compartilhamento** de todas as páginas, inclusive a inicial.
+
+O nome continua sendo texto de verdade ao lado da marca, e não vetor: assim é
+lido em voz alta, cresce com a tipografia do sistema e não depende da fonte ter
+carregado para caber na caixa.
+
+Continua faltando:
+
+- **ícones de instalação do PWA** (`apple-icon`, `manifest.webmanifest`);
+- **imagem própria da página de agendamento**, que hoje herda a da inicial — a
+  página que a cliente recebe merecia o nome do negócio na imagem;
+- **versão escura**, que não é requisito do MVP.

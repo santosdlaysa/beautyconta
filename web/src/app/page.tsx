@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "@/components/brand";
 import { PricingCalculator } from "@/components/calculator";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { ArrowIcon, CalculatorIcon, ChartIcon, CheckIcon, ShieldIcon, SparkleIcon } from "@/components/icons";
@@ -64,7 +65,7 @@ export default function Home() {
           <div className="hero-visual" aria-hidden="true">
             <div className="floating-pill pill-one"><span>Seu lucro</span><strong>+ R$ 51,43</strong></div>
             <div className="phone-card">
-              <div className="phone-top"><div className="mini-logo">B</div><span>Seu preço ideal</span><span className="dots">•••</span></div>
+              <div className="phone-top"><BrandMark size={29} /><span>Seu preço ideal</span><span className="dots">•••</span></div>
               <p>Alongamento em gel</p>
               <h2>R$ 171,43</h2>
               <div className="mini-chart"><span style={{ height: "32%" }} /><span style={{ height: "50%" }} /><span style={{ height: "42%" }} /><span style={{ height: "72%" }} /><span className="active" style={{ height: "88%" }} /></div>

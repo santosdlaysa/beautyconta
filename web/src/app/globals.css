@@ -21,8 +21,12 @@ a { color: inherit; text-decoration: none; }
 svg { width: 1.2em; height: 1.2em; }
 
 .site-header { height: 76px; display: flex; align-items: center; justify-content: space-between; max-width: 1180px; margin: auto; padding: 0 28px; position: relative; z-index: 10; }
-.logo { display: inline-flex; align-items: center; gap: 10px; font-weight: 750; font-size: 20px; letter-spacing: -.5px; }
-.logo > span, .mini-logo { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50% 50% 45% 55%; background: var(--rose); color: white; font-family: var(--font-display), serif; font-style: italic; }
+/* O losango e a faísca saíram do CSS para `components/brand`: a marca precisa
+   existir também no favicon e nas imagens de compartilhamento, que o navegador
+   não desenha. Aqui ficou só o que é tipografia. */
+.logo { display: inline-flex; align-items: center; gap: 10px; font-size: 20px; letter-spacing: -.5px; }
+.wordmark { font-weight: 750; }
+.wordmark-accent { color: var(--rose); font-weight: 450; }
 .site-header nav { display: flex; gap: 32px; color: #51484e; font-size: 14px; }
 .site-header nav a:hover { color: var(--rose); }
 .header-actions { display: flex; align-items: center; gap: 10px; }
@@ -52,7 +56,6 @@ svg { width: 1.2em; height: 1.2em; }
 .hero-visual { min-height: 480px; position: relative; z-index: 2; display: grid; place-items: center; }
 .phone-card { width: 310px; min-height: 430px; padding: 27px; background: rgba(255,255,255,.87); border: 1px solid rgba(255,255,255,.9); box-shadow: 0 35px 80px rgba(72,34,49,.19); backdrop-filter: blur(12px); border-radius: 30px; transform: rotate(2deg); }
 .phone-top { display: flex; align-items: center; gap: 12px; font-size: 12px; font-weight: 700; }
-.phone-top .mini-logo { width: 29px; height: 29px; }
 .phone-top .dots { margin-left: auto; letter-spacing: 2px; color: var(--muted); }
 .phone-card > p { margin: 62px 0 8px; color: var(--muted); font-size: 13px; }
 .phone-card > h2 { color: var(--rose-dark); font-family: var(--font-display), serif; font-size: 48px; margin: 0; font-weight: 550; }

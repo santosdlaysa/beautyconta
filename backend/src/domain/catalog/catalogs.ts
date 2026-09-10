@@ -157,12 +157,39 @@ export const SERVICE_CATEGORIES = [
 ] as const;
 
 /** Tipos de equipamento da seção 8, usados pelo cadastro do documento 07. */
+/**
+ * Tipos de equipamento da seção 8 do documento 06.
+ *
+ * Com rótulo, como todos os outros catálogos: a lista existe para a interface
+ * montar uma escolha, e `uv_lamp` não é o que se mostra a alguém. Antes só os
+ * identificadores saíam, e cada interface traduzia por conta própria — o que
+ * já tinha gerado uma cópia dos rótulos dentro do aplicativo.
+ */
 export const EQUIPMENT_TYPES = [
-  "uv_lamp", "nail_drill", "dust_collector", "autoclave", "sterilizer", "bed",
-  "chair", "stool", "table", "trolley", "ring_light", "lamp", "hair_dryer",
-  "flat_iron", "steamer", "card_reader", "computer", "phone", "air_conditioner",
-  "cabinet", "other",
+  { slug: "uv_lamp", label: "Cabine de luz" },
+  { slug: "nail_drill", label: "Motor de unha" },
+  { slug: "dust_collector", label: "Aspirador de pó de unha" },
+  { slug: "autoclave", label: "Autoclave" },
+  { slug: "sterilizer", label: "Esterilizador" },
+  { slug: "bed", label: "Maca" },
+  { slug: "chair", label: "Cadeira" },
+  { slug: "stool", label: "Mocho" },
+  { slug: "table", label: "Mesa" },
+  { slug: "trolley", label: "Carrinho auxiliar" },
+  { slug: "ring_light", label: "Ring light" },
+  { slug: "lamp", label: "Luminária" },
+  { slug: "hair_dryer", label: "Secador" },
+  { slug: "flat_iron", label: "Chapinha" },
+  { slug: "steamer", label: "Vaporizador" },
+  { slug: "card_reader", label: "Maquininha de cartão" },
+  { slug: "computer", label: "Computador" },
+  { slug: "phone", label: "Celular" },
+  { slug: "air_conditioner", label: "Ar-condicionado" },
+  { slug: "cabinet", label: "Armário" },
+  { slug: "other", label: "Outro" },
 ] as const;
+
+export type EquipmentTypeSlug = (typeof EQUIPMENT_TYPES)[number]["slug"];
 
 /** Categorias sugeridas para o segmento, com as transversais sempre visíveis. */
 export function materialCategoriesFor(segment: SegmentSlug) {

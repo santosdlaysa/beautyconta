@@ -117,6 +117,69 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   return payload as T;
 }
 
+/** Corpo cru de uma resposta e o nome de arquivo que o servidor anunciou. */
+export type DownloadedFile = { text: string; filename: string | null };
+
+/**
+ * Busca uma resposta para virar arquivo, sem interpretá-la.
+ *
+ * A exportação do `RF-12` é o único caminho em que o corpo não vira objeto: o
+ * que a usuária leva embora é o arquivo como o servidor o escreveu. Interpretar
+ * e reserializar guardaria duas cópias de um JSON que pode ser grande, e ainda
+ * mudaria bytes que não são nossos para mudar.
+ */
+export async function apiDownload(
+  path: string,
+  options: { token?: string | null; signal?: AbortSignal } = {},
+): Promise<DownloadedFile> {
+  const { token, signal } = options;
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      signal,
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    });
+  } catch {
+    throw new ApiError('Não conseguimos falar com o servidor. Confira sua conexão.', 0, 'offline');
+  }
+
+  if (!response.ok) {
+    const data = ((await response.json().catch(() => null)) ?? {}) as { message?: string; error?: string };
+    throw new ApiError(
+      data.message ?? 'Não conseguimos concluir agora. Tente novamente em instantes.',
+      response.status,
+      data.error,
+    );
+  }
+
+  return { text: await response.text(), filename: filenameOf(response.headers.get('content-disposition')) };
+}
+
+/**
+ * Nome do arquivo anunciado no `content-disposition`.
+ *
+ * Devolve `null` quando o cabeçalho não chega — no navegador ele não está na
+ * lista que o CORS libera por padrão, e só aparece se o servidor o expuser.
+ * Quem chama precisa, por isso, ter um nome de reserva.
+ *
+ * O nome é reduzido ao último trecho e limpo de barras e pontos duplos antes de
+ * sair daqui: no aparelho ele vira caminho de arquivo, e um cabeçalho torto não
+ * pode escolher onde o aplicativo escreve.
+ */
+function filenameOf(header: string | null): string | null {
+  const match = header?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+  if (!match) return null;
+
+  const safe = decodeURIComponent(match[1].trim())
+    .split(/[\\/]/)
+    .pop()
+    ?.replace(/\.{2,}/g, '.')
+    .trim();
+
+  return safe ? safe : null;
+}
+
 /** Centavos do servidor viram reais na interface, e só aqui. */
 export const fromCents = (cents: number): number => cents / 100;
 /** Reais digitados viram centavos inteiros antes de subir. */

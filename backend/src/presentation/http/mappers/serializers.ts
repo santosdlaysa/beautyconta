@@ -54,6 +54,7 @@ export function serializeBusiness(business: BusinessRecord) {
     id: business.id,
     name: business.name,
     primaryCategory: business.primaryCategory,
+    secondaryCategories: business.secondaryCategories,
     workModel: business.workModel,
     currency: business.currency,
     timezone: business.timezone,
@@ -78,6 +79,7 @@ export function serializeSettings(settings: BusinessSettingsRecord) {
     estimatedAppointmentsPerMonth: settings.estimatedAppointmentsPerMonth,
     fixedCostAllocationMethod: settings.fixedCostAllocationMethod,
     roundingStrategy: settings.roundingStrategy,
+    monthlyProfitGoalCents: settings.monthlyProfitGoalCents,
     /** Derivado, para a interface não repetir a conta do item E-03. */
     hourlyRateCents:
       settings.productiveHoursPerMonth > 0

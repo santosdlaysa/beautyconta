@@ -26,7 +26,7 @@ export type SubscriptionSnapshot = {
  * usando enquanto o processador tenta de novo. `past_due` já esgotou as
  * tentativas e cai para o gratuito sem apagar nada.
  */
-const GRANTS_ACCESS: ReadonlySet<SubscriptionStatusSlug> = new Set([
+export const GRANTS_ACCESS: ReadonlySet<SubscriptionStatusSlug> = new Set([
   "active",
   "in_grace",
 ]);

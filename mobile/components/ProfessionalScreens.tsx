@@ -1,13 +1,14 @@
 import { colors } from '../theme';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { MATERIAL_CATEGORIES, UNITS, guessMaterialCategory, labelOf, slugOf } from '../lib/catalog';
-import type { Material } from '../lib/resources';
+import { deliverFile } from '../lib/download';
+import { exportBusinessData, type Material } from '../lib/resources';
 import { centsToInput, formatCents, formatIsoDate, parseCents, parseIsoDate, parseNumber, useSubmit } from '../lib/useSubmit';
 import { useApp } from '../state/AppProvider';
 import { useDialog } from './Dialog';
 import { Icon } from './AppChrome';
-import { Avatar, Badge, Button, Card, ChoiceField, EmptyState, Field, FormSheet, HeroCard, IconBubble, ListRow, Loading, Notice, PlanLimitNotice, Row, Screen, ScreenHeader, SearchField, Section, StatCard, TimelinePanel, TimelineRow, WeekStrip, quebraLonga, ui } from './ui';
+import { Avatar, Badge, Button, Card, ChoiceField, EmptyState, Field, FormSheet, HeroCard, IconBubble, ListRow, Loading, Notice, PlanLimitNotice, Row, Screen, ScreenHeader, SearchField, Section, StatCard, quebraLonga, ui } from './ui';
 
 export type ProfessionalScreenProps = { onBack?: () => void; onAction?: (action: string) => void };
 
@@ -230,11 +231,13 @@ export function ProfileScreen({ onBack, onAction }: ProfessionalScreenProps) {
   const dialog = useDialog();
   const profile = useSubmit();
   const password = useSubmit();
+  const data = useSubmit();
   const [nameOpen, setNameOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [name, setName] = useState(app.user?.name ?? '');
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
+  const [exported, setExported] = useState<string | null>(null);
 
   // A agenda está no ar quando existe link: é a mesma verdade que o servidor
   // usa para responder à cliente, e não uma preferência guardada à parte.
@@ -259,6 +262,35 @@ export function ProfileScreen({ onBack, onAction }: ProfessionalScreenProps) {
       await app.changePassword({ currentPassword: current, newPassword: next });
       // A troca derruba as sessões: o provedor já devolve a usuária à entrada.
       setPasswordOpen(false);
+    });
+  };
+
+  /**
+   * Leva embora uma cópia de tudo (`RF-12`).
+   *
+   * Fica ao lado de "Excluir minha conta" porque as duas respondem à mesma
+   * pergunta — "os dados são meus?" — e a ordem importa: levar antes de apagar.
+   *
+   * O arquivo pode ser grande, então nada disso acontece em silêncio: o próprio
+   * item vira "Preparando..." enquanto o servidor monta a cópia, e o fim da
+   * história aparece logo abaixo, dita conforme a plataforma entregou o arquivo.
+   */
+  const exportData = () => {
+    const token = app.token;
+    const business = app.business;
+    if (!token || !business) return;
+
+    setExported(null);
+    void data.run(async () => {
+      const file = await exportBusinessData({ token, businessId: business.id });
+      const delivery = await deliverFile({
+        filename: file.filename,
+        text: file.text,
+        dialogTitle: 'Meus dados do BeautyConta',
+      });
+      setExported(delivery === 'baixado'
+        ? `Pronto: ${file.filename} foi para os downloads deste navegador.`
+        : `Pronto: ${file.filename} está com você. Escolha onde guardá-lo.`);
     });
   };
 
@@ -324,12 +356,24 @@ export function ProfileScreen({ onBack, onAction }: ProfessionalScreenProps) {
 
     <Section title="Conta e negócio" />
     <ListRow icon="store" title="Dados do negócio" subtitle={app.business?.name ?? 'Sem nome definido'} onPress={() => setNameOpen(true)} />
+    <ListRow icon="settings" title="Meus equipamentos" subtitle="Cabine, maca, lixadeira — o que você comprou para trabalhar" onPress={() => onAction?.('equipment')} />
     <ListRow icon="sparkle" title="Meu plano" subtitle={planLabel} onPress={() => onAction?.('plans')} />
     <ListRow icon="lock" title="Trocar senha" subtitle="Encerra as sessões abertas" onPress={() => { setCurrent(''); setNext(''); password.setError(null); setPasswordOpen(true); }} />
     <ListRow icon="bell" title="Notificações" subtitle="Lembretes e avisos — em breve" onPress={() => dialog.inform({ title: 'Em breve', message: 'Os lembretes e avisos ainda estão sendo preparados.' })} />
 
     <Section title="Seus dados" />
     <ListRow icon="help" title="Central de ajuda" subtitle="Tire suas dúvidas" onPress={() => dialog.inform({ title: 'Central de ajuda', message: 'Escreva para suporte@beautyconta.com.br e respondemos por e-mail.' })} />
+    <ListRow
+      icon="download"
+      title="Exportar meus dados"
+      subtitle={data.busy
+        ? 'Preparando o seu arquivo...'
+        : 'Um arquivo com serviços, materiais, custos e cálculos'}
+      onPress={data.busy ? undefined : exportData}
+    />
+    {data.busy && <Loading label="Reunindo tudo o que é seu..." />}
+    {data.error && <Notice message={data.error} action="Tentar de novo" onAction={exportData} />}
+    {exported && <Notice tone="success" message={exported} />}
     <ListRow icon="logout" title="Sair da conta" subtitle="Encerra a sessão neste aparelho" onPress={confirmSignOut} />
     <ListRow icon="alert" iconTone="danger" title="Excluir minha conta" subtitle="Apaga tudo, sem volta" onPress={confirmDelete} />
     <Text style={[s.version, quebraLonga]}>BeautyConta · versão 1.0.0 · {app.user?.email ?? ''}</Text>
@@ -368,53 +412,6 @@ export function ClientsScreen({ onBack }: ProfessionalScreenProps) {
       <ListRow key={client.name} initials={initialsOf(client.name)} iconTone={index % 2 === 0 ? 'pink' : 'lilac'} title={client.name} subtitle={client.last} />
     ))}
     {filtered.length === 0 && <EmptyState icon="users" title="Nenhuma cliente encontrada" description="Ajuste a busca para ver os exemplos." />}
-  </Screen>;
-}
-
-const demoAppointments = [
-  { time: '09:00', end: '11:00', name: 'Mariana Souza', service: 'Alongamento em gel', confirmed: true },
-  { time: '11:30', end: '12:30', name: 'Ana Beatriz', service: 'Manutenção de unhas', confirmed: false },
-  { time: '14:00', end: '15:00', name: 'Júlia Almeida', service: 'Esmaltação em gel', confirmed: true },
-];
-
-export function AgendaScreen({ onBack }: ProfessionalScreenProps) {
-  const [today] = useState(() => new Date());
-  const [selectedDay, setSelectedDay] = useState(() => today.getDay());
-  const week = useMemo(() => Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() - today.getDay() + index);
-    return date;
-  }), [today]);
-
-  const selectedDate = week[selectedDay];
-  const day = selectedDay === 0 ? [] : selectedDay % 2 === 0 ? demoAppointments.slice(1) : demoAppointments;
-  const dateLabel = selectedDay === today.getDay() ? 'Hoje' : selectedDate.toLocaleDateString('pt-BR', { weekday: 'long' });
-
-  return <Screen>
-    <ScreenHeader title="Agenda" subtitle="Organize seu dia" onBack={onBack} />
-    <DemoNotice what="A agenda" />
-    <View style={s.meta}>
-      <Text style={s.month}>{selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</Text>
-      <Text style={s.metaHint}>{day.length} {day.length === 1 ? 'atendimento' : 'atendimentos'}</Text>
-    </View>
-    <WeekStrip dates={week} selected={selectedDay} onSelect={setSelectedDay} marked={index => index !== 0} />
-    <TimelinePanel title={`${dateLabel}, ${selectedDate.getDate()}`}>
-      {day.length === 0
-        ? <EmptyState icon="calendar" title="Seu dia está livre" description="Um respiro na agenda ou espaço para uma nova cliente." />
-        : day.map((item, index) => (
-          <TimelineRow
-            key={item.time}
-            time={item.time}
-            endTime={item.end}
-            initials={initialsOf(item.name)}
-            title={item.name}
-            subtitle={item.service}
-            status={item.confirmed ? 'Confirmado' : 'A confirmar'}
-            pending={!item.confirmed}
-            last={index === day.length - 1}
-          />
-        ))}
-    </TimelinePanel>
   </Screen>;
 }
 
@@ -521,10 +518,6 @@ export function ReportsScreen({ onBack, onAction }: ProfessionalScreenProps) {
 }
 
 const s = StyleSheet.create({
-  meta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 13 },
-  month: { color: colors.muted, fontSize: 11, textTransform: 'capitalize' },
-  metaHint: { color: colors.muted, fontSize: 10 },
-  groupLabel: { fontSize: 12, fontWeight: '500', color: colors.muted, marginBottom: 9 },
   hint: { color: colors.faded, fontSize: 11, lineHeight: 17 },
   bars: { height: 140, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around' },
   barWrap: { alignItems: 'center', justifyContent: 'flex-end', gap: 7 },

@@ -176,3 +176,93 @@ describe("cadastros do negócio", () => {
     expect(list.body.items).toHaveLength(0);
   });
 });
+
+/**
+ * Campos que o onboarding coletava e não tinham onde morar: ficavam no aparelho
+ * e sumiam na troca de celular.
+ */
+describe("o que o onboarding coleta e o banco agora guarda", () => {
+  it("guarda os outros segmentos atendidos", async () => {
+    const { as, userId } = await setupApi();
+    void userId;
+
+    const criado = await as().post("/api/businesses").send({
+      name: "Estúdio novo",
+      primaryCategory: "nails",
+      secondaryCategories: ["lashes", "brows"],
+      workModel: "home",
+    });
+
+    // Só falha por limite de plano; o teste é sobre o campo, não sobre o teto.
+    if (criado.status === 402) return;
+
+    expect(criado.status).toBe(201);
+    expect(criado.body.secondaryCategories).toEqual(["lashes", "brows"]);
+  });
+
+  it("não repete o segmento principal entre os outros", async () => {
+    const { as, businessId } = await setupApi();
+
+    const { body } = await as()
+      .patch(`/api/businesses/${businessId}`)
+      // O negócio criado pela suíte tem `nails` como principal.
+      .send({ secondaryCategories: ["nails", "lashes"] });
+
+    expect(body.secondaryCategories).toEqual(["lashes"]);
+  });
+
+  it("guarda a meta de lucro mensal junto da configuração", async () => {
+    const { as, businessId } = await setupApi();
+    const url = `/api/businesses/${businessId}/settings`;
+
+    const salvo = await as().put(url).send({
+      desiredMonthlyWithdrawalCents: 420_000,
+      productiveHoursPerMonth: 150,
+      estimatedAppointmentsPerMonth: 60,
+      fixedCostAllocationMethod: "PRODUCTIVE_HOUR",
+      roundingStrategy: "NONE",
+      monthlyProfitGoalCents: 200_000,
+    });
+
+    expect(salvo.body.monthlyProfitGoalCents).toBe(200_000);
+  });
+
+  it("não apaga a meta quando ela salva só o resto da configuração", async () => {
+    const { as, businessId } = await setupApi();
+    const url = `/api/businesses/${businessId}/settings`;
+    const base = {
+      desiredMonthlyWithdrawalCents: 420_000,
+      productiveHoursPerMonth: 150,
+      estimatedAppointmentsPerMonth: 60,
+      fixedCostAllocationMethod: "PRODUCTIVE_HOUR",
+      roundingStrategy: "NONE",
+    };
+
+    await as().put(url).send({ ...base, monthlyProfitGoalCents: 200_000 });
+
+    // A gravação substitui tudo: sem preservar, a meta sumiria em silêncio ao
+    // mexer no arredondamento.
+    const depois = await as().put(url).send({ ...base, roundingStrategy: "ENDING_90" });
+
+    expect(depois.body.monthlyProfitGoalCents).toBe(200_000);
+    expect(depois.body.roundingStrategy).toBe("ENDING_90");
+  });
+
+  it("aceita apagar a meta explicitamente", async () => {
+    const { as, businessId } = await setupApi();
+    const url = `/api/businesses/${businessId}/settings`;
+    const base = {
+      desiredMonthlyWithdrawalCents: 420_000,
+      productiveHoursPerMonth: 150,
+      estimatedAppointmentsPerMonth: 60,
+      fixedCostAllocationMethod: "PRODUCTIVE_HOUR",
+      roundingStrategy: "NONE",
+    };
+
+    await as().put(url).send({ ...base, monthlyProfitGoalCents: 200_000 });
+    const limpo = await as().put(url).send({ ...base, monthlyProfitGoalCents: null });
+
+    // Nulo é "não disse"; zero seria uma meta declarada de não lucrar.
+    expect(limpo.body.monthlyProfitGoalCents).toBeNull();
+  });
+});

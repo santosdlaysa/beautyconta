@@ -88,6 +88,7 @@ export class SubscriptionController {
       this.deps.subscriptions,
       this.deps.clock,
       this.deps.businesses,
+      this.deps.notifier,
     ).execute(translator, req.body, headersOf(req));
 
     if (outcome.status === "rejected") {

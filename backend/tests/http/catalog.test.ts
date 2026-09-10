@@ -26,6 +26,17 @@ describe("catálogos", () => {
     expect(slugs).not.toContain("lash_glue");
   });
 
+  it("dá rótulo aos tipos de equipamento, como aos outros catálogos", async () => {
+    const { status, body } = await request(app).get("/api/catalog/equipment-types");
+
+    expect(status).toBe(200);
+    // Antes saíam só os identificadores, e cada interface traduzia por conta
+    // própria — o que já tinha gerado uma cópia dos rótulos dentro do aplicativo.
+    expect(body.items).toContainEqual({ slug: "uv_lamp", label: "Cabine de luz" });
+    expect(body.items).toContainEqual({ slug: "card_reader", label: "Maquininha de cartão" });
+    expect(body.items.every((item: { slug: string; label: string }) => item.label)).toBe(true);
+  });
+
   it("devolve a lista completa quando o segmento é desconhecido", async () => {
     const { status, body } = await request(app).get("/api/catalog/service-categories?segment=xyz");
 

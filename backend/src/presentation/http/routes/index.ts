@@ -53,7 +53,14 @@ function sessionRoutes(deps: Dependencies, limites: RateLimiters): Router {
   const controller = new SessionController(deps);
   const router = Router();
 
-  router.post("/sessions", limites.session, asyncHandler(controller.create));
+  // Dois tetos, porque protegem de coisas diferentes: um contém a origem, o
+  // outro contém o ataque distribuído contra uma conta específica.
+  router.post(
+    "/sessions",
+    limites.session,
+    limites.sessionByEmail,
+    asyncHandler(controller.create),
+  );
   router.delete("/sessions/current", requireUser, asyncHandler(controller.destroy));
 
   return router;

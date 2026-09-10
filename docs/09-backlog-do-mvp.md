@@ -372,7 +372,20 @@ Origem: documento 04, seção 7. Tamanho: M. Ambientes separados, backup diário
 restauração ensaiada, registro de erros sem dado pessoal e canal de suporte
 declarado.
 
-## 10. Fora deste backlog
+## 10. Construído fora deste backlog
+
+Agenda interna e agenda pública foram construídas em 2026-09-09 a pedido da dona
+do produto, sem passar por item de backlog. As duas pertencem, pelo desenho
+original, às fases 3 e 4 do documento 05 — e a decisão de mantê-las no primeiro
+lançamento continua aberta.
+
+A agenda pública está documentada no [documento 13](13-agenda-publica.md),
+inclusive o que ela ainda não faz.
+
+O mapa do que está parado, e de quem depende cada item, fica no
+[documento 14](14-pendencias.md).
+
+## 11. Fora deste backlog
 
 Clientes, agenda, financeiro, estoque, equipamentos, painel completo,
 relatórios avançados, lembretes de retorno e recursos de inteligência artificial

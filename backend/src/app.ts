@@ -4,7 +4,7 @@ import type { Dependencies } from "./application/ports/dependencies";
 import { env } from "./config/env";
 import { createDependencies } from "./infrastructure/container";
 import { checkDatabase } from "./infrastructure/persistence/prisma/client";
-import { errorHandler } from "./presentation/http/middleware/error-handler";
+import { createErrorHandler } from "./presentation/http/middleware/error-handler";
 import { resolveIdentity } from "./presentation/http/middleware/identity";
 import { createApiRouter } from "./presentation/http/routes";
 
@@ -25,7 +25,15 @@ export function createApp(deps: Dependencies = createDependencies()) {
   // qualquer cabeçalho encaminhado deixaria o teto ser burlado à vontade.
   app.set("trust proxy", 1);
 
-  app.use(cors({ origin: env.corsOrigins }));
+  app.use(
+    cors({
+      origin: env.corsOrigins,
+      // Sem isto, o navegador esconde o `content-disposition` da resposta e a
+      // exportação de dados chega sem o nome do arquivo que o servidor
+      // escolheu. O cabeçalho existe, mas o CORS não o entrega por padrão.
+      exposedHeaders: ["content-disposition"],
+    }),
+  );
   app.use(express.json({ limit: "1mb" }));
   app.use(resolveIdentity(deps));
 
@@ -40,7 +48,12 @@ export function createApp(deps: Dependencies = createDependencies()) {
   });
 
   app.use("/api", createApiRouter(deps));
-  app.use(errorHandler);
+  app.use(
+    createErrorHandler({
+      notifier: deps.notifier,
+      alertOnServerError: env.telegram.alertOnServerError,
+    }),
+  );
 
   return app;
 }
