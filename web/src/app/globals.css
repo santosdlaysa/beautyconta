@@ -407,69 +407,193 @@ footer small { display: block; color: #9f9499; font-size: 12px; }
   .booking-step { padding: 26px 24px; }
 }
 
+
 /* ---------------------------------------------------------------------------
  * Painel administrativo
  *
- * Denso de propósito: aqui a pessoa vem conferir números e mexer em preço, não
- * ser convencida de nada. Mesmas cores do produto, menos ar entre os elementos.
+ * Ferramenta de trabalho, não peça de marketing: densidade alta, hierarquia
+ * clara, número legível de relance. O visual vem da paleta do aplicativo — o
+ * mesmo roxo-tinta da marca sustenta a barra lateral, e o rosa fica reservado
+ * ao que exige atenção ou ação.
+ *
+ * As cores são declaradas aqui, e não reaproveitadas das do site, porque o site
+ * vende e o painel opera: um precisa de leveza, o outro de contraste.
  * --------------------------------------------------------------------------- */
-.admin-tab { min-height: 40px; padding: 0 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
-.admin-tab[aria-pressed="true"] { background: var(--rose); border-color: var(--rose); color: #fff; }
+.admin-shell {
+  /* Paleta do aplicativo, em `mobile/theme.ts`. */
+  --adm-ink: #37263e;
+  --adm-ink-2: #514058;
+  --adm-ink-3: #6b5b73;
+  --adm-muted: #5f5165;
+  --adm-accent: #a63d66;
+  --adm-accent-hi: #da5b8d;
+  --adm-accent-soft: #fdf0f3;
+  --adm-lilac: #e4c3e7;
+  --adm-lilac-soft: #f6edf7;
+  --adm-border: #efdfed;
+  --adm-line: #e6e0e8;
+  --adm-bg: #f7f4f8;
+  --adm-surface: #ffffff;
+  --adm-success: #42745e;
+  --adm-success-soft: #e9f2ed;
+  --adm-warning: #8a6520;
+  --adm-warning-soft: #fbf1e0;
+  --adm-danger: #b23f5e;
+  --adm-danger-soft: #fbe9ee;
+  --adm-info: #6b5590;
+  --adm-info-soft: #f0ebfa;
 
-.admin-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
-.admin-card { min-width: 0; display: grid; gap: 3px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
-.admin-card-titulo { color: var(--muted); font-size: 12px; }
-.admin-card-valor { font-size: 24px; font-weight: 700; overflow-wrap: anywhere; }
-.admin-card-nota { color: var(--muted); font-size: 11px; }
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  background: var(--adm-bg);
+  color: var(--adm-ink);
+  font-size: 14px;
+}
 
-.admin-h2 { margin: 0 0 10px; font-size: 17px; }
-.admin-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.admin-lista li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+/* --- barra lateral -------------------------------------------------------- */
 
-.admin-planos { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
-.admin-plano { min-width: 0; display: grid; gap: 7px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
-.admin-plano h3 { margin: 0 0 4px; font-size: 15px; }
-.admin-plano label { color: var(--muted); font-size: 12px; }
-.admin-preco { display: flex; align-items: center; gap: 7px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: #fffcfb; }
-.admin-preco span { color: var(--muted); font-size: 14px; }
-.admin-preco input { flex: 1; min-width: 0; height: 42px; border: 0; outline: 0; background: transparent; font: inherit; font-size: 16px; }
-.admin-preview { margin: 0; color: var(--green); font-size: 12px; font-weight: 600; }
-.admin-plano textarea { width: 100%; max-width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fffcfb; font: inherit; font-size: 14px; resize: vertical; }
-.admin-check { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 13px; }
-.admin-acoes { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+/* Escura de propósito: separa a ferramenta do conteúdo sem precisar de borda, e
+   é onde o roxo da marca aparece inteiro. */
+.admin-side { display: flex; flex-direction: column; background: var(--adm-ink); color: #efe7f1; }
+.admin-marca { display: flex; align-items: center; gap: 11px; padding: 19px 18px; border-bottom: 1px solid rgba(255, 255, 255, .09); }
+.admin-marca-selo { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 8px; background: var(--adm-accent); color: #fff; font-size: 15px; font-weight: 700; }
+.admin-marca > span:last-child { display: grid; gap: 1px; }
+.admin-marca strong { font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
+.admin-marca small { color: rgba(239, 231, 241, .55); font-size: 11px; }
 
-.admin-primary { min-height: 42px; padding: 0 18px; border: 0; border-radius: 10px; background: var(--rose); color: #fff; font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; }
-.admin-primary:disabled { opacity: .55; cursor: not-allowed; }
-.admin-link { border: 0; background: none; color: var(--rose-dark); font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.admin-nav { flex: 1; padding: 12px 10px; overflow-y: auto; }
+.admin-nav-secao { margin: 16px 0 5px; padding: 0 10px; color: rgba(239, 231, 241, .42); font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+.admin-nav-item { position: relative; width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: 7px; background: none; color: rgba(239, 231, 241, .72); font: inherit; font-size: 13px; font-weight: 500; text-align: left; cursor: pointer; transition: background .15s, color .15s; }
+.admin-nav-item svg { opacity: .7; }
+.admin-nav-item:hover { background: rgba(255, 255, 255, .07); color: #fff; }
+.admin-nav-item[aria-current="page"] { background: rgba(255, 255, 255, .11); color: #fff; font-weight: 600; }
+.admin-nav-item[aria-current="page"] svg { opacity: 1; color: var(--adm-lilac); }
+/* A barrinha marca a posição sem depender só da cor. */
+.admin-nav-item[aria-current="page"]::before { content: ""; position: absolute; left: -10px; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; border-radius: 0 3px 3px 0; background: var(--adm-lilac); }
+.admin-sair { margin: 10px; padding: 10px; border: 0; border-top: 1px solid rgba(255, 255, 255, .09); border-radius: 0; background: none; color: rgba(239, 231, 241, .55); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.admin-sair:hover { color: #fff; }
 
-.admin-erro { margin: 0; color: var(--danger); font-size: 13px; }
-.admin-ok { margin: 0; color: var(--green); font-size: 13px; }
-.admin-loading, .admin-vazio, .admin-nota { color: var(--muted); font-size: 13px; }
-.admin-nota { margin: 0 0 4px; line-height: 1.65; }
+/* --- área de conteúdo ----------------------------------------------------- */
 
-.admin-busca { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-bottom: 16px; }
-.admin-busca label { flex-basis: 100%; color: var(--muted); font-size: 12px; }
-.admin-busca input { flex: 1; min-width: 180px; height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: #fffcfb; font: inherit; }
+.admin-conteudo { min-width: 0; display: grid; align-content: start; gap: 20px; padding: 26px 26px 64px; }
+.admin-titulo { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -.015em; }
+.admin-menu { display: none; }
+.admin-h2 { margin: 0 0 10px; font-size: 14px; font-weight: 650; color: var(--adm-ink-2); }
 
-/* A tabela rola dentro da própria caixa: sem isto ela empurra a página inteira
-   para o lado no celular. */
-.admin-tabela-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
-.admin-tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
-.admin-tabela caption { padding: 12px 14px; color: var(--muted); font-size: 12px; text-align: left; }
-.admin-tabela th, .admin-tabela td { padding: 11px 14px; text-align: left; border-top: 1px solid var(--line); vertical-align: top; }
-.admin-tabela th { color: var(--muted); font-size: 12px; font-weight: 600; white-space: nowrap; }
-.admin-tabela td strong { display: block; font-weight: 650; }
-.admin-sub { display: block; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+/* --- cartões de número ---------------------------------------------------- */
 
-.admin-tag { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 650; white-space: nowrap; }
-.admin-tag-ok { background: #e6f2ec; color: var(--green); }
-.admin-tag-warn { background: #fdf1e0; color: #8a5a1c; }
-.admin-tag-off { background: #f2eef0; color: var(--muted); }
+.admin-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 12px; }
+.admin-card { min-width: 0; display: grid; gap: 3px; padding: 15px 16px; border: 1px solid var(--adm-line); border-radius: 10px; background: var(--adm-surface); }
+.admin-card-titulo { color: var(--adm-muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+/* `tabular-nums` alinha os dígitos entre cartões: número que dança de largura
+   obriga a reler a coluna inteira. */
+.admin-card-valor { font-size: 25px; font-weight: 680; letter-spacing: -.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.admin-card-nota { color: var(--adm-ink-3); font-size: 11px; line-height: 1.5; }
+.admin-card[data-tom="alerta"] { border-color: #e8c4ce; background: var(--adm-danger-soft); }
+.admin-card[data-tom="alerta"] .admin-card-valor { color: var(--adm-danger); }
+.admin-card[data-tom="alerta"] .admin-card-titulo { color: var(--adm-danger); }
 
-.admin-login { max-width: 340px; margin: 12vh auto; display: grid; gap: 9px; padding: 26px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); }
-.admin-login h1 { margin: 0 0 6px; font-size: 20px; }
-.admin-login label { color: var(--muted); font-size: 12px; }
-.admin-login input { height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: #fffcfb; font: inherit; }
+/* --- listas e tabelas ----------------------------------------------------- */
+
+.admin-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; border: 1px solid var(--adm-line); border-radius: 10px; overflow: hidden; background: var(--adm-line); }
+.admin-lista li { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 15px; background: var(--adm-surface); }
+.admin-lista li > span:first-child { min-width: 0; display: grid; gap: 2px; }
+
+.admin-tabela-wrap { overflow-x: auto; border: 1px solid var(--adm-line); border-radius: 10px; background: var(--adm-surface); }
+.admin-tabela { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.admin-tabela caption { padding: 12px 15px; color: var(--adm-muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; text-align: left; border-bottom: 1px solid var(--adm-line); }
+.admin-tabela th { padding: 9px 15px; color: var(--adm-muted); font-size: 11px; font-weight: 600; text-align: left; white-space: nowrap; background: #faf8fb; border-bottom: 1px solid var(--adm-line); }
+.admin-tabela td { padding: 11px 15px; text-align: left; vertical-align: top; border-top: 1px solid var(--adm-line); }
+.admin-tabela tbody tr:hover { background: #fbfafc; }
+.admin-tabela td strong { display: block; font-weight: 600; }
+.admin-sub { display: block; color: var(--adm-ink-3); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+
+/* --- etiquetas de estado -------------------------------------------------- */
+
+.admin-tag { display: inline-block; padding: 3px 9px; border-radius: 5px; font-size: 11px; font-weight: 650; white-space: nowrap; }
+.admin-tag-ok { background: var(--adm-success-soft); color: var(--adm-success); }
+.admin-tag-warn { background: var(--adm-warning-soft); color: var(--adm-warning); }
+.admin-tag-off { background: #f1eef2; color: var(--adm-muted); }
+.admin-atrasado { color: var(--adm-danger); font-weight: 650; }
+
+/* --- controles ------------------------------------------------------------ */
+
+.admin-filtros { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-tab { min-height: 34px; padding: 0 13px; border: 1px solid var(--adm-line); border-radius: 7px; background: var(--adm-surface); color: var(--adm-ink-2); font: inherit; font-size: 13px; font-weight: 550; cursor: pointer; transition: border-color .15s, color .15s; }
+.admin-tab:hover { border-color: var(--adm-accent); color: var(--adm-accent); }
+.admin-tab[aria-pressed="true"] { background: var(--adm-ink); border-color: var(--adm-ink); color: #fff; }
+
+.admin-primary { min-height: 38px; padding: 0 16px; border: 0; border-radius: 7px; background: var(--adm-accent); color: #fff; font: inherit; font-size: 13px; font-weight: 620; cursor: pointer; transition: background .15s; }
+.admin-primary:hover:not(:disabled) { background: var(--adm-accent-hi); }
+.admin-primary:disabled { opacity: .5; cursor: not-allowed; }
+.admin-link { border: 0; background: none; color: var(--adm-accent); font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.admin-link:disabled { opacity: .5; cursor: not-allowed; }
+
+.admin-erro { margin: 0; padding: 10px 13px; border-radius: 7px; background: var(--adm-danger-soft); color: var(--adm-danger); font-size: 13px; }
+.admin-ok { margin: 0; color: var(--adm-success); font-size: 13px; font-weight: 600; }
+.admin-loading, .admin-vazio { color: var(--adm-muted); font-size: 13px; }
+.admin-nota { margin: 0; color: var(--adm-ink-3); font-size: 12px; line-height: 1.65; }
+
+.admin-busca { display: flex; flex-wrap: wrap; align-items: end; gap: 9px; }
+.admin-busca label { flex-basis: 100%; color: var(--adm-muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.admin-busca input { flex: 1; min-width: 180px; height: 38px; padding: 0 12px; border: 1px solid var(--adm-line); border-radius: 7px; background: var(--adm-surface); font: inherit; font-size: 14px; }
+.admin-busca input:focus-visible, .admin-plano input:focus-visible, .admin-plano textarea:focus-visible { outline: 2px solid var(--adm-accent); outline-offset: 1px; border-color: var(--adm-accent); }
+
+/* --- edição de planos ----------------------------------------------------- */
+
+.admin-planos { display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); gap: 13px; }
+.admin-plano { min-width: 0; display: grid; gap: 7px; padding: 17px; border: 1px solid var(--adm-line); border-radius: 10px; background: var(--adm-surface); }
+.admin-plano h3 { margin: 0 0 5px; padding-bottom: 9px; border-bottom: 1px solid var(--adm-line); font-size: 13px; font-weight: 650; letter-spacing: .02em; text-transform: uppercase; color: var(--adm-ink-2); }
+.admin-plano label { color: var(--adm-muted); font-size: 11px; font-weight: 600; }
+.admin-preco { display: flex; align-items: center; gap: 7px; padding: 0 12px; border: 1px solid var(--adm-line); border-radius: 7px; background: var(--adm-surface); }
+.admin-preco span { color: var(--adm-muted); font-size: 13px; }
+.admin-preco input { flex: 1; min-width: 0; height: 40px; border: 0; outline: 0; background: transparent; font: inherit; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.admin-preview { margin: 0; color: var(--adm-success); font-size: 12px; font-weight: 600; }
+.admin-plano textarea { width: 100%; max-width: 100%; box-sizing: border-box; padding: 9px 11px; border: 1px solid var(--adm-line); border-radius: 7px; background: var(--adm-surface); font: inherit; font-size: 13px; resize: vertical; }
+.admin-check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.admin-acoes { display: flex; align-items: center; gap: 13px; margin-top: 3px; }
+
+/* --- gráfico de cadastros ------------------------------------------------- */
+
+.admin-grafico { display: grid; gap: 9px; padding: 16px; border: 1px solid var(--adm-line); border-radius: 10px; background: var(--adm-surface); }
+.admin-barras { display: flex; align-items: flex-end; gap: 3px; height: 116px; }
+.admin-barra-caixa { flex: 1; min-width: 0; height: 100%; display: flex; align-items: flex-end; }
+.admin-barra { width: 100%; border-radius: 2px 2px 0 0; background: var(--adm-accent); transition: height .2s; }
+/* O dia de zero fica visível e apagado: um vão no gráfico se lê como dado
+   faltando, não como dia parado. */
+.admin-barra[data-vazio="true"] { background: var(--adm-line); }
+
+/* --- linha do tempo da atividade ------------------------------------------ */
+
+.admin-atividade { list-style: none; margin: 0; padding: 0; border: 1px solid var(--adm-line); border-radius: 10px; background: var(--adm-surface); overflow: hidden; }
+.admin-atividade li { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 11px 15px; border-top: 1px solid var(--adm-line); }
+.admin-atividade li:first-child { border-top: 0; }
+.admin-atividade strong { display: block; font-size: 13px; font-weight: 600; }
+.admin-atividade time { color: var(--adm-muted); font-size: 11px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.admin-ponto { width: 7px; height: 7px; border-radius: 50%; background: var(--adm-muted); }
+.admin-ponto-calculation { background: var(--adm-accent); }
+.admin-ponto-appointment { background: var(--adm-success); }
+.admin-ponto-service { background: var(--adm-info); }
+
+/* --- entrada -------------------------------------------------------------- */
+
+.admin-login { max-width: 350px; margin: 14vh auto; display: grid; gap: 9px; padding: 28px; border: 1px solid var(--adm-line, #e6e0e8); border-radius: 12px; background: #fff; box-shadow: 0 12px 40px rgba(55, 38, 62, .07); }
+.admin-login-marca { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; color: #37263e; font-size: 14px; font-weight: 650; }
+.admin-login h1 { margin: 0 0 8px; font-size: 19px; font-weight: 650; color: #37263e; }
+.admin-login label { color: #5f5165; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.admin-login input { height: 42px; padding: 0 12px; border: 1px solid #e6e0e8; border-radius: 7px; background: #fff; font: inherit; }
+.admin-login input:focus-visible { outline: 2px solid #a63d66; outline-offset: 1px; }
+.admin-login .admin-primary { margin-top: 4px; }
+
+@media (max-width: 860px) {
+  .admin-shell { grid-template-columns: minmax(0, 1fr); }
+  .admin-menu { display: flex; align-items: center; gap: 10px; width: 100%; padding: 14px 16px; border: 0; background: var(--adm-ink); color: #fff; font: inherit; font-size: 15px; font-weight: 600; text-align: left; cursor: pointer; }
+  .admin-side { display: none; }
+  .admin-side[data-aberta="true"] { display: flex; }
+  .admin-conteudo { padding: 18px 16px 56px; }
+}
+
 
 /* Formulário de exclusão de conta. Vive dentro do texto legal, então herda a
    largura dele e só cuida dos próprios campos. */
@@ -485,72 +609,3 @@ footer small { display: block; color: #9f9499; font-size: 12px; }
 .delete-ok { margin: 20px 0; padding: 20px; border: 1px solid var(--green); border-radius: 14px; background: #f2f8f5; }
 .delete-ok h2 { margin: 0 0 10px; font-size: 18px; color: var(--green); }
 .delete-ok p { margin: 10px 0; }
-
-/* Barra lateral do painel.
- *
- * Fixa no computador, gaveta no celular. A grade de duas colunas com
- * `minmax(0, 1fr)` na segunda é o que impede uma tabela larga de empurrar a
- * página inteira para o lado. */
-.admin-shell { min-height: 100vh; display: grid; grid-template-columns: 224px minmax(0, 1fr); background: var(--cream); }
-.admin-side { display: flex; flex-direction: column; background: var(--paper); border-right: 1px solid var(--line); }
-.admin-marca { display: flex; align-items: center; gap: 10px; padding: 18px 16px; border-bottom: 1px solid var(--line); }
-.admin-marca-selo { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px; background: var(--rose); color: #fff; font-weight: 700; }
-.admin-marca span span, .admin-marca > span:last-child { display: grid; }
-.admin-marca strong { font-size: 14px; }
-.admin-marca small { color: var(--muted); font-size: 11px; }
-
-.admin-nav { flex: 1; padding: 10px 8px; overflow-y: auto; }
-.admin-nav-secao { margin: 14px 0 4px; padding: 0 10px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-.admin-nav-item { position: relative; width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 0; border-radius: 9px; background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 550; text-align: left; cursor: pointer; }
-.admin-nav-item:hover { background: var(--cream); color: var(--ink); }
-.admin-nav-item[aria-current="page"] { background: var(--rose-soft); color: var(--rose-dark); font-weight: 650; }
-/* A barrinha à esquerda marca onde você está sem depender só da cor. */
-.admin-nav-item[aria-current="page"]::before { content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 18px; border-radius: 0 3px 3px 0; background: var(--rose); }
-.admin-sair { margin: 8px; padding: 10px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
-.admin-sair:hover { color: var(--ink); }
-
-.admin-conteudo { min-width: 0; display: grid; align-content: start; gap: 22px; padding: 24px 22px 64px; }
-.admin-titulo { margin: 0; font-size: 22px; font-weight: 650; }
-.admin-menu { display: none; }
-.admin-filtros { display: flex; flex-wrap: wrap; gap: 6px; }
-.admin-tab { min-height: 38px; padding: 0 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
-.admin-tab[aria-pressed="true"] { background: var(--rose); border-color: var(--rose); color: #fff; }
-.admin-atrasado { color: var(--danger); font-weight: 650; }
-
-@media (max-width: 820px) {
-  .admin-shell { grid-template-columns: minmax(0, 1fr); }
-  .admin-menu { display: flex; align-items: center; gap: 9px; width: 100%; padding: 14px 16px; border: 0; border-bottom: 1px solid var(--line); background: var(--paper); color: var(--ink); font: inherit; font-size: 15px; font-weight: 650; text-align: left; cursor: pointer; }
-  .admin-side { display: none; border-right: 0; border-bottom: 1px solid var(--line); }
-  .admin-side[data-aberta="true"] { display: flex; }
-  .admin-conteudo { padding: 18px 16px 56px; }
-}
-
-/* Cartão que pede ação, e não só informa. */
-.admin-card[data-tom="alerta"] { border-color: #e9c9c6; background: #fdf6f5; }
-.admin-card[data-tom="alerta"] .admin-card-valor { color: var(--danger); }
-
-/* Cadastros por dia.
- *
- * Trinta barras e um eixo — desenhadas com div, porque carregar uma biblioteca
- * de gráfico inteira para isto pesaria mais do que o painel. */
-.admin-grafico { display: grid; gap: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
-.admin-barras { display: flex; align-items: flex-end; gap: 3px; height: 120px; }
-.admin-barra-caixa { flex: 1; min-width: 0; height: 100%; display: flex; align-items: flex-end; }
-.admin-barra { width: 100%; border-radius: 3px 3px 0 0; background: var(--rose); transition: height .2s; }
-/* O dia de zero fica visível e apagado: um vão no gráfico se lê como dado
-   faltando, não como dia parado. */
-.admin-barra[data-vazio="true"] { background: var(--line); }
-
-/* Linha do tempo da atividade. */
-.admin-atividade { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.admin-atividade li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: 11px; padding: 11px 13px; border-bottom: 1px solid var(--line); }
-.admin-atividade li:last-child { border-bottom: 0; }
-.admin-atividade strong { display: block; font-size: 13px; font-weight: 600; }
-.admin-atividade time { color: var(--muted); font-size: 11px; white-space: nowrap; }
-.admin-ponto { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-.admin-ponto-calculation { background: var(--rose); }
-.admin-ponto-appointment { background: var(--green); }
-.admin-ponto-service { background: #b08bc4; }
-
-/* A lista de integrações mistura rótulo e etiqueta na mesma linha. */
-.admin-lista li > span:first-child { min-width: 0; display: grid; gap: 2px; }

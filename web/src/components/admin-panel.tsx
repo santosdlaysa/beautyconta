@@ -224,7 +224,11 @@ function AdminLogin({ sessionError }: { sessionError: string | null }) {
 
   return (
     <form className="admin-login" onSubmit={enviar}>
-      <h1>Painel do BeautyConta</h1>
+      <div className="admin-login-marca">
+        <span className="admin-marca-selo" aria-hidden="true">B</span>
+        <span>BeautyConta</span>
+      </div>
+      <h1>Painel administrativo</h1>
       <label htmlFor="admin-secret">Segredo de acesso</label>
       <input
         id="admin-secret"

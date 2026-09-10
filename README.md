@@ -51,6 +51,7 @@ contratado.
 12. [Arquitetura de código e convenções](docs/12-arquitetura-de-codigo.md)
 13. [Agenda pública](docs/13-agenda-publica.md)
 14. [O que falta](docs/14-pendencias.md)
+15. [Painel administrativo](docs/15-painel-administrativo.md)
 
 Decisões técnicas: [registros de arquitetura](docs/adr/README.md); três ADRs
 ainda estão no estado proposto — hospedagem, analytics e política de assinatura.
