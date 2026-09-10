@@ -9,6 +9,7 @@ import type {
 import type { Dependencies } from "../../src/application/ports/dependencies";
 import type { AdminNotice, Notifier } from "../../src/application/ports/notifications";
 import type {
+  AccountDeletionRequestRepository,
   AdminMetrics,
   AdminMetricsRepository,
   AdminOverview,
@@ -32,6 +33,7 @@ import type {
   UserRepository,
 } from "../../src/application/ports/repositories";
 import type {
+  AccountDeletionRequestRecord,
   AppointmentRecord,
   BillingEventRecord,
   PlanOfferRecord,
@@ -901,6 +903,7 @@ export type TestDependencies = Dependencies & {
   metrics: StubMetricsRepository;
   adminMetrics: StubAdminMetricsRepository;
   planOffers: InMemoryPlanOfferRepository;
+  accountDeletionRequests: InMemoryAccountDeletionRequestRepository;
   notifier: RecordingNotifier;
 };
 
@@ -981,6 +984,54 @@ export class StubAdminMetricsRepository implements AdminMetricsRepository {
   }
 }
 
+
+/** Pedidos de exclusão de conta em memória. */
+export class InMemoryAccountDeletionRequestRepository implements AccountDeletionRequestRepository {
+  readonly items: AccountDeletionRequestRecord[] = [];
+
+  create(input: { email: string; note: string | null }): Promise<AccountDeletionRequestRecord> {
+    const record: AccountDeletionRequestRecord = {
+      id: randomUUID(),
+      email: input.email,
+      note: input.note,
+      status: "pending",
+      createdAt: new Date(),
+      handledAt: null,
+    };
+
+    this.items.push(record);
+    return Promise.resolve(record);
+  }
+
+  list(options: {
+    status?: AccountDeletionRequestRecord["status"];
+    limit: number;
+  }): Promise<AccountDeletionRequestRecord[]> {
+    const filtrados = options.status
+      ? this.items.filter((item) => item.status === options.status)
+      : this.items;
+
+    return Promise.resolve(filtrados.slice(0, options.limit));
+  }
+
+  resolve(
+    id: string,
+    status: "done" | "rejected",
+    at: Date,
+  ): Promise<AccountDeletionRequestRecord | null> {
+    const encontrado = this.items.find((item) => item.id === id);
+    if (!encontrado) return Promise.resolve(null);
+
+    encontrado.status = status;
+    encontrado.handledAt = at;
+    return Promise.resolve(encontrado);
+  }
+
+  countPending(): Promise<number> {
+    return Promise.resolve(this.items.filter((item) => item.status === "pending").length);
+  }
+}
+
 /** Credenciais do painel usadas pela suite. */
 export const SEGREDO_DO_PAINEL = "segredo-do-painel-de-teste";
 export const EMAIL_DA_ADMINISTRADORA = "admin@beautyconta.com.br";
@@ -1015,6 +1066,7 @@ export function createTestDependencies(): TestDependencies {
     metrics: new StubMetricsRepository(),
     adminMetrics: new StubAdminMetricsRepository(),
     planOffers: new InMemoryPlanOfferRepository(),
+    accountDeletionRequests: new InMemoryAccountDeletionRequestRepository(),
     // Segredo conhecido pela suíte, e um e-mail de administradora: os dois
     // caminhos de entrada precisam ser exercitados.
     admin: { secret: SEGREDO_DO_PAINEL, emails: [EMAIL_DA_ADMINISTRADORA] },

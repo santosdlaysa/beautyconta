@@ -6,6 +6,7 @@ import type {
 } from "./billing";
 import type { Notifier } from "./notifications";
 import type {
+  AccountDeletionRequestRepository,
   AdminMetricsRepository,
   AppointmentRepository,
   BillingEventRepository,
@@ -58,6 +59,8 @@ export type Dependencies = {
   adminMetrics: AdminMetricsRepository;
   /** Ofertas de assinatura, editadas pelo painel. */
   planOffers: PlanOfferRepository;
+  /** Pedidos de exclusão de conta vindos do site. */
+  accountDeletionRequests: AccountDeletionRequestRepository;
   /** Quem pode abrir o painel administrativo. */
   admin: AdminConfig;
   /**

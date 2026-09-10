@@ -438,6 +438,37 @@ enum BillingPeriod {
 /// Vale para a venda pela web. Na App Store e no Google Play quem manda no
 /// preço é a loja — lá o valor é definido no console delas, varia por país e
 /// moeda, e é o que o SDK devolve que aparece na tela.
+/// Pedido de exclusão de conta feito de fora do aplicativo.
+///
+/// Existe para quem **não consegue entrar** — desinstalou, perdeu a senha, trocou
+/// de aparelho. Quem está dentro do aplicativo apaga a própria conta na hora, e
+/// não passa por aqui.
+///
+/// Apple e Google exigem este caminho público em todo aplicativo que cria conta:
+/// sem ele a submissão é recusada.
+///
+/// O registro guarda o e-mail digitado, e não uma referência à conta: o pedido
+/// pode citar um e-mail que não existe, e conferir isso na hora diria a quem
+/// enviou se aquela pessoa tem conta aqui.
+model AccountDeletionRequest {
+  id          String                       @id @default(uuid()) @db.Uuid
+  email       String
+  /// O que a pessoa escreveu, quando escreveu algo. Opcional de propósito.
+  note        String?
+  status      AccountDeletionRequestStatus @default(pending)
+  createdAt   DateTime                     @default(now()) @map("created_at")
+  handledAt   DateTime?                    @map("handled_at")
+
+  @@index([status, createdAt])
+  @@map("account_deletion_requests")
+}
+
+enum AccountDeletionRequestStatus {
+  pending
+  done
+  rejected
+}
+
 model PlanOffer {
   id            String        @id @default(uuid()) @db.Uuid
   plan          Plan

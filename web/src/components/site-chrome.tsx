@@ -52,6 +52,7 @@ export function SiteFooter() {
           <li><Link href="/#planos">Planos</Link></li>
           <li><Link href="/#como-funciona">Como funciona</Link></li>
           <li><Link href="/termos">Termos de Uso</Link></li>
+          <li><Link href="/excluir-conta">Excluir conta e dados</Link></li>
           <li><Link href="/privacidade">Política de Privacidade</Link></li>
         </ul>
       </nav>

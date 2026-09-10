@@ -16,6 +16,19 @@ import type { AdminMetrics } from "./repositories";
  */
 export type AdminNotice =
   | { kind: "new_user"; name: string; email: string }
+  /**
+   * Pedido de exclusão de conta vindo do site.
+   *
+   * É o aviso que faz o pedido chegar a alguém: sem ele o registro ficaria no
+   * banco esperando que alguém lembrasse de olhar — e há prazo legal para
+   * responder.
+   */
+  | {
+      kind: "account_deletion_request";
+      email: string;
+      note: string | null;
+      requestedAt: Date;
+    }
   | {
       kind: "subscription";
       businessName: string | null;

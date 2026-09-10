@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import styles from "@/components/legal.module.css";
 
@@ -75,7 +76,7 @@ export default function PrivacyPage() {
             <h2 id="direitos">7. Seus direitos e como excluir seus dados</h2>
             <p>Você pode solicitar confirmação de tratamento, acesso, correção, informações sobre compartilhamento, portabilidade quando aplicável e exclusão de dados, além de exercer os demais direitos previstos na Lei Geral de Proteção de Dados (LGPD). Quando o tratamento depender de consentimento, você pode solicitar sua revogação.</p>
             <p>No aplicativo, acesse a área de perfil e use <strong>Exportar meus dados</strong> para obter uma cópia ou <strong>Excluir minha conta</strong> para remover sua conta e os dados vinculados. A exclusão é irreversível. A gestão ou o cancelamento de uma assinatura deve ser feito também no canal em que ela foi contratada.</p>
-            <p>Se não conseguir acessar sua conta, envie a solicitação para <a href="mailto:suporte@beautyconta.com.br">suporte@beautyconta.com.br</a>. Podemos pedir informações para confirmar sua identidade antes de fornecer ou excluir dados. Não envie sua senha.</p>
+            <p>Se não conseguir acessar sua conta, use a página <Link href="/excluir-conta">Excluir conta e dados</Link> ou envie a solicitação para <a href="mailto:suporte@beautyconta.com.br">suporte@beautyconta.com.br</a>. Podemos pedir informações para confirmar sua identidade antes de fornecer ou excluir dados. Não envie sua senha.</p>
             <p>Se você agendou um atendimento como cliente, pode procurar a profissional responsável ou entrar em contato conosco para esclarecer o tratamento das suas informações no BeautyConta.</p>
           </section>
 

@@ -80,6 +80,19 @@ export class TelegramNotifier implements Notifier {
           `🕐 ${brNow()}`,
         ].join("\n");
 
+      case "account_deletion_request":
+        return [
+          "🗑️ Pedido de exclusão de conta",
+          "",
+          `📧 ${notice.email}`,
+          notice.note ? `💬 ${notice.note}` : null,
+          `🕐 ${brNow()}`,
+          "",
+          "Confirme a identidade antes de apagar. Há prazo legal para responder.",
+        ]
+          .filter((line): line is string => line !== null)
+          .join("\n");
+
       case "subscription": {
         const label = SUBSCRIPTION_LABELS[notice.eventType] ?? `📌 ${notice.eventType}`;
         const channel = notice.channel ? CHANNEL_LABELS[notice.channel] ?? notice.channel : null;

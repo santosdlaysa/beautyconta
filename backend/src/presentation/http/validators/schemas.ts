@@ -293,3 +293,20 @@ export const listAdminQuerySchema = z.object({
   limit: z.coerce.number().int().positive().optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });
+
+/**
+ * Pedido público de exclusão de conta.
+ *
+ * O e-mail não é conferido contra a base aqui: conferir diria a quem envia se
+ * aquela pessoa tem conta. O formato é o que se valida.
+ */
+export const accountDeletionRequestSchema = z.object({
+  // `trim` antes do formato: campo de formulário chega com espaço colado, e
+  // recusar por causa disso seria recusar um pedido legítimo.
+  email: z.string().trim().max(254).pipe(z.email()),
+  note: z.string().max(1000).optional(),
+});
+
+export const resolveDeletionRequestSchema = z.object({
+  status: z.enum(["done", "rejected"]),
+});

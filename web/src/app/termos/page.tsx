@@ -73,7 +73,7 @@ export default function TermsPage() {
           <section aria-labelledby="conteudo">
             <h2 id="conteudo">7. Seus dados e sua propriedade</h2>
             <p>Os dados que você cadastra continuam seus. Nós os tratamos para prestar o serviço, conforme a <Link href="/privacidade">Política de Privacidade</Link>.</p>
-            <p>Você pode obter uma cópia dos seus dados a qualquer momento pela opção <strong>Exportar meus dados</strong>, e pode remover sua conta pela opção <strong>Excluir minha conta</strong>. A exclusão é irreversível.</p>
+            <p>Você pode obter uma cópia dos seus dados a qualquer momento pela opção <strong>Exportar meus dados</strong>, e pode remover sua conta pela opção <strong>Excluir minha conta</strong>. A exclusão é irreversível. Se não conseguir entrar no aplicativo, peça pela página <Link href="/excluir-conta">Excluir conta e dados</Link>.</p>
             <p>A marca, o design, o código e os textos do BeautyConta pertencem ao serviço e não podem ser usados sem autorização.</p>
           </section>
 

@@ -1,4 +1,5 @@
 import type {
+  AccountDeletionRequestRecord,
   AppointmentRecord,
   BusinessHourRecord,
   BillingEventRecord,
@@ -247,6 +248,29 @@ export interface PlanOfferRepository {
  * escrever direto em `subscriptions` criaria um acesso que nenhum webhook
  * consegue explicar depois.
  */
+/**
+ * Pedidos de exclusão de conta.
+ *
+ * O registro guarda o e-mail digitado, e não uma referência à conta: o pedido
+ * pode citar um e-mail que não existe, e conferir isso na hora diria a quem
+ * enviou se aquela pessoa tem conta aqui.
+ */
+export interface AccountDeletionRequestRepository {
+  create(input: { email: string; note: string | null }): Promise<AccountDeletionRequestRecord>;
+  list(options: {
+    status?: AccountDeletionRequestRecord["status"];
+    limit: number;
+  }): Promise<AccountDeletionRequestRecord[]>;
+  /** `null` quando o pedido não existe. */
+  resolve(
+    id: string,
+    status: "done" | "rejected",
+    at: Date,
+  ): Promise<AccountDeletionRequestRecord | null>;
+  /** Quantos aguardam tratamento, para o painel destacar. */
+  countPending(): Promise<number>;
+}
+
 export interface AdminMetricsRepository {
   overview(now: Date): Promise<AdminOverview>;
   listUsers(options: {

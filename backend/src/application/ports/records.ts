@@ -207,6 +207,16 @@ export type BillingPeriodSlug = "MONTHLY" | "ANNUAL";
  *
  * Vale para a venda pela web. Nas lojas quem manda no preço é a loja.
  */
+/** Pedido de exclusão de conta feito de fora do aplicativo. */
+export type AccountDeletionRequestRecord = {
+  id: string;
+  email: string;
+  note: string | null;
+  status: "pending" | "done" | "rejected";
+  createdAt: Date;
+  handledAt: Date | null;
+};
+
 export type PlanOfferRecord = {
   id: string;
   plan: "PREMIUM" | "MASTER";

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { Dependencies } from "../../../application/ports/dependencies";
 import { AccountController } from "../controllers/AccountController";
+import { AccountDeletionController } from "../controllers/AccountDeletionController";
 import { AdminController } from "../controllers/AdminController";
 import { BookingController } from "../controllers/BookingController";
 import { AppointmentController } from "../controllers/AppointmentController";
@@ -42,6 +43,7 @@ export function createApiRouter(deps: Dependencies): Router {
   router.use(limites.public, pricingRoutes);
   router.use(limites.public, catalogRoutes);
   router.use(limites.public, planRoutes(deps));
+  router.use(limites.account, accountDeletionRoutes(deps));
   router.use("/booking", bookingRoutes(deps, limites));
 
   router.use(sessionRoutes(deps, limites));
@@ -49,6 +51,25 @@ export function createApiRouter(deps: Dependencies): Router {
   router.use("/businesses", businessRoutes(deps, limites));
   router.use("/billing", billingRoutes(deps, limites));
   router.use("/admin", adminRoutes(deps, limites));
+
+  return router;
+}
+
+/**
+ * Pedido público de exclusão de conta.
+ *
+ * Fica aberta porque quem precisa dela é exatamente quem não consegue entrar —
+ * desinstalou, esqueceu a senha, trocou de aparelho. Quem está dentro do
+ * aplicativo apaga a própria conta por `DELETE /users/me`.
+ *
+ * Leva o teto das rotas de conta: é uma rota que grava e dispara aviso, e sem
+ * teto viraria um jeito barato de encher a caixa de mensagens de quem atende.
+ */
+function accountDeletionRoutes(deps: Dependencies): Router {
+  const controller = new AccountDeletionController(deps);
+  const router = Router();
+
+  router.post("/account-deletion-requests", asyncHandler(controller.request));
 
   return router;
 }
@@ -102,6 +123,10 @@ function adminRoutes(deps: Dependencies, limites: RateLimiters): Router {
   router.get("/users/:id", asyncHandler(controller.getUser));
 
   router.get("/subscriptions", asyncHandler(controller.listSubscriptions));
+
+  const exclusoes = new AccountDeletionController(deps);
+  router.get("/account-deletion-requests", asyncHandler(exclusoes.list));
+  router.patch("/account-deletion-requests/:id", asyncHandler(exclusoes.resolve));
 
   return router;
 }
