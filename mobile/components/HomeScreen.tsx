@@ -135,9 +135,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (route: HomeRoute) => v
         caption={summary && summary.appointments > 0
           ? `${summary.appointments} ${summary.appointments === 1 ? 'atendimento' : 'atendimentos'} · ${money(summary.expectedCents)} combinados`
           : 'Nenhum atendimento marcado'}
-        hint={summary && summary.pendingCents > 0
-          ? `${money(summary.pendingCents)} ainda a receber`
-          : hourly ? `Sua hora vale ${money(hourly)}` : 'Configure sua hora em Custos'}
+        hint={hourly ? `Sua hora vale ${money(hourly)}` : 'Configure sua hora em Custos'}
         onPress={() => onNavigate('agenda')}
         accessibilityLabel="Abrir a agenda"
         right={<Pressable accessibilityRole="button" accessibilityLabel={visibleValues ? 'Ocultar valores' : 'Mostrar valores'} onPress={() => setVisibleValues(!visibleValues)} style={({ pressed }) => [s.eyeButton, pressed && ui.pressed]}><Icon name={visibleValues ? 'eye' : 'eye-off'} size={19} color={colors.heroLabel} /></Pressable>}

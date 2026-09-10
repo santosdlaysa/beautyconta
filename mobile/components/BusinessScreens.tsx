@@ -658,14 +658,14 @@ function OfferCard({ offer, selected, onSelect }: { offer: PlanOffer; selected: 
   // anunciaria como algo a escolher.
   return <Card tone={selected ? 'pink' : 'neutral'} onPress={onSelect} accessibilityLabel={onSelect ? `${planNames[offer.plan]} ${anual ? 'anual' : 'mensal'}, ${formatCents(offer.priceCents)}` : undefined}>
     <View style={s.offerHead}>
-      <Text style={s.offerPeriod}>{planNames[offer.plan]} · {anual ? 'Anual' : 'Mensal'}</Text>
+      <Text style={s.offerPeriod}>{planNames[offer.plan]}</Text>
       {anual && offer.savingsPercent !== null && <Badge label={`Economize ${offer.savingsPercent}%`} />}
     </View>
     <Text style={s.offerPrice}>{formatCents(offer.priceCents)}</Text>
     <Text style={s.offerCaption}>
       {anual
-        ? `Cobrado uma vez por ano · sai por ${formatCents(offer.monthlyEquivalentCents)} por mês`
-        : 'Cobrado todo mês'}
+        ? `Por ano · ${formatCents(offer.monthlyEquivalentCents)} por mês`
+        : 'Por mês'}
     </Text>
   </Card>;
 }
@@ -692,6 +692,8 @@ export function PlansScreen({ onBack }: ScreenProps) {
   const [store, setStore] = useState<StoreOffering[]>([]);
   const [storeLoading, setStoreLoading] = useState(true);
   const naLoja = storePurchaseAvailable();
+  /** Mesma regra da web: a loja também só oferece o mensal por enquanto. */
+  const storeMensal = store.filter(item => item.billingPeriod !== 'ANNUAL');
 
   /**
    * O catálogo é público e não depende da sessão, então a falha aqui não é
@@ -740,7 +742,16 @@ export function PlansScreen({ onBack }: ScreenProps) {
   const limits = subscription.limits;
   const used = (value: number, limit: number | null) => (limit === null ? `${value} · ilimitado` : `${value} de ${limit}`);
 
-  const offers = catalog?.offers ?? [];
+  /**
+   * Só o mensal é vendido.
+   *
+   * O ADR-0007 adia o anual para a Fase 3, "somente depois de haver evidência
+   * de retenção mensal" — vender um ano antes de saber se o produto retém
+   * transfere o risco para a assinante. O catálogo do servidor já traz os dois
+   * porque os preços estão decididos; o filtro fica aqui, para o dia em que a
+   * decisão mudar ser uma linha e não uma migração.
+   */
+  const offers = (catalog?.offers ?? []).filter(item => item.billingPeriod === 'MONTHLY');
   const oferta = offers.find(item => `${item.plan}:${item.billingPeriod}` === chosen) ?? offers[0] ?? null;
 
   // A assinatura que sustenta o plano em vigor. No gratuito não há nenhuma, e a
@@ -841,17 +852,15 @@ export function PlansScreen({ onBack }: ScreenProps) {
       hint="Você pode continuar no gratuito o quanto quiser"
     />
     <Section title="O que você já usa" first />
-    <Row>
-      <StatCard icon="tag" label="Serviços" value={used(app.services.length, limits.services)} />
-      <StatCard icon="box" label="Materiais" value={used(app.materials.length, limits.materials)} tone="lilac" />
-    </Row>
-    <Row>
-      <StatCard icon="wallet" label="Custos fixos" value={used(app.fixedCosts.length, limits.fixedCosts)} tone="lilac" />
-      <StatCard icon="clock" label="Cálculos salvos" value={used(app.calculations.length, limits.calculations)} />
-    </Row>
+    {/* Lista, e não cartões coloridos: são quatro números para comparar com o
+        limite, e comparar exige lê-los na mesma coluna. */}
+    <ListRow icon="tag" title="Serviços" meta={used(app.services.length, limits.services)} />
+    <ListRow icon="box" title="Materiais" meta={used(app.materials.length, limits.materials)} />
+    <ListRow icon="wallet" title="Custos fixos" meta={used(app.fixedCosts.length, limits.fixedCosts)} />
+    <ListRow icon="clock" title="Cálculos salvos" meta={used(app.calculations.length, limits.calculations)} />
 
     {subscription.plan === 'FREE' && <>
-      <Section title="Premium" />
+      <Section title="Assinaturas" />
 
       {!naLoja && catalog === null && <Loading label="Buscando os valores..." />}
 
@@ -870,13 +879,13 @@ export function PlansScreen({ onBack }: ScreenProps) {
         */}
       {naLoja && <>
         {storeLoading && <Loading label="Buscando os planos da loja..." />}
-        {!storeLoading && store.length === 0 && <>
+        {!storeLoading && storeMensal.length === 0 && <>
           <Notice tone="warning" message="Não foi possível carregar os planos da loja. Confira sua conexão e tente novamente." />
           <Button label="Tentar novamente" secondary onPress={() => setAttempt(value => value + 1)} />
         </>}
 
-        {store.map(item => (
-          <Card key={item.id} tone="lilac" onPress={busy ? undefined : () => comprarNaLoja(item.id)} accessibilityLabel={`Assinar ${item.billingPeriod === 'ANNUAL' ? 'plano anual' : 'plano mensal'} por ${item.priceLabel}`}>
+        {storeMensal.map(item => (
+          <Card key={item.id} onPress={busy ? undefined : () => comprarNaLoja(item.id)} accessibilityLabel={`Assinar ${item.billingPeriod === 'ANNUAL' ? 'plano anual' : 'plano mensal'} por ${item.priceLabel}`}>
             <View style={s.offerHead}>
               <Text style={s.offerPeriod}>{item.billingPeriod === 'ANNUAL' ? 'Anual' : 'Mensal'}</Text>
             </View>
@@ -885,7 +894,7 @@ export function PlansScreen({ onBack }: ScreenProps) {
           </Card>
         ))}
 
-        {store.length > 0 && <Card tone="lilac">
+        {storeMensal.length > 0 && <Card>
           {(offers[0]?.benefits ?? []).map(benefit => <View key={benefit} style={s.benefit}><Icon name="check" size={16} color={colors.accent} /><Text style={s.benefitText}>{benefit}</Text></View>)}
         </Card>}
 
@@ -910,14 +919,19 @@ export function PlansScreen({ onBack }: ScreenProps) {
       </>}
 
       {!naLoja && offers.length > 0 && <>
-        {offers.map(item => (
-          <OfferCard
-            key={`${item.plan}:${item.billingPeriod}`}
-            offer={item}
-            selected={oferta?.plan === item.plan && oferta.billingPeriod === item.billingPeriod}
-            {...(offers.length > 1 ? { onSelect: () => setChosen(`${item.plan}:${item.billingPeriod}`) } : {})}
-          />
-        ))}
+        {/* Lado a lado: quem escolhe entre dois planos compara preço com
+            preço, e empilhados isso exigia rolar de um para o outro. */}
+        <Row>
+          {offers.map(item => (
+            <View key={`${item.plan}:${item.billingPeriod}`} style={ui.grow}>
+              <OfferCard
+                offer={item}
+                selected={oferta?.plan === item.plan && oferta.billingPeriod === item.billingPeriod}
+                {...(offers.length > 1 ? { onSelect: () => setChosen(`${item.plan}:${item.billingPeriod}`) } : {})}
+              />
+            </View>
+          ))}
+        </Row>
 
         <Card tone="lilac">
           {(oferta?.benefits ?? []).map(benefit => <View key={benefit} style={s.benefit}><Icon name="check" size={16} color={colors.accent} /><Text style={s.benefitText}>{benefit}</Text></View>)}
@@ -929,25 +943,14 @@ export function PlansScreen({ onBack }: ScreenProps) {
           * — mandar a assinante para o Mercado Pago ali é motivo de recusa.
           */}
         {Platform.OS === 'web' && <>
-          <Text style={s.groupLabel}>Como você prefere pagar?</Text>
-          <Row>
-            <StatCard
-              icon="wallet"
-              label="Cartão"
-              value="Renova sozinho"
-              tone={method === 'card' ? 'pink' : 'lilac'}
-              onPress={() => setMethod('card')}
-              accessibilityLabel="Pagar com cartão, com renovação automática"
-            />
-            <StatCard
-              icon="store"
-              label="Pix"
-              value="Sem renovar"
-              tone={method === 'pix' ? 'pink' : 'lilac'}
-              onPress={() => setMethod('pix')}
-              accessibilityLabel="Pagar com Pix, sem renovação automática"
-            />
-          </Row>
+          <ChoiceField
+            label="Como você prefere pagar?"
+            items={['Cartão', 'Pix']}
+            value={method === 'card' ? 'Cartão' : 'Pix'}
+            onChange={value => setMethod(value === 'Pix' ? 'pix' : 'card')}
+            spread
+            hint={method === 'card' ? 'Renova sozinho todo mês.' : 'Sem renovação automática: você paga quando quiser continuar.'}
+          />
         </>}
 
         {error && <Notice message={error} />}
@@ -1104,7 +1107,7 @@ const s = StyleSheet.create({
   benefit: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   offerHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   offerPeriod: { color: colors.ink3, fontSize: 12, fontWeight: '600' },
-  offerPrice: { color: colors.ink, fontSize: 26, fontWeight: '700', marginTop: 4 },
+  offerPrice: { color: colors.ink, fontSize: 22, fontWeight: '700', letterSpacing: -0.6, marginTop: 4 },
   offerCaption: { color: colors.muted, fontSize: 11, lineHeight: 17, marginTop: 2 },
   legalText: { color: colors.faded, fontSize: 11, lineHeight: 17, marginTop: -8, marginBottom: 12 },
   legalLinks: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16 },

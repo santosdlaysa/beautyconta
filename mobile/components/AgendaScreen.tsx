@@ -2,7 +2,7 @@ import { colors } from '../theme';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatPhone, telUrl, whatsappUrl } from '../lib/booking';
-import { listAppointments, type Appointment, type AppointmentStatus } from '../lib/resources';
+import { listAppointments, type Appointment, type AppointmentStatus, type AppointmentPaymentMethod } from '../lib/resources';
 import { centsToInput, formatCents, parseCents, parseNumber, useSubmit } from '../lib/useSubmit';
 import { useApp } from '../state/AppProvider';
 import { useDialog } from './Dialog';
@@ -46,6 +46,20 @@ const STATUS: { slug: AppointmentStatus; label: string }[] = [
   { slug: 'NO_SHOW', label: 'Não veio' },
 ];
 
+/** Formas de pagamento, na ordem em que aparecem no balcão de um estúdio. */
+const FORMAS: { slug: AppointmentPaymentMethod; label: string }[] = [
+  { slug: 'PIX', label: 'Pix' },
+  { slug: 'CASH', label: 'Dinheiro' },
+  { slug: 'DEBIT_CARD', label: 'Débito' },
+  { slug: 'CREDIT_CARD', label: 'Crédito' },
+  { slug: 'TRANSFER', label: 'Transferência' },
+  { slug: 'OTHER', label: 'Outra' },
+];
+
+const labelOfForma = (slug: AppointmentPaymentMethod | null) =>
+  slug ? (FORMAS.find(item => item.slug === slug)?.label ?? slug) : null;
+const slugOfForma = (label: string) => FORMAS.find(item => item.label === label)?.slug ?? 'PIX';
+
 const labelOfStatus = (slug: AppointmentStatus) => STATUS.find(item => item.slug === slug)?.label ?? slug;
 const slugOfStatus = (label: string) => STATUS.find(item => item.label === label)?.slug ?? 'SCHEDULED';
 
@@ -79,6 +93,9 @@ export function AgendaScreen({ onBack, onAction }: { onBack?: () => void; onActi
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Appointment | null>(null);
   const [form, setForm] = useState(emptyForm);
+  // Pagamento é assunto do atendimento aberto, não de uma lista à parte.
+  const [recebido, setRecebido] = useState('');
+  const [forma, setForma] = useState<string>(FORMAS[0].label);
   const [incoming, setIncoming] = useState<Appointment[]>([]);
 
   const today = useMemo(() => new Date(), []);
@@ -147,12 +164,17 @@ export function AgendaScreen({ onBack, onAction }: { onBack?: () => void; onActi
   const startNew = () => {
     setEditing(null);
     setForm(emptyForm);
+    setRecebido('');
+    setForma(FORMAS[0].label);
     clear();
     setOpen(true);
   };
 
   const startEdit = (appointment: Appointment) => {
     setEditing(appointment);
+    // Abre já com o que falta receber: é o valor que a profissional digitaria.
+    setRecebido(centsToInput(appointment.paidCents > 0 ? appointment.paidCents : appointment.priceCents));
+    setForma(labelOfForma(appointment.paymentMethod) ?? FORMAS[0].label);
     setForm({
       clientName: appointment.clientName,
       service: app.services.find(item => item.id === appointment.serviceId)?.name ?? 'Nenhum',
@@ -206,12 +228,35 @@ export function AgendaScreen({ onBack, onAction }: { onBack?: () => void; onActi
     });
   };
 
-  /** Registrar o que entrou é o gesto mais repetido do dia: um toque, sem pergunta. */
-  const settle = (appointment: Appointment) => {
+  /**
+   * Registra o pagamento do atendimento aberto.
+   *
+   * O valor vem do campo — que abre preenchido com o combinado —, então quitar
+   * por inteiro é um toque, e receber metade é trocar o número antes.
+   */
+  const registrarPagamento = () => {
+    const appointment = editing;
+    if (!appointment) return;
+
     void run(async () => {
-      await app.settleAppointment(appointment.id);
+      await app.settleAppointment(appointment.id, {
+        paidCents: parseCents(recebido),
+        paymentMethod: slugOfForma(forma),
+      });
       // Dar baixa fecha o atendimento; ele sai da lista de conferência junto.
       await loadIncoming();
+      setOpen(false);
+    });
+  };
+
+  /** Desfaz a marcação inteira: valor, data e forma somem juntos. */
+  const desfazerPagamento = () => {
+    const appointment = editing;
+    if (!appointment) return;
+
+    void run(async () => {
+      await app.updateAppointment(appointment.id, { paidCents: 0, paymentMethod: null });
+      setOpen(false);
     });
   };
 
@@ -311,22 +356,6 @@ export function AgendaScreen({ onBack, onAction }: { onBack?: () => void; onActi
         ))}
     </TimelinePanel>
 
-    {app.appointments.some(item => item.pendingCents > 0) && <>
-      <Section title="A receber neste dia" />
-      {app.appointments.filter(item => item.pendingCents > 0 && item.status !== 'CANCELED' && item.status !== 'NO_SHOW').map(appointment => (
-        <Card key={appointment.id}>
-          <View style={s.pendingRow}>
-            <View style={ui.grow}>
-              <Text style={ui.rowTitle}>{appointment.clientName}</Text>
-              <Text style={ui.rowSub}>{hourOf(appointment.startsAt)} · {formatCents(appointment.pendingCents)} em aberto</Text>
-            </View>
-            <Badge label={labelOfStatus(appointment.status)} tone={appointment.status === 'DONE' ? 'success' : 'warning'} />
-          </View>
-          <Button label={busy ? 'Registrando...' : 'Recebi o pagamento'} icon="check" secondary onPress={busy ? undefined : () => settle(appointment)} />
-        </Card>
-      ))}
-    </>}
-
     <Section title="Agenda online" />
     <ListRow
       icon="calendar"
@@ -364,7 +393,26 @@ export function AgendaScreen({ onBack, onAction }: { onBack?: () => void; onActi
       <ChoiceField label="Situação" items={STATUS.map(item => item.label)} value={form.status} onChange={value => setForm({ ...form, status: value })} />
       {editing?.source === 'ONLINE' && <Notice tone="success" message="Esta cliente marcou sozinha, pelo seu link da agenda online." />}
       {editing?.clientPhone && <ClientContact phone={editing.clientPhone} onOpen={openContact} />}
-      {editing && editing.paidCents > 0 && <Notice tone="success" message={`Já recebido: ${formatCents(editing.paidCents)}.`} />}
+      {editing && <View style={s.pagamento}>
+        <Text style={s.pagamentoTitulo}>Pagamento</Text>
+        {editing.paidCents > 0
+          ? <Text style={s.pagamentoResumo}>
+              Recebido {formatCents(editing.paidCents)}
+              {labelOfForma(editing.paymentMethod) ? ` em ${labelOfForma(editing.paymentMethod)}` : ''}
+              {editing.pendingCents > 0 ? ` · faltam ${formatCents(editing.pendingCents)}` : ''}
+            </Text>
+          : <Text style={s.pagamentoResumo}>Nada recebido ainda · combinado {formatCents(editing.priceCents)}</Text>}
+
+        <Field label="Valor recebido" value={recebido} onChangeText={setRecebido} prefix="R$" numeric />
+        <ChoiceField label="Como a cliente pagou" items={FORMAS.map(item => item.label)} value={forma} onChange={setForma} />
+
+        <Button label={busy ? 'Registrando...' : 'Registrar pagamento'} icon="check" onPress={busy ? undefined : registrarPagamento} />
+        {editing.paidCents > 0 && (
+          <Pressable accessibilityRole="button" onPress={busy ? undefined : desfazerPagamento} style={({ pressed }) => [s.desfazer, pressed && ui.pressed]}>
+            <Text style={s.desfazerTexto}>Desfazer pagamento</Text>
+          </Pressable>
+        )}
+      </View>}
     </FormSheet>
   </Screen>;
 }
@@ -402,6 +450,11 @@ const s = StyleSheet.create({
   month: { color: colors.muted, fontSize: 11, textTransform: 'capitalize' },
   metaHint: { color: colors.muted, fontSize: 10 },
   pendingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  pagamento: { gap: 11, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 15 },
+  pagamentoTitulo: { color: colors.ink, fontSize: 13, fontWeight: '600' },
+  pagamentoResumo: { color: colors.ink3, fontSize: 11, lineHeight: 17 },
+  desfazer: { alignItems: 'center', minHeight: 40, justifyContent: 'center' },
+  desfazerTexto: { color: colors.danger, fontSize: 12, fontWeight: '600' },
   reviewHint: { color: colors.ink3, fontSize: 12, lineHeight: 18, marginBottom: 11 },
   contact: { gap: 7 },
   phone: { color: colors.ink, fontSize: 15, fontWeight: '600' },

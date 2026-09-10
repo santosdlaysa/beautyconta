@@ -149,7 +149,7 @@ type Actions = {
   updateAppointment(id: string, input: Partial<api.AppointmentInput>): Promise<api.Appointment>;
   settleAppointment(
     id: string,
-    input?: { paidCents?: number; paymentMethod?: api.PaymentMethod | null },
+    input?: { paidCents?: number; paymentMethod?: api.AppointmentPaymentMethod | null },
   ): Promise<api.Appointment>;
   removeAppointment(id: string): Promise<void>;
   createFixedCost(input: api.FixedCostInput): Promise<api.FixedCost>;

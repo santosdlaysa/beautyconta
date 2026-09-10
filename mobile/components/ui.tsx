@@ -145,10 +145,10 @@ export function Field({ label, value, onChangeText, placeholder, numeric, email,
  * Existe para que o grupo de fichas tenha o mesmo rótulo associado que um campo
  * de texto tem, exigência do item C-06.
  */
-export function ChoiceField({ label, items, value, onChange, hint }: { label: string; items: readonly string[]; value: string; onChange: (item: string) => void; hint?: string }) {
+export function ChoiceField({ label, items, value, onChange, hint, spread }: { label: string; items: readonly string[]; value: string; onChange: (item: string) => void; hint?: string; spread?: boolean }) {
   return <View accessibilityRole="radiogroup" accessibilityLabel={label}>
     <Text style={ui.groupLabel}>{label}</Text>
-    <Chips items={items} value={value} onChange={onChange} />
+    <Chips items={items} value={value} onChange={onChange} spread={spread} />
     {hint && <Text style={ui.hint}>{hint}</Text>}
   </View>;
 }
@@ -173,10 +173,26 @@ export function SearchField({ value, onChangeText, placeholder = 'Buscar...' }: 
   return <View style={ui.search}><Icon name="search" size={17} color={colors.faded} /><TextInput accessibilityLabel={placeholder} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={colors.faded} style={ui.searchInput} /></View>;
 }
 
-export function Chips({ items, value, onChange }: { items: readonly string[]; value: string; onChange: (item: string) => void }) {
-  return <View style={ui.chips}>{items.map(item => {
+/**
+ * Escolha entre opções curtas.
+ *
+ * `spread` divide a largura entre elas, com o toque maior e o texto no centro.
+ * Serve para duas ou três opções que a pessoa compara — a forma de pagamento,
+ * por exemplo; com muitas, as pastilhas soltas continuam melhores, porque
+ * quebram em linhas sem apertar o texto.
+ */
+export function Chips({ items, value, onChange, spread }: { items: readonly string[]; value: string; onChange: (item: string) => void; spread?: boolean }) {
+  return <View style={[ui.chips, spread && ui.chipsSpread]}>{items.map(item => {
     const active = item === value;
-    return <Pressable key={item} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => onChange(item)} style={({ pressed }) => [ui.chip, active && ui.chipActive, pressed && ui.pressed]}><Text style={[ui.chipText, active && ui.chipTextActive]}>{item}</Text></Pressable>;
+    return <Pressable
+      key={item}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={() => onChange(item)}
+      style={({ pressed }) => [ui.chip, spread && ui.chipWide, active && ui.chipActive, pressed && ui.pressed]}
+    >
+      <Text style={[ui.chipText, spread && ui.chipTextWide, active && ui.chipTextActive]}>{item}</Text>
+    </Pressable>;
   })}</View>;
 }
 
@@ -349,6 +365,9 @@ export const ui = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
   chip: { minHeight: 36, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 19, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border },
   chipActive: { backgroundColor: colors.pink, borderColor: colors.pink },
+  chipsSpread: { flexWrap: 'nowrap' },
+  chipWide: { flex: 1, minHeight: 52, borderRadius: 26, alignItems: 'center', paddingHorizontal: 10 },
+  chipTextWide: { fontSize: 14, textAlign: 'center' },
   chipText: { fontSize: 12, color: colors.muted },
   chipTextActive: { color: colors.white, fontWeight: '600' },
 
