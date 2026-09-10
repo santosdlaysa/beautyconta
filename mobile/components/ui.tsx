@@ -105,8 +105,15 @@ export function StatCard({ icon, label, value, caption, tone = 'pink', onPress, 
 
 export function Row({ children }: PropsWithChildren) { return <View style={ui.pair}>{children}</View>; }
 
-export function Button({ label, onPress, secondary, icon }: { label: string; onPress?: () => void; secondary?: boolean; icon?: IconName }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [ui.button, secondary && ui.secondary, pressed && ui.pressed]}>
+/**
+ * `inline` tira a margem de baixo.
+ *
+ * A margem existe para separar botões empilhados, que é o caso comum das
+ * telas. Numa linha de ações lado a lado — o diálogo de confirmação —, ela
+ * empurra este botão para cima e ele fica desalinhado do vizinho.
+ */
+export function Button({ label, onPress, secondary, icon, inline }: { label: string; onPress?: () => void; secondary?: boolean; icon?: IconName; inline?: boolean }) {
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [ui.button, secondary && ui.secondary, inline && ui.buttonInline, pressed && ui.pressed]}>
     {icon && <Icon name={icon} size={17} color={secondary ? colors.accent : colors.white} />}
     <Text style={[ui.buttonText, secondary && { color: colors.accent }]}>{label}</Text>
   </Pressable>;
@@ -298,6 +305,7 @@ export const ui = StyleSheet.create({
 
   button: { flexDirection: 'row', gap: 8, backgroundColor: colors.pink, minHeight: 48, borderRadius: 25, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   secondary: { backgroundColor: colors.softLilac },
+  buttonInline: { marginBottom: 0 },
   buttonText: { color: colors.white, fontSize: 14, fontWeight: '600', textAlign: 'center' },
 
   field: { gap: 7 },

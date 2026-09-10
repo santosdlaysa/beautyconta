@@ -7,6 +7,7 @@ import { formatCents } from '../lib/useSubmit';
 import { useApp } from '../state/AppProvider';
 import { useDialog } from './Dialog';
 import { Icon } from './AppChrome';
+import { PrimeirosPassosCard, usePrimeirosPassos } from './PrimeirosPassos';
 import { EmptyState, HeroCard, ListRow, Notice, Row, Screen, Section, StatCard, TimelinePanel, TimelineRow, WeekStrip, ui } from './ui';
 
 export type HomeRoute = 'inicio' | 'calcular' | 'servicos' | 'custos' | 'planos' | 'clientes' | 'agenda' | 'agenda-online' | 'financeiro' | 'estoque' | 'equipamentos' | 'relatorios' | 'perfil';
@@ -34,6 +35,9 @@ const firstName = (name: string) => name.trim().split(' ')[0];
 export function HomeScreen({ onNavigate }: { onNavigate: (route: HomeRoute) => void }) {
   const app = useApp();
   const dialog = useDialog();
+  // O tutorial de quem acabou de configurar o negócio. Nada a ver com o
+  // onboarding de cinco etapas, que já terminou quando esta tela aparece.
+  const primeirosPassos = usePrimeirosPassos();
   const [today] = useState(() => new Date());
   const [visibleValues, setVisibleValues] = useState(true);
   const selectedDay = app.agendaDay.getDay();
@@ -162,7 +166,11 @@ export function HomeScreen({ onNavigate }: { onNavigate: (route: HomeRoute) => v
         onAction={() => { app.dismissMigration(); onNavigate('calcular'); }}
       />}
 
-      {missingSetup && <Notice
+      {primeirosPassos.visivel && <PrimeirosPassosCard guia={primeirosPassos} onNavigate={onNavigate} />}
+
+      {/* O aviso de setup cobra a mesma coisa que os primeiros passos: enquanto
+          a lista estiver na tela, cobrar duas vezes só cansa. */}
+      {!primeirosPassos.visivel && missingSetup && <Notice
         tone="lilac"
         message={activeServices.length === 0
           ? 'Cadastre seu primeiro serviço para a calculadora trabalhar com os seus números.'

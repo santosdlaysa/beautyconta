@@ -72,6 +72,7 @@ export function DialogProvider({ children }: PropsWithChildren) {
                   </Pressable>
                 ) : (
                   <Button
+                    inline
                     label={request?.kind === 'confirm' ? request.confirmLabel ?? 'Confirmar' : request?.confirmLabel ?? 'Entendi'}
                     onPress={request?.kind === 'confirm' ? confirm : close}
                   />
@@ -96,7 +97,9 @@ const s = StyleSheet.create({
   card: { width: '100%', maxWidth: 380, backgroundColor: colors.background, borderRadius: 26, padding: 22, gap: 11 },
   title: { color: colors.ink, fontSize: 17, fontWeight: '600', letterSpacing: -0.3 },
   message: { color: colors.ink3, fontSize: 13, lineHeight: 20 },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
+  // `stretch` para os dois botões terem a mesma altura mesmo quando um dos
+  // rótulos quebra em duas linhas.
+  actions: { flexDirection: 'row', alignItems: 'stretch', gap: 10, marginTop: 6 },
   cancel: { minHeight: 48, paddingHorizontal: 18, borderRadius: 25, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.softLilac },
   cancelText: { color: colors.muted, fontSize: 14, fontWeight: '600' },
   destructive: { minHeight: 48, borderRadius: 25, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger, paddingHorizontal: 16 },

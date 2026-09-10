@@ -23,7 +23,7 @@
         "backgroundImage": "./assets/android-icon-background.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 16
+      "versionCode": 58
     },
     "ios": {
       "supportsTablet": true,

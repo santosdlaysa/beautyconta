@@ -1,7 +1,10 @@
 import { colors } from './theme';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { telaDeAbertura } from './lib/apresentacao';
+import { jaViu, marcarVisto } from './lib/jaVisto';
+import { ApresentacaoView } from './components/Apresentacao';
 import { ClientsScreen, FinanceScreen, InventoryScreen, ProfileScreen, ReportsScreen } from './components/ProfessionalScreens';
 import { AgendaScreen } from './components/AgendaScreen';
 import { EquipmentScreen } from './components/EquipmentScreen';
@@ -34,6 +37,39 @@ function BeautyContaApp() {
    */
   const [equipmentOrigin, setEquipmentOrigin] = useState<Tab>('perfil');
 
+  /**
+   * A apresentação da primeira abertura já foi vista neste aparelho.
+   *
+   * Não confundir com o onboarding: a apresentação (`components/Apresentacao.tsx`)
+   * vem antes de existir conta; o onboarding de cinco etapas vem depois do
+   * cadastro. `null` é "ainda lendo o aparelho".
+   */
+  const [apresentacaoVista, setApresentacaoVista] = useState<boolean | null>(null);
+  const autenticada = app.status === 'onboarding' || app.status === 'ready';
+
+  useEffect(() => {
+    let vivo = true;
+    void jaViu('apresentacao').then((visto) => {
+      if (vivo) setApresentacaoVista(visto);
+    });
+    return () => { vivo = false; };
+  }, []);
+
+  // Quem já entrou numa conta neste aparelho não é visitante de primeira
+  // viagem: ao sair da conta, cai na tela de entrada e não na apresentação.
+  useEffect(() => {
+    if (autenticada && apresentacaoVista === false) {
+      void marcarVisto('apresentacao');
+      setApresentacaoVista(true);
+    }
+  }, [autenticada, apresentacaoVista]);
+
+  const encerrarApresentacao = (destino: AuthScreen) => {
+    void marcarVisto('apresentacao');
+    setApresentacaoVista(true);
+    setAuthMode(destino);
+  };
+
   const navigate = (tab: Tab) => {
     if (tab === 'equipamentos' && activeTab !== 'equipamentos') setEquipmentOrigin(activeTab);
     setActiveTab(tab);
@@ -47,11 +83,24 @@ function BeautyContaApp() {
   }
 
   if (app.status === 'signed-out') {
+    // Uma falha de carregamento tem prioridade: quem já tem conta precisa do
+    // motivo e do "tentar de novo", não de uma apresentação do produto.
+    const abertura = app.loadError ? 'entrada' : telaDeAbertura({ apresentacaoVista, autenticada });
+
     return <View style={styles.screen}>
       <StatusBar style="dark" />
-      {app.loadError
-        ? <FailedToLoad message={app.loadError} onRetry={() => void app.reload()} />
-        : <AuthView mode={authMode} onMode={setAuthMode} />}
+      {abertura === 'aguardando'
+        ? <Loading label="Abrindo o BeautyConta..." full />
+        : abertura === 'apresentacao'
+          ? <ApresentacaoView
+              onEntrar={() => encerrarApresentacao('welcome')}
+              // Pular direto para o cálculo: a calculadora sem cadastro
+              // continua a um toque na primeira abertura.
+              onCalculadora={() => encerrarApresentacao('calculator')}
+            />
+          : app.loadError
+            ? <FailedToLoad message={app.loadError} onRetry={() => void app.reload()} />
+            : <AuthView mode={authMode} onMode={setAuthMode} />}
     </View>;
   }
 
