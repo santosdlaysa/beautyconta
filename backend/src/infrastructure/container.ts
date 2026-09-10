@@ -2,6 +2,7 @@ import type { Dependencies } from "../application/ports/dependencies";
 import type { Notifier } from "../application/ports/notifications";
 import { env } from "../config/env";
 import { MercadoPagoTranslator } from "./billing/mercado-pago/translator";
+import { MercadoPagoGateway } from "./billing/mercado-pago/gateway";
 import { NotConfiguredGateway } from "./billing/not-configured-gateway";
 import { RevenueCatTranslator } from "./billing/revenuecat/translator";
 import { PrismaMetricsRepository } from "./persistence/prisma/metrics-repository";
@@ -25,8 +26,31 @@ import { PrismaUserRepository } from "./persistence/prisma/user-repository";
 
 export type { Dependencies };
 
+/**
+ * O checkout do Mercado Pago, quando há credencial.
+ *
+ * Sem `MERCADO_PAGO_ACCESS_TOKEN` o gateway de espera responde que a assinatura
+ * ainda não está disponível — que é a verdade. Fingir um checkout sem
+ * credencial levaria a assinante a uma página que não cobra nada, e o plano
+ * nunca seria concedido.
+ */
+function createBillingGateway(): MercadoPagoGateway | NotConfiguredGateway {
+  const { mercadoPagoAccessToken, mercadoPagoReturnUrl, mercadoPagoWebhookUrl } = env.billing;
+  if (!mercadoPagoAccessToken) return new NotConfiguredGateway();
+
+  return new MercadoPagoGateway({
+    accessToken: mercadoPagoAccessToken,
+    returnUrl: mercadoPagoReturnUrl,
+    webhookUrl: mercadoPagoWebhookUrl,
+  });
+}
+
 /** Composição de produção: Prisma sobre o PostgreSQL do `DATABASE_URL`. */
 export function createDependencies(): Dependencies {
+  // O mesmo objeto serve de checkout e de consulta: as duas coisas falam com a
+  // mesma API, com a mesma credencial.
+  const gateway = createBillingGateway();
+
   return {
     users: new PrismaUserRepository(prisma),
     sessions: new PrismaSessionRepository(prisma),
@@ -40,7 +64,7 @@ export function createDependencies(): Dependencies {
     equipment: new PrismaEquipmentRepository(prisma),
     subscriptions: new PrismaSubscriptionRepository(prisma),
     billingEvents: new PrismaBillingEventRepository(prisma),
-    gateway: new NotConfiguredGateway(),
+    gateway,
     translators: {
       "mercado-pago": new MercadoPagoTranslator(env.billing.mercadoPagoWebhookSecret),
       revenuecat: new RevenueCatTranslator(
@@ -49,6 +73,7 @@ export function createDependencies(): Dependencies {
         env.billing.revenueCatAcceptSandbox,
       ),
     },
+    billingResolver: gateway instanceof MercadoPagoGateway ? gateway : null,
     metrics: new PrismaMetricsRepository(prisma),
     plans: {
       prices: env.billing.prices,

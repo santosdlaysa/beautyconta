@@ -669,15 +669,23 @@ export type PlanCatalog = {
 /** Público: a tela de preços precisa existir antes de a pessoa ter conta. */
 export const getPlans = () => apiRequest<PlanCatalog>('/api/plans');
 
+/**
+ * Como pagar.
+ *
+ * A diferença chega até a assinante: **cartão renova sozinho, Pix não.** O
+ * Mercado Pago só faz cobrança recorrente automática no cartão — Pix é
+ * pagamento avulso, e quem paga assim compra um período que termina.
+ */
+export type PaymentMethod = 'card' | 'pix';
+
 export const startCheckout = (
   { token, businessId }: Scope,
-  input: { plan: 'PREMIUM' | 'MASTER'; billingPeriod: 'MONTHLY' | 'ANNUAL' },
+  input: { plan: 'PREMIUM' | 'MASTER'; billingPeriod: 'MONTHLY' | 'ANNUAL'; paymentMethod?: PaymentMethod },
 ) =>
-  apiRequest<{ url?: string; provider?: string }>(scoped(businessId, '/subscription/checkout'), {
-    method: 'POST',
-    body: input,
-    token,
-  });
+  apiRequest<{ checkoutUrl?: string; url?: string; provider?: string; paymentMethod?: PaymentMethod }>(
+    scoped(businessId, '/subscription/checkout'),
+    { method: 'POST', body: input, token },
+  );
 
 // --- calculadora pública e catálogos -------------------------------------
 

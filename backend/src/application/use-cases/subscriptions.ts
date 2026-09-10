@@ -3,10 +3,14 @@ import {
   activeSubscriptionInAnotherChannel,
   effectivePlan,
 } from "../../domain/billing/subscription-access";
+import { DomainError } from "../../domain/shared";
 import { ConflictError, NotFoundError } from "../errors";
+import type { PlanPrice } from "../../domain/billing/plan-offers";
 import type {
+  BillingStateResolver,
   BillingWebhookTranslator,
   CheckoutSession,
+  PaymentMethodSlug,
   SubscriptionGateway,
 } from "../ports/billing";
 import type { Notifier } from "../ports/notifications";
@@ -64,12 +68,23 @@ export class StartSubscription {
     private readonly access: BusinessAccess,
     private readonly subscriptions: SubscriptionRepository,
     private readonly gateway: SubscriptionGateway,
+    /**
+     * O catálogo de preços. O valor cobrado sai daqui, e nunca do pedido: aceitar
+     * o preço que o cliente manda é deixar qualquer pessoa assinar por um
+     * centavo.
+     */
+    private readonly prices: readonly PlanPrice[],
   ) {}
 
   async execute(
     userId: string,
     businessId: string,
-    input: { plan: "PREMIUM" | "MASTER"; billingPeriod: BillingPeriodSlug; returnUrl?: string },
+    input: {
+      plan: "PREMIUM" | "MASTER";
+      billingPeriod: BillingPeriodSlug;
+      paymentMethod?: PaymentMethodSlug;
+      returnUrl?: string;
+    },
   ): Promise<CheckoutSession> {
     await this.access.authorize(userId, businessId);
 
@@ -83,10 +98,23 @@ export class StartSubscription {
       );
     }
 
+    const price = this.prices.find(
+      (item) => item.plan === input.plan && item.billingPeriod === input.billingPeriod,
+    );
+
+    if (!price || price.priceCents <= 0) {
+      throw new DomainError(
+        "Este plano não está à venda no momento. Tente de novo daqui a pouco.",
+        "plan",
+      );
+    }
+
     return this.gateway.createCheckout({
       businessId,
       plan: input.plan,
       billingPeriod: input.billingPeriod,
+      priceCents: price.priceCents,
+      paymentMethod: input.paymentMethod ?? "card",
       ...(input.returnUrl !== undefined ? { returnUrl: input.returnUrl } : {}),
     });
   }
@@ -145,6 +173,13 @@ export class HandleBillingWebhook {
     private readonly clock: Clock,
     private readonly businesses: BusinessRepository,
     private readonly notifier: Notifier,
+    /**
+     * Consulta ao provedor, quando a notificação não traz o estado.
+     *
+     * Opcional porque o RevenueCat manda tudo no evento. Ausente, o
+     * comportamento é o de antes: grava, marca processado e não altera acesso.
+     */
+    private readonly resolver: BillingStateResolver | null = null,
   ) {}
 
   async execute(
@@ -191,10 +226,40 @@ export class HandleBillingWebhook {
     // sem trilha, que é o oposto do que este fluxo promete.
     let subscriptionId: string | null = null;
 
-    if (translation.subscription && knownBusiness) {
-      const data = translation.subscription;
+    /**
+     * O que o evento diz sobre a assinatura.
+     *
+     * Vem pronto do RevenueCat. No Mercado Pago, a notificação só aponta um
+     * recurso, e é a consulta que revela o estado — inclusive de qual negócio
+     * se trata, porque a notificação não diz.
+     */
+    let data = translation.subscription;
+    let businessOfEvent = knownBusiness;
+
+    if (!data && translation.reference && this.resolver) {
+      const resolved = await this.resolver.resolve(translation.reference).catch((erro: unknown) => {
+        // Falha de consulta não pode virar 500 para o provedor: ele reenviaria,
+        // e o evento já está gravado. Fica por processar, para a reentrega
+        // terminar o serviço.
+        console.warn(`[billing] consulta ao provedor falhou: ${String(erro)}`);
+        return null;
+      });
+
+      if (resolved) {
+        // O negócio citado pela consulta ainda precisa existir: `external_reference`
+        // é texto livre no painel do provedor, e um valor inventado estouraria a
+        // chave estrangeira.
+        const exists = await this.businesses.findById(resolved.businessId);
+        if (exists) {
+          data = resolved.subscription;
+          businessOfEvent = resolved.businessId;
+        }
+      }
+    }
+
+    if (data && businessOfEvent) {
       const saved = await this.subscriptions.upsertByProviderSubscriptionId({
-        businessId: knownBusiness,
+        businessId: businessOfEvent,
         plan: data.plan,
         status: data.status,
         channel: data.channel,
@@ -216,13 +281,13 @@ export class HandleBillingWebhook {
     // Só depois de processado, e só uma vez por evento: a reentrega de um
     // evento já concluído sai por "duplicated" acima, sem avisar de novo. Sem
     // isso, um provedor que reenvia três vezes viraria três mensagens iguais.
-    const business = knownBusiness ? await this.businesses.findById(knownBusiness) : null;
+    const business = businessOfEvent ? await this.businesses.findById(businessOfEvent) : null;
     await this.notifier.notify({
       kind: "subscription",
       businessName: business?.name ?? null,
       eventType: translation.type,
-      plan: translation.subscription?.plan ?? null,
-      channel: translation.subscription?.channel ?? null,
+      plan: data?.plan ?? null,
+      channel: data?.channel ?? null,
     });
 
     return { status: "recorded", eventId: event.id, subscriptionId };

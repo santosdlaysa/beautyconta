@@ -1,6 +1,6 @@
 import { colors } from '../theme';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, Text, View } from 'react-native';
 import { MATERIAL_CATEGORIES, UNITS, guessMaterialCategory, labelOf, slugOf } from '../lib/catalog';
 import { deliverFile } from '../lib/download';
 import { exportBusinessData, type Material } from '../lib/resources';
@@ -313,6 +313,16 @@ export function ProfileScreen({ onBack, onAction }: ProfessionalScreenProps) {
     });
   };
 
+  const openWhatsAppHelp = () => {
+    const message = encodeURIComponent('Olá! Preciso de ajuda com o BeautyConta.');
+    void Linking.openURL(`https://wa.me/5595991371313?text=${message}`).catch(() => {
+      dialog.inform({
+        title: 'Não foi possível abrir o WhatsApp',
+        message: 'Tente novamente ou adicione o número +55 (95) 99137-1313 no WhatsApp para falar com o suporte.',
+      });
+    });
+  };
+
   return <Screen>
     <ScreenHeader title="Meu perfil" subtitle="Configurações da sua conta" onBack={onBack} />
     <Card>
@@ -361,8 +371,15 @@ export function ProfileScreen({ onBack, onAction }: ProfessionalScreenProps) {
     <ListRow icon="lock" title="Trocar senha" subtitle="Encerra as sessões abertas" onPress={() => { setCurrent(''); setNext(''); password.setError(null); setPasswordOpen(true); }} />
     <ListRow icon="bell" title="Notificações" subtitle="Lembretes e avisos — em breve" onPress={() => dialog.inform({ title: 'Em breve', message: 'Os lembretes e avisos ainda estão sendo preparados.' })} />
 
+    <Section title="Ajuda" />
+    <ListRow
+      icon="help"
+      title="Ajuda pelo WhatsApp"
+      subtitle="Fale com o suporte · (95) 99137-1313"
+      onPress={openWhatsAppHelp}
+    />
+
     <Section title="Seus dados" />
-    <ListRow icon="help" title="Central de ajuda" subtitle="Tire suas dúvidas" onPress={() => dialog.inform({ title: 'Central de ajuda', message: 'Escreva para suporte@beautyconta.com.br e respondemos por e-mail.' })} />
     <ListRow
       icon="download"
       title="Exportar meus dados"

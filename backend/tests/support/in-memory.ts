@@ -824,6 +824,9 @@ export class PassthroughTranslator implements BillingWebhookTranslator {
       type: body.type ?? "test",
       businessId: body.businessId ?? null,
       subscription,
+      // Repassado para que o fluxo de consulta ao provedor possa ser exercitado
+      // pela suíte, do webhook até a concessão do plano.
+      ...(body.reference ? { reference: body.reference } : {}),
     };
   }
 }
@@ -917,6 +920,8 @@ export function createTestDependencies(): TestDependencies {
     billingEvents: new InMemoryBillingEventRepository(),
     gateway: new FakeGateway(),
     translators: { "mercado-pago": translator, revenuecat: translator },
+    // Sem consulta ao provedor: o gateway real é exercitado em teste próprio.
+    billingResolver: null,
     metrics: new StubMetricsRepository(),
     // A suíte configura preço porque a tela de planos sem preço não vende, e
     // é justamente esse par — com e sem preço — que os testes exercitam.

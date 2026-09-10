@@ -51,6 +51,7 @@ export class SubscriptionController {
       this.access,
       this.deps.subscriptions,
       this.deps.gateway,
+      this.deps.plans.prices,
     ).execute(userIdOf(req), businessId, input);
 
     res.status(201).json(session);
@@ -89,6 +90,7 @@ export class SubscriptionController {
       this.deps.clock,
       this.deps.businesses,
       this.deps.notifier,
+      this.deps.billingResolver,
     ).execute(translator, req.body, headersOf(req));
 
     if (outcome.status === "rejected") {

@@ -44,6 +44,22 @@ export const env = {
   billing: {
     /** Segredo do webhook do Mercado Pago; sem ele a assinatura não é conferida. */
     mercadoPagoWebhookSecret: process.env.MERCADO_PAGO_WEBHOOK_SECRET ?? null,
+    /**
+     * Credencial de produção do Mercado Pago. Sem ela o checkout continua
+     * respondendo que não está disponível, em vez de fingir que vendeu.
+     */
+    mercadoPagoAccessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN ?? null,
+    /** Para onde o Mercado Pago devolve a assinante ao concluir o pagamento. */
+    mercadoPagoReturnUrl:
+      process.env.MERCADO_PAGO_RETURN_URL ?? "https://beautyconta.com.br/assinatura",
+    /**
+     * Endereço público deste servidor para o webhook do Pix.
+     *
+     * Sem ele o pagamento é aprovado e **nunca vira acesso**: a preferência não
+     * tem para onde avisar. Vale a pena configurar mesmo tendo webhook no
+     * painel — a preferência pode apontar para outro caminho.
+     */
+    mercadoPagoWebhookUrl: process.env.MERCADO_PAGO_WEBHOOK_URL ?? null,
     /** Valor do cabeçalho `Authorization` combinado no painel do RevenueCat. */
     revenueCatAuthorization: process.env.REVENUECAT_WEBHOOK_AUTHORIZATION ?? null,
     /**

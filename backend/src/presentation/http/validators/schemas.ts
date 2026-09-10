@@ -174,6 +174,12 @@ export const updateEquipmentSchema = createEquipmentSchema.partial().extend({
 export const checkoutSchema = z.object({
   plan: z.enum(["PREMIUM", "MASTER"]),
   billingPeriod: z.enum(["MONTHLY", "ANNUAL"]),
+  /**
+   * Como pagar. O padrão é o cartão, que renova sozinho; `pix` compra um
+   * período que termina. O preço não vem no corpo de propósito: quem decide
+   * quanto custa é o catálogo do servidor.
+   */
+  paymentMethod: z.enum(["card", "pix"]).optional(),
   returnUrl: z.url().max(2048).optional(),
 });
 

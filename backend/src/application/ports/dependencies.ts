@@ -1,5 +1,9 @@
 import type { PlanPrice } from "../../domain/billing/plan-offers";
-import type { BillingWebhookTranslator, SubscriptionGateway } from "./billing";
+import type {
+  BillingStateResolver,
+  BillingWebhookTranslator,
+  SubscriptionGateway,
+} from "./billing";
 import type { Notifier } from "./notifications";
 import type {
   AppointmentRepository,
@@ -40,6 +44,13 @@ export type Dependencies = {
   billingEvents: BillingEventRepository;
   gateway: SubscriptionGateway;
   translators: Record<"mercado-pago" | "revenuecat", BillingWebhookTranslator>;
+  /**
+   * Quem consulta o provedor quando a notificação não traz o estado.
+   *
+   * Nulo sem credencial: sem ela, a notificação do Mercado Pago continua sendo
+   * gravada, mas não há como descobrir o que ela significa.
+   */
+  billingResolver: BillingStateResolver | null;
   metrics: MetricsRepository;
   /**
    * Preço de cada oferta e os documentos que a tela de assinatura precisa

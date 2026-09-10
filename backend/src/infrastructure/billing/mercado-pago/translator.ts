@@ -59,6 +59,9 @@ export class MercadoPagoTranslator implements BillingWebhookTranslator {
       type: typeof notification.action === "string" ? notification.action : type,
       businessId: null,
       subscription: null,
+      // O que consultar depois. Sem isto o identificador do recurso morria na
+      // tradução, e a notificação virava um registro sem consequência.
+      reference: { type, externalId: dataId },
     };
   }
 

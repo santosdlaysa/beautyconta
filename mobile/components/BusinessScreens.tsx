@@ -1,9 +1,9 @@
 import { colors } from '../theme';
 import { useEffect, useState } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import { track } from '../lib/analytics';
 import { FIXED_COST_CATEGORIES, labelOf, slugOf } from '../lib/catalog';
-import { getPlans, startCheckout, type AllocationMethod, type Calculation, type FixedCostBreakdown, type PlanCatalog, type PlanOffer, type PricingResult, type RoundingStrategy, type Service, type Subscription, type SubscriptionChannel } from '../lib/resources';
+import { getPlans, startCheckout, type AllocationMethod, type Calculation, type FixedCostBreakdown, type PaymentMethod, type PlanCatalog, type PlanOffer, type PricingResult, type RoundingStrategy, type Service, type Subscription, type SubscriptionChannel } from '../lib/resources';
 import { centsToInput, formatCents, formatMoney, formatPercent, parseCents, parseNumber, useSubmit } from '../lib/useSubmit';
 import { useApp } from '../state/AppProvider';
 import { useDialog } from './Dialog';
@@ -674,6 +674,7 @@ export function PlansScreen({ onBack }: ScreenProps) {
 
   const [catalog, setCatalog] = useState<PlanCatalog | null>(null);
   const [chosen, setChosen] = useState<'MONTHLY' | 'ANNUAL' | null>(null);
+  const [method, setMethod] = useState<PaymentMethod>('card');
 
   /**
    * O catálogo é público e não depende da sessão, então a falha aqui não é
@@ -718,16 +719,28 @@ export function PlansScreen({ onBack }: ScreenProps) {
     const business = app.business;
     if (!token || !business || !oferta) return;
 
-    track('checkout_started', { plan: oferta.plan, billingPeriod: oferta.billingPeriod });
+    track('checkout_started', { plan: oferta.plan, billingPeriod: oferta.billingPeriod, paymentMethod: method });
 
-    // O processador ainda não está configurado no servidor; quando não estiver,
+    // O processador pode não estar configurado no servidor; quando não estiver,
     // a resposta explica isso e a mensagem sobe como está para a assinante.
     void run(async () => {
       const session = await startCheckout(
         { token, businessId: business.id },
-        { plan: oferta.plan, billingPeriod: oferta.billingPeriod },
+        { plan: oferta.plan, billingPeriod: oferta.billingPeriod, paymentMethod: method },
       );
-      if (session.url) dialog.inform({ title: 'Continue no navegador', message: `Abra ${session.url} para concluir a assinatura.` });
+
+      // O servidor devolve `checkoutUrl`. Ler `url` era procurar um campo que
+      // nunca existiu: o pedido dava certo e a assinante ficava olhando a tela
+      // sem nada acontecer.
+      const endereco = session.checkoutUrl ?? session.url;
+      if (!endereco) return;
+
+      // Abrir direto poupa um toque e evita que o endereço apareça na tela para
+      // ser digitado à mão.
+      const abriu = await Linking.openURL(endereco).then(() => true).catch(() => false);
+      if (!abriu) {
+        dialog.inform({ title: 'Continue no navegador', message: `Abra ${endereco} para concluir.` });
+      }
     });
   };
 
@@ -772,14 +785,50 @@ export function PlansScreen({ onBack }: ScreenProps) {
           {(oferta?.benefits ?? []).map(benefit => <View key={benefit} style={s.benefit}><Icon name="check" size={16} color={colors.accent} /><Text style={s.benefitText}>{benefit}</Text></View>)}
         </Card>
 
+        {/*
+          * A escolha só aparece na web. Dentro do aplicativo de loja, Apple e
+          * Google exigem que conteúdo digital seja comprado pelo sistema delas
+          * — mandar a assinante para o Mercado Pago ali é motivo de recusa.
+          */}
+        {Platform.OS === 'web' && <>
+          <Text style={s.groupLabel}>Como você prefere pagar?</Text>
+          <Row>
+            <StatCard
+              icon="wallet"
+              label="Cartão"
+              value="Renova sozinho"
+              tone={method === 'card' ? 'pink' : 'lilac'}
+              onPress={() => setMethod('card')}
+              accessibilityLabel="Pagar com cartão, com renovação automática"
+            />
+            <StatCard
+              icon="store"
+              label="Pix"
+              value="Sem renovar"
+              tone={method === 'pix' ? 'pink' : 'lilac'}
+              onPress={() => setMethod('pix')}
+              accessibilityLabel="Pagar com Pix, sem renovação automática"
+            />
+          </Row>
+        </>}
+
         {error && <Notice message={error} />}
         <Button label={busy ? 'Abrindo...' : `Assinar por ${formatCents(oferta?.priceCents ?? 0)}`} icon="sparkle" onPress={busy ? undefined : subscribe} />
 
+        {/*
+          * Dizer "renova automaticamente" num pagamento por Pix seria mentira: o
+          * Mercado Pago não faz cobrança recorrente por Pix, e a assinante
+          * descobriria isso pelo acesso que parou sem aviso.
+          */}
         <Text style={s.legalText}>
-          {oferta?.billingPeriod === 'ANNUAL'
-            ? 'A assinatura é renovada automaticamente a cada ano, pelo preço vigente, até que você cancele.'
-            : 'A assinatura é renovada automaticamente todo mês, pelo preço vigente, até que você cancele.'}
-          {' '}Você pode cancelar quando quiser, sem multa, e o acesso continua até o fim do período já pago. Nada do que você cadastrou é apagado ao voltar para o gratuito.
+          {method === 'pix' && Platform.OS === 'web'
+            ? `Pagamento único por Pix: o plano vale ${oferta?.billingPeriod === 'ANNUAL' ? 'um ano' : 'um mês'} e não renova sozinho. Quando terminar, é só pagar de novo para continuar.`
+            : oferta?.billingPeriod === 'ANNUAL'
+              ? 'A assinatura é renovada automaticamente a cada ano, pelo preço vigente, até que você cancele.'
+              : 'A assinatura é renovada automaticamente todo mês, pelo preço vigente, até que você cancele.'}
+          {method === 'pix' && Platform.OS === 'web'
+            ? ' Nada do que você cadastrou é apagado ao voltar para o gratuito.'
+            : ' Você pode cancelar quando quiser, sem multa, e o acesso continua até o fim do período já pago. Nada do que você cadastrou é apagado ao voltar para o gratuito.'}
         </Text>
 
         <View style={s.legalLinks}>
