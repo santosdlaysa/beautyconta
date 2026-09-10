@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GET, PUT, DELETE } from "../src/app/api/admin/[...path]/route";
-import { adminApi, AdminAuthError, hasSecret, subscribeToSecret } from "../src/infrastructure/admin/gateway";
+import { adminApi, AdminAuthError, clearSecret, loadSecret, saveSecret, hasSecret, subscribeToSecret } from "../src/infrastructure/admin/gateway";
 
 vi.mock("@/config/api", () => ({ API_URL: "https://api.exemplo.test" }));
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  clearSecret();
+  vi.unstubAllGlobals();
+});
 
 const context = (path: string[]) => ({ params: Promise.resolve({ path }) });
 
@@ -64,6 +67,42 @@ describe("transporte administrativo pela origem do site", () => {
 });
 
 describe("validação antes de abrir o painel", () => {
+  it("continua usando o segredo validado quando o navegador recusa a gravação", async () => {
+    vi.stubGlobal("sessionStorage", {
+      getItem: () => "segredo-antigo",
+      setItem: () => { throw new Error("Armazenamento bloqueado"); },
+      removeItem: () => { throw new Error("Armazenamento bloqueado"); },
+    });
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const valid = new Headers(init.headers).get("x-admin-secret") === "segredo-validado";
+      return Response.json(valid ? { users: { total: 4 } } : { message: "Acesso restrito." }, { status: valid ? 200 : 401 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await adminApi.verifySecret("segredo-validado");
+    saveSecret("segredo-validado");
+    await expect(adminApi.overview()).resolves.toEqual({ users: { total: 4 } });
+    expect(hasSecret()).toBe(true);
+    expect(fetchMock.mock.calls[1][1].cache).toBe("no-store");
+
+    clearSecret();
+    expect(loadSecret()).toBeNull();
+    expect(hasSecret()).toBe(false);
+    await expect(adminApi.overview()).rejects.toBeInstanceOf(AdminAuthError);
+  });
+
+  it("mantém a sessão quando tanto leitura quanto gravação do armazenamento falham", async () => {
+    vi.stubGlobal("sessionStorage", {
+      getItem: () => { throw new Error("Armazenamento bloqueado"); },
+      setItem: () => { throw new Error("Armazenamento bloqueado"); },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ users: { total: 4 } })));
+    await adminApi.verifySecret("segredo-validado");
+    saveSecret("segredo-validado");
+    expect(loadSecret()).toBe("segredo-validado");
+    expect(hasSecret()).toBe(true);
+  });
+
   it("valida pela própria origem sem publicar uma sessão antes da confirmação", async () => {
     vi.stubGlobal("sessionStorage", { getItem: () => null });
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ message: "Acesso restrito." }, { status: 401 }));
