@@ -212,6 +212,11 @@ Copie `web/.env.example` para `web/.env.local` e defina `NEXT_PUBLIC_SITE_URL`
 antes de publicar — sem ela, as canônicas e as imagens de compartilhamento
 apontam para `localhost`.
 
+O endereço público é `https://beautyconta.vercel.app`. Na Vercel, configure
+`NEXT_PUBLIC_SITE_URL=https://beautyconta.vercel.app` antes do build. A política
+de privacidade fica em `https://beautyconta.vercel.app/privacidade`, endereço
+para o campo **URL da política de privacidade** em **Privacidade do app**.
+
 **O motor de precificação é um espelho do da API**, em
 `web/src/domain/pricing/calculate-price.ts`. A web calcula localmente para não
 depender de servidor no primeiro número, que é justamente o que a página de

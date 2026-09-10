@@ -51,6 +51,7 @@ export function SiteFooter() {
         <ul>
           <li><Link href="/#planos">Planos</Link></li>
           <li><Link href="/#como-funciona">Como funciona</Link></li>
+          <li><Link href="/privacidade">Política de Privacidade</Link></li>
         </ul>
       </nav>
     </footer>

@@ -1,0 +1,38 @@
+.page {
+  padding: clamp(32px, 6vw, 72px) 20px;
+  background: linear-gradient(180deg, var(--cream), var(--paper));
+}
+
+.policy {
+  max-width: 800px;
+  margin: 0 auto;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+}
+
+.heading {
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--line);
+}
+
+.heading h1 {
+  margin: 16px 0;
+  font-family: var(--font-display), serif;
+  font-size: clamp(34px, 6vw, 54px);
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -1px;
+}
+
+.updated {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.policy section { margin-top: 32px; }
+.policy h2 { margin: 0 0 12px; font-size: 21px; line-height: 1.4; }
+.policy p { margin: 12px 0; }
+.policy ul { padding-left: 24px; }
+.policy li + li { margin-top: 12px; }
+.policy a { color: var(--rose-dark); text-decoration: underline; text-underline-offset: 3px; }
+.policy a:focus-visible { outline: 2px solid var(--rose); outline-offset: 4px; }

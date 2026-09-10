@@ -1,4 +1,5 @@
 import "dotenv/config";
+import type { PlanPrice } from "../domain/billing/plan-offers";
 
 /**
  * Configuração lida uma única vez, na borda do processo.
@@ -53,8 +54,56 @@ export const env = {
     revenueCatProducts: parseProductMap(process.env.REVENUECAT_PRODUCTS),
     /** Só para homologação: em produção, compra de teste não concede plano. */
     revenueCatAcceptSandbox: process.env.REVENUECAT_ACCEPT_SANDBOX === "true",
+    /**
+     * Preço de cada oferta, em centavos inteiros, conforme o ADR-0002.
+     * Formato: `PLANO:PERIODO:CENTAVOS`, separados por vírgula. Exemplo:
+     * `PREMIUM:MONTHLY:2990,PREMIUM:ANNUAL:29900`.
+     *
+     * Sem esta variável a tela de planos não mostra botão de compra. É de
+     * propósito: Apple e Google recusam a submissão quando o valor não aparece
+     * antes da compra, e é melhor a venda não aparecer do que aparecer sem
+     * preço.
+     */
+    prices: parsePriceList(process.env.PLAN_PRICES),
+  },
+  /**
+   * Documentos que a tela de assinatura precisa linkar. As lojas exigem os dois
+   * na mesma tela do botão de compra.
+   */
+  legal: {
+    termsUrl: process.env.TERMS_URL ?? "https://beautyconta.com.br/termos",
+    privacyUrl: process.env.PRIVACY_URL ?? "https://beautyconta.com.br/privacidade",
+    supportEmail: process.env.SUPPORT_EMAIL ?? "suporte@beautyconta.com.br",
   },
 };
+
+/**
+ * Lê `PLAN_PRICES`. Entrada malformada é descartada com aviso, e não derruba o
+ * processo: preço quebrado tira a oferta do ar, o que é ruim, mas servidor fora
+ * do ar tira o produto inteiro.
+ */
+function parsePriceList(raw: string | undefined): PlanPrice[] {
+  if (!raw) return [];
+
+  return raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .flatMap((entry) => {
+      const [plan, period, cents] = entry.split(":").map((part) => part.trim());
+      const centavos = Number(cents);
+
+      const planoValido = plan === "PREMIUM" || plan === "MASTER";
+      const periodoValido = period === "MONTHLY" || period === "ANNUAL";
+
+      if (!planoValido || !periodoValido || !Number.isInteger(centavos) || centavos <= 0) {
+        console.warn(`[env] Entrada inválida em PLAN_PRICES: "${entry}"`);
+        return [];
+      }
+
+      return [{ plan, billingPeriod: period, priceCents: centavos }];
+    });
+}
 
 export type ProductMapping = {
   productId: string;
