@@ -17,9 +17,14 @@ import {
   type PublicService,
 } from "@/application/ports/booking";
 import {
+  addMonths,
+  buildMonthGrid,
   describeDateInFull,
   describeInstant,
+  describeMonth,
   formatDuration,
+  monthOf,
+  WEEKDAY_LABELS,
   type BookingCalendar,
 } from "@/application/use-cases/booking-calendar";
 import { firstInvalidField, type BookingFormField } from "@/application/use-cases/validate-booking-form";
@@ -343,39 +348,7 @@ export function BookingFlow({
         <section className="booking-step" aria-labelledby={`${id}-dia`}>
           <StepTitle number={2} id={`${id}-dia`} title="Que dia fica bom?" heading={dayRef} />
 
-          <ul className="day-strip" aria-labelledby={`${id}-dia`}>
-            {calendar.days.map((option) => (
-              <li key={option.date}>
-                <button
-                  type="button"
-                  className="day-option"
-                  aria-pressed={date === option.date}
-                  onClick={() => chooseDay(option.date)}
-                >
-                  <span className="day-weekday">{option.weekday}</span>
-                  <span className="day-number">{option.day}</span>
-                  <span className="day-month">{option.month}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          <div className="field booking-date-field">
-            <label htmlFor={field("date")}>Ou escolha outra data</label>
-            <div className="input-wrap">
-              <input
-                id={field("date")}
-                type="date"
-                min={calendar.first}
-                max={calendar.last}
-                value={date ?? ""}
-                onChange={(event) => event.target.value && chooseDay(event.target.value)}
-              />
-            </div>
-            <small className="field-hint">
-              A agenda aceita marcar até {describeDateInFull(calendar.last)}.
-            </small>
-          </div>
+          <MonthCalendar calendar={calendar} selected={date} onSelect={chooseDay} />
         </section>
       )}
 
@@ -556,6 +529,87 @@ function StepTitle({
           {title}
         </h2>
         {note && <small>{note}</small>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Calendário do mês, com as setas limitadas ao que a agenda aceita.
+ *
+ * O mês exibido é estado da tela, e não da escolha: quem abre novembro e volta
+ * para outubro sem clicar em nada não perde o dia que já tinha marcado.
+ */
+function MonthCalendar({
+  calendar,
+  selected,
+  onSelect,
+}: {
+  calendar: BookingCalendar;
+  selected: string | null;
+  onSelect: (date: string) => void;
+}) {
+  const [month, setMonth] = useState(calendar.month);
+
+  const weeks = buildMonthGrid(month, calendar);
+  const previous = month > monthOf(calendar.first) ? addMonths(month, -1) : null;
+  const next = month < monthOf(calendar.last) ? addMonths(month, 1) : null;
+
+  return (
+    <div className="calendar">
+      <div className="calendar-head">
+        <button
+          type="button"
+          className="calendar-nav calendar-nav-back"
+          onClick={() => previous && setMonth(previous)}
+          disabled={previous === null}
+          aria-label="Mês anterior"
+        >
+          <ArrowIcon />
+        </button>
+        {/* A leitora de tela anuncia a troca de mês; sem isso a seta parece não
+            ter feito nada para quem não vê a grade mudar. */}
+        <strong className="calendar-month" aria-live="polite">
+          {describeMonth(month)}
+        </strong>
+        <button
+          type="button"
+          className="calendar-nav"
+          onClick={() => next && setMonth(next)}
+          disabled={next === null}
+          aria-label="Próximo mês"
+        >
+          <ArrowIcon />
+        </button>
+      </div>
+
+      <div className="calendar-grid">
+        {WEEKDAY_LABELS.map((label) => (
+          <span key={label} className="calendar-weekday" aria-hidden="true">
+            {label}
+          </span>
+        ))}
+
+        {weeks.map((week, index) =>
+          week.map((day, position) =>
+            day === null ? (
+              <span key={`${index}-${position}`} className="calendar-blank" aria-hidden="true" />
+            ) : (
+              <button
+                key={day.date}
+                type="button"
+                className="calendar-day"
+                disabled={!day.selectable}
+                aria-pressed={selected === day.date}
+                // O número sozinho não diz que dia é; o rótulo por extenso diz.
+                aria-label={describeDateInFull(day.date)}
+                onClick={() => onSelect(day.date)}
+              >
+                {day.day}
+              </button>
+            ),
+          ),
+        )}
       </div>
     </div>
   );

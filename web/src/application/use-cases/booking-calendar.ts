@@ -21,16 +21,25 @@
  */
 export const HORIZON_DAYS = 60;
 
-export type DayOption = {
+export type CalendarDay = {
   /** AAAA-MM-DD, no fuso do negócio. */
   date: string;
-  /** Abreviação do dia da semana, como `qua.`. */
-  weekday: string;
   /** Dia do mês, como `17`. */
   day: string;
-  /** Abreviação do mês, como `set.`. */
-  month: string;
+  /** Se a agenda aceita esta data: nem passado, nem além do horizonte. */
+  selectable: boolean;
 };
+
+/** Uma semana do calendário. `null` é dia de outro mês, desenhado em branco. */
+export type CalendarWeek = (CalendarDay | null)[];
+
+/**
+ * Cabeçalho do calendário, começando no domingo.
+ *
+ * Fixo em vez de derivado da locale porque a grade também começa no domingo:
+ * se um viesse da locale e o outro não, o número cairia na coluna errada.
+ */
+export const WEEKDAY_LABELS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"] as const;
 
 /** Data de hoje no relógio do negócio, no formato que a API espera. */
 export function dateInTimeZone(instant: Date, timeZone: string): string {
@@ -60,12 +69,10 @@ export function addDays(date: string, days: number): string {
   return shifted.toISOString().slice(0, 10);
 }
 
-/** Quantos dias a régua mostra de uma vez. O resto vai pelo campo de data. */
-export const VISIBLE_DAYS = 14;
-
 export type BookingCalendar = {
-  days: DayOption[];
-  /** Primeiro e último dia que a API aceita, para limitar o campo de data. */
+  /** Mês que a grade abre, `AAAA-MM`, no fuso do negócio. */
+  month: string;
+  /** Primeiro e último dia que a API aceita, para limitar a navegação. */
   first: string;
   last: string;
 };
@@ -74,46 +81,97 @@ export type BookingCalendar = {
  * Calendário pronto para a tela.
  *
  * Montado no servidor, a cada requisição, e entregue como propriedade: se o
- * componente chamasse `new Date()` na montagem, a régua nasceria vazia e
+ * componente chamasse `new Date()` na montagem, a grade nasceria vazia e
  * apareceria depois — um salto na tela em toda visita, para resolver um
  * descompasso que só existe na virada do dia.
  */
 export function buildBookingCalendar(instant: Date, timeZone: string): BookingCalendar {
-  return {
-    days: buildDayOptions(instant, timeZone, VISIBLE_DAYS),
-    first: dateInTimeZone(instant, timeZone),
-    last: lastBookableDate(instant, timeZone),
-  };
-}
-
-/** Os próximos dias que a agenda aceita, começando por hoje no fuso do negócio. */
-export function buildDayOptions(instant: Date, timeZone: string, count: number): DayOption[] {
   const today = dateInTimeZone(instant, timeZone);
-  const total = Math.min(count, HORIZON_DAYS + 1);
 
-  return Array.from({ length: Math.max(total, 0) }, (_, index) => describeDay(addDays(today, index)));
+  return { month: monthOf(today), first: today, last: lastBookableDate(instant, timeZone) };
 }
 
-/** Último dia que a API aceita, para limitar o campo de data. */
+/** Último dia que a API aceita, para limitar a navegação. */
 export function lastBookableDate(instant: Date, timeZone: string): string {
   return addDays(dateInTimeZone(instant, timeZone), HORIZON_DAYS);
 }
 
-export function describeDay(date: string): DayOption {
-  const parts = new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "UTC",
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  }).formatToParts(asUtcDate(date));
-
-  const value = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? "";
-
-  return { date, weekday: value("weekday"), day: value("day"), month: value("month") };
+/** `AAAA-MM` da data. Comparação de mês é comparação de texto neste formato. */
+export function monthOf(date: string): string {
+  return date.slice(0, 7);
 }
 
-/** Data por extenso, como `quarta-feira, 17 de setembro`. */
+/** Soma meses ao `AAAA-MM`, virando o ano quando precisa. */
+export function addMonths(month: string, count: number): string {
+  const [year, index] = month.split("-").map(Number);
+  const total = (year ?? 0) * 12 + ((index ?? 1) - 1) + count;
+
+  return `${String(Math.floor(total / 12)).padStart(4, "0")}-${String((total % 12) + 1).padStart(2, "0")}`;
+}
+
+/** `setembro de 2026`, para o cabeçalho da grade. */
+export function describeMonth(month: string): string {
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC", month: "long", year: "numeric" }).format(
+    asUtcDate(`${month}-01`),
+  );
+}
+
+/**
+ * A grade do mês, em semanas de domingo a sábado.
+ *
+ * As casas antes do dia 1 e depois do último ficam `null` em vez de mostrarem
+ * os dias do mês vizinho: dia clicável de outro mês trocaria o mês exibido sob
+ * o dedo de quem só quis marcar, e a agenda já tem as setas para isso.
+ *
+ * `selectable` sai daqui, e não da tela, porque é a mesma regra que a API
+ * aplica: passado não se marca, e o horizonte tem fim. Oferecer o que seria
+ * recusado é pior do que não oferecer.
+ */
+export function buildMonthGrid(
+  month: string,
+  bounds: { first: string; last: string },
+): CalendarWeek[] {
+  const primeiro = `${month}-01`;
+  const inicio = weekdayIndex(primeiro);
+  const total = daysInMonth(month);
+
+  const semanas: CalendarWeek[] = [];
+  for (let casa = 0; casa < inicio + total; casa += 1) {
+    if (casa % 7 === 0) semanas.push([]);
+
+    const dia = casa - inicio + 1;
+    semanas[semanas.length - 1]?.push(
+      dia < 1 ? null : describeCalendarDay(`${month}-${String(dia).padStart(2, "0")}`, bounds),
+    );
+  }
+
+  // A última semana quase nunca fecha no sábado; sem isso a grade perde as
+  // colunas que faltam e os dias escorregam para a esquerda.
+  const ultima = semanas[semanas.length - 1];
+  while (ultima && ultima.length < 7) ultima.push(null);
+
+  return semanas;
+}
+
+function describeCalendarDay(date: string, bounds: { first: string; last: string }): CalendarDay {
+  return {
+    date,
+    day: String(Number(date.slice(8))),
+    selectable: date >= bounds.first && date <= bounds.last,
+  };
+}
+
+/** Dia da semana, 0 para domingo. Em UTC, como todo o resto deste módulo. */
+function weekdayIndex(date: string): number {
+  return asUtcDate(date).getUTCDay();
+}
+
+function daysInMonth(month: string): number {
+  const [year, index] = month.split("-").map(Number);
+  // Dia zero do mês seguinte é o último do mês pedido, inclusive em fevereiro.
+  return new Date(Date.UTC(year ?? 0, index ?? 1, 0)).getUTCDate();
+}
+
 export function describeDateInFull(date: string): string {
   return new Intl.DateTimeFormat("pt-BR", {
     timeZone: "UTC",
