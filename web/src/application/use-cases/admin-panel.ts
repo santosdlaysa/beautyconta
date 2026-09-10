@@ -77,6 +77,123 @@ export const DELETION_STATUS_LABELS: Record<string, string> = {
   rejected: "Recusado",
 };
 
+
+export type AdminMetrics = {
+  leads: { current: number; previous: number };
+  payers: { current: number; previous: number };
+  churned: number;
+  baseAtStart: number;
+  revenue: { currentCents: number; previousCents: number };
+  ticketCents: number;
+  signups: { date: string; count: number }[];
+};
+
+export type AdminBusiness = {
+  id: string;
+  name: string | null;
+  ownerName: string;
+  ownerEmail: string;
+  segment: string;
+  workModel: string;
+  timezone: string;
+  bookingSlug: string | null;
+  plan: string;
+  createdAt: string;
+  counts: { services: number; materials: number; calculations: number; appointments: number };
+};
+
+export type AdminActivity = {
+  kind: "calculation" | "appointment" | "service";
+  businessId: string;
+  businessName: string | null;
+  label: string;
+  at: string;
+};
+
+export type AdminBillingEvent = {
+  id: string;
+  source: string;
+  type: string;
+  businessId: string | null;
+  processedAt: string | null;
+  createdAt: string;
+};
+
+export type AdminBillingHealth = {
+  unprocessed: number;
+  last24h: number;
+  staleActive: number;
+  inGrace: number;
+};
+
+export type AdminSettings = {
+  billing: { mercadoPago: boolean; checkout: string };
+  legal: { termsUrl: string; privacyUrl: string; supportEmail: string };
+  admin: { hasSecret: boolean; emails: number };
+  seedPrices: number;
+};
+
+/**
+ * Variação contra o período anterior, em pontos percentuais.
+ *
+ * `null` quando não havia base para comparar: sair de zero para cinco não é
+ * "crescimento de 500%", é a primeira medição — e anunciar percentual aí é o
+ * jeito mais fácil de um painel mentir.
+ */
+export function variation(current: number, previous: number): number | null {
+  if (previous === 0) return null;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
+/**
+ * Quantas assinaturas se perderam, em percentual da base do início do mês.
+ *
+ * `null` sem base: dividir por zero daria infinito, e "churn infinito" num
+ * produto sem assinantes é ruído, não informação.
+ */
+export function churnRate(churned: number, baseAtStart: number): number | null {
+  if (baseAtStart === 0) return null;
+  return Math.round((churned / baseAtStart) * 100);
+}
+
+/** Quantos por cento das contas viraram assinantes. */
+export function conversionRate(payers: number, leads: number): number | null {
+  if (leads === 0) return null;
+  return Math.round((payers / leads) * 100);
+}
+
+/** `há 2 h`, `há 3 d`. Tempo relativo curto, para caber em tabela. */
+export function timeAgo(iso: string, now: Date = new Date()): string {
+  const minutos = Math.floor((now.getTime() - new Date(iso).getTime()) / 60_000);
+
+  if (minutos < 1) return "agora";
+  if (minutos < 60) return `há ${minutos} min`;
+
+  const horas = Math.floor(minutos / 60);
+  if (horas < 24) return `há ${horas} h`;
+
+  return `há ${Math.floor(horas / 24)} d`;
+}
+
+export const SEGMENT_LABELS: Record<string, string> = {
+  nails: "Unhas",
+  lashes: "Cílios",
+  brows: "Sobrancelhas",
+  hair: "Cabelo",
+  esthetics: "Estética",
+  makeup: "Maquiagem",
+  waxing: "Depilação",
+  other: "Outro",
+};
+
+export const WORK_MODEL_LABELS: Record<string, string> = {
+  home: "Em casa",
+  own_salon: "Salão próprio",
+  rented_station: "Cadeira alugada",
+  shared_space: "Espaço compartilhado",
+  mobile: "Atende a domicílio",
+};
+
 /**
  * Texto digitado para centavos inteiros.
  *

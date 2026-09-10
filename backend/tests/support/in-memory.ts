@@ -10,6 +10,11 @@ import type { Dependencies } from "../../src/application/ports/dependencies";
 import type { AdminNotice, Notifier } from "../../src/application/ports/notifications";
 import type {
   AccountDeletionRequestRepository,
+  AdminActivityItem,
+  AdminBillingEvent,
+  AdminBillingHealth,
+  AdminBusinessMetrics,
+  AdminBusinessSummary,
   AdminMetrics,
   AdminMetricsRepository,
   AdminOverview,
@@ -981,6 +986,42 @@ export class StubAdminMetricsRepository implements AdminMetricsRepository {
 
   listSubscriptions(): Promise<{ items: AdminSubscriptionSummary[]; total: number }> {
     return Promise.resolve({ items: [], total: 0 });
+  }
+
+  businessMetrics(): Promise<AdminBusinessMetrics> {
+    return Promise.resolve({
+      leads: { current: 0, previous: 0 },
+      payers: { current: 0, previous: 0 },
+      churned: 0,
+      baseAtStart: 0,
+      revenue: { currentCents: 0, previousCents: 0 },
+      ticketCents: 0,
+    });
+  }
+
+  signupSeries(_now: Date, days: number): Promise<{ date: string; count: number }[]> {
+    void _now;
+    // Dias vazios inclusive: é o que a implementação real devolve, e o gráfico
+    // depende disso para não comprimir o tempo.
+    return Promise.resolve(
+      Array.from({ length: days }, (_, index) => ({ date: `dia-${index}`, count: 0 })),
+    );
+  }
+
+  listBusinesses(): Promise<{ items: AdminBusinessSummary[]; total: number }> {
+    return Promise.resolve({ items: [], total: 0 });
+  }
+
+  recentActivity(): Promise<AdminActivityItem[]> {
+    return Promise.resolve([]);
+  }
+
+  listBillingEvents(): Promise<AdminBillingEvent[]> {
+    return Promise.resolve([]);
+  }
+
+  billingHealth(): Promise<AdminBillingHealth> {
+    return Promise.resolve({ unprocessed: 0, last24h: 0, staleActive: 0, inGrace: 0 });
   }
 }
 

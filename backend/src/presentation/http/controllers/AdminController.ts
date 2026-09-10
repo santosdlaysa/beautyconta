@@ -3,6 +3,10 @@ import type { Dependencies } from "../../../application/ports/dependencies";
 import {
   DeletePlanOffer,
   GetAdminOverview,
+  GetBillingLog,
+  GetBusinessMetrics,
+  GetRecentActivity,
+  ListAdminBusinesses,
   GetAdminUser,
   ListAdminSubscriptions,
   ListAdminUsers,
@@ -59,6 +63,69 @@ export class AdminController {
     await new DeletePlanOffer(this.deps.planOffers).execute(plan, billingPeriod);
 
     res.status(204).end();
+  };
+
+
+  metrics = async (_req: Request, res: Response): Promise<void> => {
+    const dados = await new GetBusinessMetrics(this.deps.adminMetrics).execute(
+      this.deps.clock.now(),
+    );
+
+    res.json(dados);
+  };
+
+  listBusinesses = async (req: Request, res: Response): Promise<void> => {
+    const query = parse(listAdminQuerySchema, req.query);
+
+    const { items, total } = await new ListAdminBusinesses(this.deps.adminMetrics).execute(query);
+
+    res.json({
+      total,
+      items: items.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),
+    });
+  };
+
+  activity = async (_req: Request, res: Response): Promise<void> => {
+    const items = await new GetRecentActivity(this.deps.adminMetrics).execute();
+
+    res.json({ items: items.map((item) => ({ ...item, at: item.at.toISOString() })) });
+  };
+
+  billingLog = async (req: Request, res: Response): Promise<void> => {
+    const { events, health } = await new GetBillingLog(this.deps.adminMetrics).execute(
+      this.deps.clock.now(),
+      { onlyUnprocessed: req.query.unprocessed === "true" },
+    );
+
+    res.json({
+      health,
+      events: events.map((event) => ({
+        ...event,
+        processedAt: event.processedAt?.toISOString() ?? null,
+        createdAt: event.createdAt.toISOString(),
+      })),
+    });
+  };
+
+  /**
+   * O que está ligado neste servidor.
+   *
+   * **Nenhum segredo sai daqui** — só se cada integração tem credencial ou não.
+   * É a diferença entre um painel que ajuda a diagnosticar e um que entrega as
+   * chaves a quem conseguir abri-lo.
+   */
+  settings = (_req: Request, res: Response): void => {
+    const { plans, admin } = this.deps;
+
+    res.json({
+      billing: {
+        mercadoPago: this.deps.billingResolver !== null,
+        checkout: this.deps.gateway.provider,
+      },
+      legal: { termsUrl: plans.termsUrl, privacyUrl: plans.privacyUrl, supportEmail: plans.supportEmail },
+      admin: { hasSecret: admin.secret !== null, emails: admin.emails.length },
+      seedPrices: plans.prices.length,
+    });
   };
 
   listUsers = async (req: Request, res: Response): Promise<void> => {

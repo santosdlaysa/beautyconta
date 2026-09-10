@@ -114,6 +114,11 @@ function adminRoutes(deps: Dependencies, limites: RateLimiters): Router {
   );
 
   router.get("/overview", asyncHandler(controller.overview));
+  router.get("/metrics", asyncHandler(controller.metrics));
+  router.get("/activity", asyncHandler(controller.activity));
+  router.get("/businesses", asyncHandler(controller.listBusinesses));
+  router.get("/billing-log", asyncHandler(controller.billingLog));
+  router.get("/settings", controller.settings);
 
   router.get("/plans", asyncHandler(controller.listOffers));
   router.put("/plans", asyncHandler(controller.saveOffer));

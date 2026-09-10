@@ -524,3 +524,33 @@ footer small { display: block; color: #9f9499; font-size: 12px; }
   .admin-side[data-aberta="true"] { display: flex; }
   .admin-conteudo { padding: 18px 16px 56px; }
 }
+
+/* Cartão que pede ação, e não só informa. */
+.admin-card[data-tom="alerta"] { border-color: #e9c9c6; background: #fdf6f5; }
+.admin-card[data-tom="alerta"] .admin-card-valor { color: var(--danger); }
+
+/* Cadastros por dia.
+ *
+ * Trinta barras e um eixo — desenhadas com div, porque carregar uma biblioteca
+ * de gráfico inteira para isto pesaria mais do que o painel. */
+.admin-grafico { display: grid; gap: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.admin-barras { display: flex; align-items: flex-end; gap: 3px; height: 120px; }
+.admin-barra-caixa { flex: 1; min-width: 0; height: 100%; display: flex; align-items: flex-end; }
+.admin-barra { width: 100%; border-radius: 3px 3px 0 0; background: var(--rose); transition: height .2s; }
+/* O dia de zero fica visível e apagado: um vão no gráfico se lê como dado
+   faltando, não como dia parado. */
+.admin-barra[data-vazio="true"] { background: var(--line); }
+
+/* Linha do tempo da atividade. */
+.admin-atividade { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.admin-atividade li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: 11px; padding: 11px 13px; border-bottom: 1px solid var(--line); }
+.admin-atividade li:last-child { border-bottom: 0; }
+.admin-atividade strong { display: block; font-size: 13px; font-weight: 600; }
+.admin-atividade time { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.admin-ponto { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.admin-ponto-calculation { background: var(--rose); }
+.admin-ponto-appointment { background: var(--green); }
+.admin-ponto-service { background: #b08bc4; }
+
+/* A lista de integrações mistura rótulo e etiqueta na mesma linha. */
+.admin-lista li > span:first-child { min-width: 0; display: grid; gap: 2px; }

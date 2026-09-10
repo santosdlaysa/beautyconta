@@ -273,6 +273,23 @@ export interface AccountDeletionRequestRepository {
 
 export interface AdminMetricsRepository {
   overview(now: Date): Promise<AdminOverview>;
+  /** Funil e receita do mês, contra o mês anterior. */
+  businessMetrics(now: Date): Promise<AdminBusinessMetrics>;
+  /** Cadastros por dia, para o painel enxergar tendência e não só total. */
+  signupSeries(now: Date, days: number): Promise<{ date: string; count: number }[]>;
+  listBusinesses(options: {
+    search?: string;
+    limit: number;
+    offset: number;
+  }): Promise<{ items: AdminBusinessSummary[]; total: number }>;
+  /** Quem mexeu no produto mais recentemente. */
+  recentActivity(limit: number): Promise<AdminActivityItem[]>;
+  listBillingEvents(options: {
+    limit: number;
+    onlyUnprocessed?: boolean;
+  }): Promise<AdminBillingEvent[]>;
+  /** Contagens que revelam problema silencioso na cobrança. */
+  billingHealth(now: Date): Promise<AdminBillingHealth>;
   listUsers(options: {
     search?: string;
     limit: number;
@@ -284,6 +301,63 @@ export interface AdminMetricsRepository {
     offset: number;
   }): Promise<{ items: AdminSubscriptionSummary[]; total: number }>;
 }
+
+
+export type AdminBusinessMetrics = {
+  /** Contas criadas no mês corrente e no anterior. */
+  leads: { current: number; previous: number };
+  /** Quantas viraram assinantes no mês. */
+  payers: { current: number; previous: number };
+  /** Assinaturas que terminaram no mês, sem renovar. */
+  churned: number;
+  /** Assinaturas ativas no início do mês, para a taxa fazer sentido. */
+  baseAtStart: number;
+  revenue: { currentCents: number; previousCents: number };
+  /** Receita média por assinatura ativa. */
+  ticketCents: number;
+};
+
+export type AdminBusinessSummary = {
+  id: string;
+  name: string | null;
+  ownerName: string;
+  ownerEmail: string;
+  segment: string;
+  workModel: string;
+  timezone: string;
+  bookingSlug: string | null;
+  plan: string;
+  createdAt: Date;
+  counts: { services: number; materials: number; calculations: number; appointments: number };
+};
+
+/** Um sinal de que alguém está usando o produto de verdade. */
+export type AdminActivityItem = {
+  kind: "calculation" | "appointment" | "service";
+  businessId: string;
+  businessName: string | null;
+  label: string;
+  at: Date;
+};
+
+export type AdminBillingEvent = {
+  id: string;
+  source: string;
+  type: string;
+  businessId: string | null;
+  processedAt: Date | null;
+  createdAt: Date;
+};
+
+export type AdminBillingHealth = {
+  /** Eventos recebidos e nunca processados: cada um é um acesso que não mudou. */
+  unprocessed: number;
+  last24h: number;
+  /** Assinaturas cujo período venceu mas seguem marcadas como ativas. */
+  staleActive: number;
+  /** Assinaturas em carência: cobrança falhou e o provedor ainda está tentando. */
+  inGrace: number;
+};
 
 export type AdminOverview = {
   users: { total: number; today: number; last7Days: number; last30Days: number };

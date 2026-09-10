@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useCallback, useState, useSyncExternalStore, type FormEvent } from "react";
 import {
   CHANNEL_LABELS,
   PERIOD_LABELS,
@@ -29,8 +29,26 @@ import {
   saveSecret,
   subscribeToSecret,
 } from "@/infrastructure/admin/gateway";
+import { AdminCard, useAdminData } from "./admin-shared";
+import {
+  AtividadeTab,
+  CobrancaTab,
+  ConfiguracaoTab,
+  MetricasTab,
+  NegociosTab,
+} from "./admin-tabs";
 
-type Aba = "resumo" | "assinantes" | "usuarias" | "planos" | "exclusoes";
+type Aba =
+  | "resumo"
+  | "metricas"
+  | "atividade"
+  | "assinantes"
+  | "usuarias"
+  | "negocios"
+  | "planos"
+  | "cobranca"
+  | "exclusoes"
+  | "configuracao";
 
 /**
  * A navegação, agrupada por assunto.
@@ -41,14 +59,20 @@ type Aba = "resumo" | "assinantes" | "usuarias" | "planos" | "exclusoes";
  */
 const ABAS: { id: Aba; label: string; icon: IconName; section?: string }[] = [
   { id: "resumo", label: "Resumo", icon: "chart" },
+  { id: "metricas", label: "Números do negócio", icon: "trend" },
+  { id: "atividade", label: "Atividade", icon: "clock" },
+
+  { id: "usuarias", label: "Usuárias", icon: "user", section: "Cadastro" },
+  { id: "negocios", label: "Negócios", icon: "store" },
   { id: "assinantes", label: "Assinantes", icon: "coin" },
-  { id: "usuarias", label: "Usuárias", icon: "user" },
 
   { id: "planos", label: "Planos e preços", icon: "sparkle", section: "Configuração" },
+  { id: "cobranca", label: "Cobrança", icon: "coin" },
   { id: "exclusoes", label: "Exclusões de conta", icon: "alert" },
+  { id: "configuracao", label: "Integrações", icon: "gear" },
 ];
 
-type IconName = "chart" | "coin" | "user" | "sparkle" | "alert";
+type IconName = "chart" | "coin" | "user" | "sparkle" | "alert" | "trend" | "clock" | "store" | "gear";
 
 /** Ícones do painel. Traço fino, como o resto do produto. */
 function NavIcon({ name }: { name: IconName }) {
@@ -58,6 +82,10 @@ function NavIcon({ name }: { name: IconName }) {
     user: "M4 21v-2a5 5 0 0 1 5-5h6a5 5 0 0 1 5 5v2M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z",
     sparkle: "M12 3.5 13.8 9l5.7 1.8-5.7 1.8L12 18.5l-1.8-5.9L4.5 10.8 10.2 9 12 3.5Z",
     alert: "M12 3.5 21 19H3l9-15.5ZM12 10v4m0 3h.01",
+    trend: "M3 17l6-6 4 4 8-8M15 7h6v6",
+    clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v5l3 2",
+    store: "M4 9h16v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9ZM3 9l1.5-5h15L21 9M9 20v-6h6v6",
+    gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2m10-10 2-2",
   };
 
   return (
@@ -160,6 +188,11 @@ export function AdminPanel() {
         {aba === "assinantes" && <AssinantesTab onExpirar={expirar} />}
         {aba === "usuarias" && <UsuariasTab onExpirar={expirar} />}
         {aba === "exclusoes" && <ExclusoesTab onExpirar={expirar} />}
+        {aba === "metricas" && <MetricasTab onExpirar={expirar} />}
+        {aba === "atividade" && <AtividadeTab onExpirar={expirar} />}
+        {aba === "negocios" && <NegociosTab onExpirar={expirar} />}
+        {aba === "cobranca" && <CobrancaTab onExpirar={expirar} />}
+        {aba === "configuracao" && <ConfiguracaoTab onExpirar={expirar} />}
       </main>
     </div>
   );
@@ -209,44 +242,6 @@ function AdminLogin({ sessionError }: { sessionError: string | null }) {
   );
 }
 
-/** Carrega dados da API e cuida do 401 de forma uniforme. */
-function useAdminData<T>(
-  carregar: () => Promise<T>,
-  onExpirar: () => void,
-  /** O que, além do pedido explícito de recarga, deve buscar de novo. */
-  deps: unknown[] = [],
-) {
-  const [data, setData] = useState<T | null>(null);
-  const [erro, setErro] = useState<string | null>(null);
-  const [versao, setVersao] = useState(0);
-
-  useEffect(() => {
-    let ativo = true;
-
-    carregar()
-      .then((resultado) => {
-        if (ativo) setData(resultado);
-      })
-      .catch((falha: unknown) => {
-        if (!ativo) return;
-        if (falha instanceof AdminAuthError) {
-          onExpirar();
-          return;
-        }
-        setErro((falha as Error).message);
-      });
-
-    return () => {
-      ativo = false;
-    };
-    // `carregar` muda a cada render por ser uma closure; a versão é o gatilho
-    // explícito de recarga, e depender dela evita o laço infinito.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [versao, ...deps]);
-
-  return { data, erro, recarregar: () => setVersao((v) => v + 1) };
-}
-
 function ResumoTab({ onExpirar }: { onExpirar: () => void }) {
   const { data, erro } = useAdminData<AdminOverview>(() => adminApi.overview(), onExpirar);
 
@@ -256,18 +251,18 @@ function ResumoTab({ onExpirar }: { onExpirar: () => void }) {
   return (
     <>
       <section className="admin-cards" aria-label="Números do negócio">
-        <Card titulo="Contas" valor={String(data.users.total)} nota={`+${data.users.today} hoje`} />
-        <Card
+        <AdminCard titulo="Contas" valor={String(data.users.total)} nota={`+${data.users.today} hoje`} />
+        <AdminCard
           titulo="Em 30 dias"
           valor={String(data.users.last30Days)}
           nota={`${data.users.last7Days} nos últimos 7`}
         />
-        <Card
+        <AdminCard
           titulo="Assinaturas ativas"
           valor={String(data.subscriptions.active)}
           nota={`${data.businesses.total} negócios`}
         />
-        <Card
+        <AdminCard
           titulo="Receita por mês"
           valor={formatCents(data.revenue.monthlyRecurringCents)}
           nota="Anual dividida por 12"
@@ -275,10 +270,10 @@ function ResumoTab({ onExpirar }: { onExpirar: () => void }) {
       </section>
 
       <section className="admin-cards" aria-label="Uso do produto">
-        <Card titulo="Serviços" valor={String(data.usage.services)} />
-        <Card titulo="Materiais" valor={String(data.usage.materials)} />
-        <Card titulo="Cálculos" valor={String(data.usage.calculations)} />
-        <Card titulo="Agendamentos" valor={String(data.usage.appointments)} />
+        <AdminCard titulo="Serviços" valor={String(data.usage.services)} />
+        <AdminCard titulo="Materiais" valor={String(data.usage.materials)} />
+        <AdminCard titulo="Cálculos" valor={String(data.usage.calculations)} />
+        <AdminCard titulo="Agendamentos" valor={String(data.usage.appointments)} />
       </section>
 
       <section aria-label="Onde as assinaturas foram compradas">
@@ -738,12 +733,3 @@ function ExclusoesTab({ onExpirar }: { onExpirar: () => void }) {
   );
 }
 
-function Card({ titulo, valor, nota }: { titulo: string; valor: string; nota?: string }) {
-  return (
-    <div className="admin-card">
-      <span className="admin-card-titulo">{titulo}</span>
-      <strong className="admin-card-valor">{valor}</strong>
-      {nota && <span className="admin-card-nota">{nota}</span>}
-    </div>
-  );
-}

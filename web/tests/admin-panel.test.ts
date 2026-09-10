@@ -6,8 +6,12 @@ import {
   MIN_PRICE_CENTS,
   centsToInput,
   parsePriceToCents,
+  churnRate,
+  conversionRate,
   subscriptionTone,
+  timeAgo,
   validateOfferPrice,
+  variation,
 } from "../src/application/use-cases/admin-panel";
 
 /**
@@ -140,5 +144,48 @@ describe("pedidos de exclusão de conta", () => {
     expect(DELETION_STATUS_LABELS.pending).toBe("Aguardando");
     expect(DELETION_STATUS_LABELS.done).toBe("Apagada");
     expect(DELETION_STATUS_LABELS.rejected).toBe("Recusado");
+  });
+});
+
+describe("comparação com o mês anterior", () => {
+  it("calcula a variação em pontos percentuais", () => {
+    expect(variation(12, 10)).toBe(20);
+    expect(variation(8, 10)).toBe(-20);
+    expect(variation(10, 10)).toBe(0);
+  });
+
+  it("não anuncia percentual quando não havia base", () => {
+    // Sair de zero para cinco não é "crescimento de 500%": é a primeira
+    // medição, e pôr percentual aí é o jeito mais fácil de o painel mentir.
+    expect(variation(5, 0)).toBeNull();
+  });
+});
+
+describe("taxas do funil", () => {
+  it("mede quantos por cento das contas viraram assinantes", () => {
+    expect(conversionRate(3, 12)).toBe(25);
+  });
+
+  it("mede a perda contra a base do início do mês", () => {
+    expect(churnRate(2, 20)).toBe(10);
+  });
+
+  it("devolve nulo sem base, em vez de dividir por zero", () => {
+    // "Churn infinito" num produto sem assinantes é ruído, não informação.
+    expect(churnRate(0, 0)).toBeNull();
+    expect(conversionRate(0, 0)).toBeNull();
+  });
+});
+
+describe("tempo relativo", () => {
+  const agora = new Date("2026-09-20T12:00:00.000Z");
+
+  it.each([
+    ["2026-09-20T11:59:30.000Z", "agora"],
+    ["2026-09-20T11:30:00.000Z", "há 30 min"],
+    ["2026-09-20T09:00:00.000Z", "há 3 h"],
+    ["2026-09-18T12:00:00.000Z", "há 2 d"],
+  ])("mostra %s como %s", (iso, esperado) => {
+    expect(timeAgo(iso, agora)).toBe(esperado);
   });
 });

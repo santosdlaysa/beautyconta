@@ -110,4 +110,62 @@ export class ListAdminSubscriptions {
   }
 }
 
+
+/** Funil e receita do mês, contra o anterior. */
+export class GetBusinessMetrics {
+  constructor(private readonly metrics: AdminMetricsRepository) {}
+
+  async execute(now: Date) {
+    const [resumo, serie] = await Promise.all([
+      this.metrics.businessMetrics(now),
+      // Trinta dias: o bastante para ver tendência sem virar um borrão.
+      this.metrics.signupSeries(now, 30),
+    ]);
+
+    return { ...resumo, signups: serie };
+  }
+}
+
+export class ListAdminBusinesses {
+  constructor(private readonly metrics: AdminMetricsRepository) {}
+
+  execute(options: { search?: string; limit?: number; offset?: number }) {
+    return this.metrics.listBusinesses({
+      ...(options.search ? { search: options.search.trim() } : {}),
+      limit: Math.min(Math.max(options.limit ?? 50, 1), 200),
+      offset: Math.max(options.offset ?? 0, 0),
+    });
+  }
+}
+
+export class GetRecentActivity {
+  constructor(private readonly metrics: AdminMetricsRepository) {}
+
+  execute(limit = 40) {
+    return this.metrics.recentActivity(Math.min(Math.max(limit, 1), 100));
+  }
+}
+
+/**
+ * Eventos de cobrança e o que eles revelam.
+ *
+ * A saúde vem junto da lista de propósito: o número de eventos não processados
+ * só significa alguma coisa ao lado dos eventos em si.
+ */
+export class GetBillingLog {
+  constructor(private readonly metrics: AdminMetricsRepository) {}
+
+  async execute(now: Date, options: { onlyUnprocessed?: boolean } = {}) {
+    const [events, health] = await Promise.all([
+      this.metrics.listBillingEvents({
+        limit: 100,
+        ...(options.onlyUnprocessed ? { onlyUnprocessed: true } : {}),
+      }),
+      this.metrics.billingHealth(now),
+    ]);
+
+    return { events, health };
+  }
+}
+
 export { MAX_PRICE_CENTS, MIN_PRICE_CENTS };

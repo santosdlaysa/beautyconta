@@ -2,7 +2,13 @@ import type {
   AdminOffer,
   AdminOverview,
   AdminSubscription,
+  AdminActivity,
+  AdminBillingEvent,
+  AdminBillingHealth,
+  AdminBusiness,
   AdminDeletionRequest,
+  AdminMetrics,
+  AdminSettings,
   AdminUser,
 } from "@/application/use-cases/admin-panel";
 
@@ -129,6 +135,20 @@ export const adminApi = {
 
   subscriptions: (params: { limit?: number; offset?: number } = {}) =>
     call<{ items: AdminSubscription[]; total: number }>(`/subscriptions${query(params)}`),
+
+  metrics: () => call<AdminMetrics>("/metrics"),
+
+  businesses: (params: { search?: string; limit?: number } = {}) =>
+    call<{ items: AdminBusiness[]; total: number }>(`/businesses${query(params)}`),
+
+  activity: () => call<{ items: AdminActivity[] }>("/activity"),
+
+  billingLog: (onlyUnprocessed?: boolean) =>
+    call<{ events: AdminBillingEvent[]; health: AdminBillingHealth }>(
+      `/billing-log${onlyUnprocessed ? "?unprocessed=true" : ""}`,
+    ),
+
+  settings: () => call<AdminSettings>("/settings"),
 
   deletionRequests: (status?: string) =>
     call<{ items: AdminDeletionRequest[] }>(`/account-deletion-requests${query({ status })}`),
