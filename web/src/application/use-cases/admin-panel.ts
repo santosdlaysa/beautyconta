@@ -46,6 +46,38 @@ export type AdminSubscription = {
 };
 
 /**
+ * Pedido de exclusão de conta feito pelo site.
+ *
+ * Só chega aqui quem não conseguiu entrar no aplicativo: quem entra apaga a
+ * própria conta na hora, sem passar por fila nenhuma.
+ */
+export type AdminDeletionRequest = {
+  id: string;
+  email: string;
+  note: string | null;
+  status: "pending" | "done" | "rejected";
+  createdAt: string;
+  handledAt: string | null;
+};
+
+/**
+ * Há quantos dias o pedido espera.
+ *
+ * Existe porque há prazo legal para responder, e o painel precisa mostrar o que
+ * está encostando nele antes que alguém descubra pelo caminho errado.
+ */
+export function daysWaiting(request: Pick<AdminDeletionRequest, "createdAt">, now: Date = new Date()): number {
+  const dias = (now.getTime() - new Date(request.createdAt).getTime()) / 86_400_000;
+  return Math.max(0, Math.floor(dias));
+}
+
+export const DELETION_STATUS_LABELS: Record<string, string> = {
+  pending: "Aguardando",
+  done: "Apagada",
+  rejected: "Recusado",
+};
+
+/**
  * Texto digitado para centavos inteiros.
  *
  * Aceita o que a pessoa realmente escreve num campo de preço: `29,90`, `29.90`,

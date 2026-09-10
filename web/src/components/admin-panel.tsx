@@ -9,9 +9,12 @@ import {
   centsToInput,
   formatCents,
   formatDate,
+  daysWaiting,
+  DELETION_STATUS_LABELS,
   parsePriceToCents,
   subscriptionTone,
   validateOfferPrice,
+  type AdminDeletionRequest,
   type AdminOffer,
   type AdminOverview,
   type AdminSubscription,
@@ -27,17 +30,57 @@ import {
   subscribeToSecret,
 } from "@/infrastructure/admin/gateway";
 
-type Aba = "resumo" | "planos" | "assinantes" | "usuarias";
+type Aba = "resumo" | "assinantes" | "usuarias" | "planos" | "exclusoes";
 
-const ABAS: { id: Aba; label: string }[] = [
-  { id: "resumo", label: "Resumo" },
-  { id: "planos", label: "Planos e preços" },
-  { id: "assinantes", label: "Assinantes" },
-  { id: "usuarias", label: "Usuárias" },
+/**
+ * A navegação, agrupada por assunto.
+ *
+ * `section` marca onde um grupo começa; os itens seguintes pertencem a ele até
+ * o próximo. O agrupamento importa porque "conferir números" e "mexer em preço"
+ * são visitas diferentes, e misturá-las faz procurar cada vez.
+ */
+const ABAS: { id: Aba; label: string; icon: IconName; section?: string }[] = [
+  { id: "resumo", label: "Resumo", icon: "chart" },
+  { id: "assinantes", label: "Assinantes", icon: "coin" },
+  { id: "usuarias", label: "Usuárias", icon: "user" },
+
+  { id: "planos", label: "Planos e preços", icon: "sparkle", section: "Configuração" },
+  { id: "exclusoes", label: "Exclusões de conta", icon: "alert" },
 ];
+
+type IconName = "chart" | "coin" | "user" | "sparkle" | "alert";
+
+/** Ícones do painel. Traço fino, como o resto do produto. */
+function NavIcon({ name }: { name: IconName }) {
+  const paths: Record<IconName, string> = {
+    chart: "M4 3v17h17M8 15l4-5 4 2 5-7",
+    coin: "M12 3v18M8 7.5h5.5a2.5 2.5 0 0 1 0 5H10a2.5 2.5 0 0 0 0 5H16",
+    user: "M4 21v-2a5 5 0 0 1 5-5h6a5 5 0 0 1 5 5v2M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z",
+    sparkle: "M12 3.5 13.8 9l5.7 1.8-5.7 1.8L12 18.5l-1.8-5.9L4.5 10.8 10.2 9 12 3.5Z",
+    alert: "M12 3.5 21 19H3l9-15.5ZM12 10v4m0 3h.01",
+  };
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      width="17"
+      height="17"
+      aria-hidden="true"
+    >
+      <path d={paths[name]} />
+    </svg>
+  );
+}
 
 export function AdminPanel() {
   const [aba, setAba] = useState<Aba>("resumo");
+  const [menuAberto, setMenuAberto] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
 
   /**
    * A sessão vem do próprio guardião do segredo, e não de uma cópia em estado.
@@ -49,47 +92,82 @@ export function AdminPanel() {
   const autenticada = useSyncExternalStore(subscribeToSecret, hasSecret, hasSecretOnServer);
 
   const sair = useCallback(() => {
+    setSessionError(null);
     clearSecret();
   }, []);
 
-  if (!autenticada) return <AdminLogin />;
+  const expirar = useCallback(() => {
+    setSessionError("O servidor recusou seu acesso. Confira o segredo e entre novamente.");
+    clearSecret();
+  }, []);
+
+  if (!autenticada) return <AdminLogin sessionError={sessionError} />;
+
+  const atual = ABAS.find((item) => item.id === aba);
 
   return (
-    <div className="admin">
-      <header className="admin-top">
-        <strong>BeautyConta · Painel</strong>
-        <button type="button" className="admin-link" onClick={sair}>
+    <div className="admin-shell">
+      {/* No celular a barra vira gaveta; o botão só existe lá. */}
+      <button
+        type="button"
+        className="admin-menu"
+        aria-expanded={menuAberto}
+        aria-controls="admin-nav"
+        onClick={() => setMenuAberto((aberto) => !aberto)}
+      >
+        <span aria-hidden="true">☰</span> {atual?.label ?? "Painel"}
+      </button>
+
+      <aside id="admin-nav" className="admin-side" data-aberta={menuAberto}>
+        <div className="admin-marca">
+          <span className="admin-marca-selo" aria-hidden="true">B</span>
+          <span>
+            <strong>BeautyConta</strong>
+            <small>Painel</small>
+          </span>
+        </div>
+
+        <nav className="admin-nav" aria-label="Seções do painel">
+          {ABAS.map((item) => (
+            <div key={item.id}>
+              {item.section && <p className="admin-nav-secao">{item.section}</p>}
+              <button
+                type="button"
+                className="admin-nav-item"
+                aria-current={aba === item.id ? "page" : undefined}
+                onClick={() => {
+                  setAba(item.id);
+                  setMenuAberto(false);
+                }}
+              >
+                <NavIcon name={item.icon} />
+                {item.label}
+              </button>
+            </div>
+          ))}
+        </nav>
+
+        <button type="button" className="admin-sair" onClick={sair}>
           Sair
         </button>
-      </header>
+      </aside>
 
-      <nav className="admin-tabs" aria-label="Seções do painel">
-        {ABAS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className="admin-tab"
-            aria-pressed={aba === item.id}
-            onClick={() => setAba(item.id)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </nav>
+      <main className="admin-conteudo">
+        <h1 className="admin-titulo">{atual?.label}</h1>
 
-      <main className="admin-body">
-        {aba === "resumo" && <ResumoTab onExpirar={sair} />}
-        {aba === "planos" && <PlanosTab onExpirar={sair} />}
-        {aba === "assinantes" && <AssinantesTab onExpirar={sair} />}
-        {aba === "usuarias" && <UsuariasTab onExpirar={sair} />}
+        {aba === "resumo" && <ResumoTab onExpirar={expirar} />}
+        {aba === "planos" && <PlanosTab onExpirar={expirar} />}
+        {aba === "assinantes" && <AssinantesTab onExpirar={expirar} />}
+        {aba === "usuarias" && <UsuariasTab onExpirar={expirar} />}
+        {aba === "exclusoes" && <ExclusoesTab onExpirar={expirar} />}
       </main>
     </div>
   );
 }
 
-function AdminLogin() {
+function AdminLogin({ sessionError }: { sessionError: string | null }) {
   const [secret, setSecret] = useState("");
-  const [erro, setErro] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(sessionError);
   const [entrando, setEntrando] = useState(false);
 
   const enviar = async (event: FormEvent) => {
@@ -132,7 +210,12 @@ function AdminLogin() {
 }
 
 /** Carrega dados da API e cuida do 401 de forma uniforme. */
-function useAdminData<T>(carregar: () => Promise<T>, onExpirar: () => void) {
+function useAdminData<T>(
+  carregar: () => Promise<T>,
+  onExpirar: () => void,
+  /** O que, além do pedido explícito de recarga, deve buscar de novo. */
+  deps: unknown[] = [],
+) {
   const [data, setData] = useState<T | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [versao, setVersao] = useState(0);
@@ -159,7 +242,7 @@ function useAdminData<T>(carregar: () => Promise<T>, onExpirar: () => void) {
     // `carregar` muda a cada render por ser uma closure; a versão é o gatilho
     // explícito de recarga, e depender dela evita o laço infinito.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [versao]);
+  }, [versao, ...deps]);
 
   return { data, erro, recarregar: () => setVersao((v) => v + 1) };
 }
@@ -509,6 +592,144 @@ function UsuariasTab({ onExpirar }: { onExpirar: () => void }) {
                   <td>{formatDate(item.createdAt)}</td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
+ * Pedidos de exclusão de conta.
+ *
+ * Quem chega aqui é quem **não conseguiu entrar** no aplicativo — quem entra
+ * apaga a própria conta na hora. Marcar como tratado **não apaga nada**: a
+ * exclusão exige confirmar que quem pediu é a dona do e-mail, e essa conferência
+ * é humana.
+ */
+function ExclusoesTab({ onExpirar }: { onExpirar: () => void }) {
+  const [filtro, setFiltro] = useState<"pending" | "all">("pending");
+  const { data, erro, recarregar } = useAdminData(
+    () => adminApi.deletionRequests(filtro === "pending" ? "pending" : undefined),
+    onExpirar,
+    [filtro],
+  );
+
+  const [tratando, setTratando] = useState<string | null>(null);
+
+  const tratar = async (id: string, status: "done" | "rejected") => {
+    setTratando(id);
+    try {
+      await adminApi.resolveDeletionRequest(id, status);
+      recarregar();
+    } catch (falha) {
+      if (falha instanceof AdminAuthError) onExpirar();
+    } finally {
+      setTratando(null);
+    }
+  };
+
+  if (erro) return <p className="admin-erro">{erro}</p>;
+  if (!data) return <p className="admin-loading">Carregando…</p>;
+
+  return (
+    <>
+      <p className="admin-nota">
+        Confirme a identidade de quem pediu antes de apagar — e lembre que há prazo legal para
+        responder. Marcar aqui registra o desfecho; a exclusão em si você faz pelo caminho de sempre.
+      </p>
+
+      <div className="admin-filtros">
+        <button
+          type="button"
+          className="admin-tab"
+          aria-pressed={filtro === "pending"}
+          onClick={() => setFiltro("pending")}
+        >
+          Aguardando
+        </button>
+        <button
+          type="button"
+          className="admin-tab"
+          aria-pressed={filtro === "all"}
+          onClick={() => setFiltro("all")}
+        >
+          Todos
+        </button>
+      </div>
+
+      {data.items.length === 0 ? (
+        <p className="admin-vazio">
+          {filtro === "pending" ? "Nada aguardando." : "Nenhum pedido até agora."}
+        </p>
+      ) : (
+        <div className="admin-tabela-wrap">
+          <table className="admin-tabela">
+            <caption>{data.items.length} pedidos</caption>
+            <thead>
+              <tr>
+                <th scope="col">E-mail</th>
+                <th scope="col">Pedido</th>
+                <th scope="col">Situação</th>
+                <th scope="col">Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.items.map((item: AdminDeletionRequest) => {
+                const dias = daysWaiting(item);
+
+                return (
+                  <tr key={item.id}>
+                    <td>
+                      <strong>{item.email}</strong>
+                      {item.note && <span className="admin-sub">{item.note}</span>}
+                    </td>
+                    <td>
+                      {formatDate(item.createdAt)}
+                      {item.status === "pending" && (
+                        // Quem esperou mais é quem está mais perto do prazo.
+                        <span className={`admin-sub${dias >= 15 ? " admin-atrasado" : ""}`}>
+                          {dias === 0 ? "hoje" : `há ${dias} dia${dias > 1 ? "s" : ""}`}
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <span
+                        className={`admin-tag admin-tag-${item.status === "pending" ? "warn" : "off"}`}
+                      >
+                        {DELETION_STATUS_LABELS[item.status] ?? item.status}
+                      </span>
+                    </td>
+                    <td>
+                      {item.status === "pending" ? (
+                        <div className="admin-acoes">
+                          <button
+                            type="button"
+                            className="admin-link"
+                            disabled={tratando === item.id}
+                            onClick={() => void tratar(item.id, "done")}
+                          >
+                            Apagada
+                          </button>
+                          <button
+                            type="button"
+                            className="admin-link"
+                            disabled={tratando === item.id}
+                            onClick={() => void tratar(item.id, "rejected")}
+                          >
+                            Recusar
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="admin-sub">
+                          {item.handledAt ? formatDate(item.handledAt) : "—"}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

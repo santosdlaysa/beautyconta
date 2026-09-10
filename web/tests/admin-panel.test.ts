@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  DELETION_STATUS_LABELS,
+  daysWaiting,
   MAX_PRICE_CENTS,
   MIN_PRICE_CENTS,
   centsToInput,
@@ -117,5 +119,26 @@ describe("situação da assinatura", () => {
     expect(
       subscriptionTone({ status: "expired", cancelAtPeriodEnd: true, currentPeriodEnd: passado }, agora),
     ).toBe("off");
+  });
+});
+
+describe("pedidos de exclusão de conta", () => {
+  const agora = new Date("2026-09-20T12:00:00.000Z");
+
+  it("conta os dias de espera, porque há prazo legal para responder", () => {
+    expect(daysWaiting({ createdAt: "2026-09-20T09:00:00.000Z" }, agora)).toBe(0);
+    expect(daysWaiting({ createdAt: "2026-09-19T09:00:00.000Z" }, agora)).toBe(1);
+    expect(daysWaiting({ createdAt: "2026-09-05T12:00:00.000Z" }, agora)).toBe(15);
+  });
+
+  it("não devolve espera negativa para registro do futuro", () => {
+    // Relógio do servidor adiantado não pode virar "há -1 dias" na tela.
+    expect(daysWaiting({ createdAt: "2026-09-21T12:00:00.000Z" }, agora)).toBe(0);
+  });
+
+  it("mostra a situação em português, não o vocabulário do banco", () => {
+    expect(DELETION_STATUS_LABELS.pending).toBe("Aguardando");
+    expect(DELETION_STATUS_LABELS.done).toBe("Apagada");
+    expect(DELETION_STATUS_LABELS.rejected).toBe("Recusado");
   });
 });

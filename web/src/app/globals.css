@@ -413,12 +413,8 @@ footer small { display: block; color: #9f9499; font-size: 12px; }
  * Denso de propósito: aqui a pessoa vem conferir números e mexer em preço, não
  * ser convencida de nada. Mesmas cores do produto, menos ar entre os elementos.
  * --------------------------------------------------------------------------- */
-.admin { max-width: 1100px; margin: 0 auto; padding: 20px 16px 64px; }
-.admin-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
-.admin-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 22px; }
 .admin-tab { min-height: 40px; padding: 0 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
 .admin-tab[aria-pressed="true"] { background: var(--rose); border-color: var(--rose); color: #fff; }
-.admin-body { display: grid; gap: 26px; }
 
 .admin-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
 .admin-card { min-width: 0; display: grid; gap: 3px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
@@ -474,3 +470,57 @@ footer small { display: block; color: #9f9499; font-size: 12px; }
 .admin-login h1 { margin: 0 0 6px; font-size: 20px; }
 .admin-login label { color: var(--muted); font-size: 12px; }
 .admin-login input { height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: #fffcfb; font: inherit; }
+
+/* Formulário de exclusão de conta. Vive dentro do texto legal, então herda a
+   largura dele e só cuida dos próprios campos. */
+.delete-form { display: grid; gap: 16px; margin: 20px 0; padding: 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.delete-form > * { min-width: 0; }
+.delete-form input, .delete-form textarea { width: 100%; max-width: 100%; box-sizing: border-box; padding: 11px 13px; border: 1px solid var(--line); border-radius: 10px; background: #fffcfb; font: inherit; font-size: 16px; }
+.delete-form textarea { resize: vertical; }
+.delete-form label { display: block; margin-bottom: 5px; font-size: 14px; font-weight: 600; }
+.delete-submit { min-height: 48px; padding: 0 20px; border: 0; border-radius: 12px; background: var(--rose); color: #fff; font: inherit; font-size: 15px; font-weight: 650; cursor: pointer; }
+.delete-submit:disabled { opacity: .6; cursor: not-allowed; }
+.delete-erro { margin: 0; color: var(--danger); font-size: 14px; }
+.delete-nota { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.delete-ok { margin: 20px 0; padding: 20px; border: 1px solid var(--green); border-radius: 14px; background: #f2f8f5; }
+.delete-ok h2 { margin: 0 0 10px; font-size: 18px; color: var(--green); }
+.delete-ok p { margin: 10px 0; }
+
+/* Barra lateral do painel.
+ *
+ * Fixa no computador, gaveta no celular. A grade de duas colunas com
+ * `minmax(0, 1fr)` na segunda é o que impede uma tabela larga de empurrar a
+ * página inteira para o lado. */
+.admin-shell { min-height: 100vh; display: grid; grid-template-columns: 224px minmax(0, 1fr); background: var(--cream); }
+.admin-side { display: flex; flex-direction: column; background: var(--paper); border-right: 1px solid var(--line); }
+.admin-marca { display: flex; align-items: center; gap: 10px; padding: 18px 16px; border-bottom: 1px solid var(--line); }
+.admin-marca-selo { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px; background: var(--rose); color: #fff; font-weight: 700; }
+.admin-marca span span, .admin-marca > span:last-child { display: grid; }
+.admin-marca strong { font-size: 14px; }
+.admin-marca small { color: var(--muted); font-size: 11px; }
+
+.admin-nav { flex: 1; padding: 10px 8px; overflow-y: auto; }
+.admin-nav-secao { margin: 14px 0 4px; padding: 0 10px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.admin-nav-item { position: relative; width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 0; border-radius: 9px; background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 550; text-align: left; cursor: pointer; }
+.admin-nav-item:hover { background: var(--cream); color: var(--ink); }
+.admin-nav-item[aria-current="page"] { background: var(--rose-soft); color: var(--rose-dark); font-weight: 650; }
+/* A barrinha à esquerda marca onde você está sem depender só da cor. */
+.admin-nav-item[aria-current="page"]::before { content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 18px; border-radius: 0 3px 3px 0; background: var(--rose); }
+.admin-sair { margin: 8px; padding: 10px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
+.admin-sair:hover { color: var(--ink); }
+
+.admin-conteudo { min-width: 0; display: grid; align-content: start; gap: 22px; padding: 24px 22px 64px; }
+.admin-titulo { margin: 0; font-size: 22px; font-weight: 650; }
+.admin-menu { display: none; }
+.admin-filtros { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-tab { min-height: 38px; padding: 0 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.admin-tab[aria-pressed="true"] { background: var(--rose); border-color: var(--rose); color: #fff; }
+.admin-atrasado { color: var(--danger); font-weight: 650; }
+
+@media (max-width: 820px) {
+  .admin-shell { grid-template-columns: minmax(0, 1fr); }
+  .admin-menu { display: flex; align-items: center; gap: 9px; width: 100%; padding: 14px 16px; border: 0; border-bottom: 1px solid var(--line); background: var(--paper); color: var(--ink); font: inherit; font-size: 15px; font-weight: 650; text-align: left; cursor: pointer; }
+  .admin-side { display: none; border-right: 0; border-bottom: 1px solid var(--line); }
+  .admin-side[data-aberta="true"] { display: flex; }
+  .admin-conteudo { padding: 18px 16px 56px; }
+}

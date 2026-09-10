@@ -42,4 +42,4 @@ async function forward(request: Request, context: Context): Promise<Response> {
   }
 }
 
-export { forward as GET, forward as PUT, forward as DELETE };
+export { forward as GET, forward as POST, forward as PUT, forward as PATCH, forward as DELETE };

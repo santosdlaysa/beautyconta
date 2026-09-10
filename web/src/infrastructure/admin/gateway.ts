@@ -2,6 +2,7 @@ import type {
   AdminOffer,
   AdminOverview,
   AdminSubscription,
+  AdminDeletionRequest,
   AdminUser,
 } from "@/application/use-cases/admin-panel";
 
@@ -15,6 +16,9 @@ import type {
  */
 
 const CHAVE = "beautyconta:admin-secret";
+// A credencial validada continua disponível se o navegador bloquear a gravação.
+// `undefined` significa que ainda precisamos recuperar a sessão desta aba.
+let sessionSecret: string | null | undefined;
 
 export class AdminAuthError extends Error {
   constructor() {
@@ -24,8 +28,9 @@ export class AdminAuthError extends Error {
 }
 
 export function loadSecret(): string | null {
+  if (sessionSecret !== undefined) return sessionSecret;
   try {
-    return sessionStorage.getItem(CHAVE);
+    return sessionStorage.getItem(CHAVE) || null;
   } catch {
     // Navegador com armazenamento bloqueado: o painel ainda funciona, só pede o
     // segredo de novo a cada recarga.
@@ -34,6 +39,7 @@ export function loadSecret(): string | null {
 }
 
 export function saveSecret(secret: string): void {
+  sessionSecret = secret;
   try {
     sessionStorage.setItem(CHAVE, secret);
   } catch {
@@ -43,6 +49,7 @@ export function saveSecret(secret: string): void {
 }
 
 export function clearSecret(): void {
+  sessionSecret = null;
   try {
     sessionStorage.removeItem(CHAVE);
   } catch {
@@ -79,6 +86,7 @@ export const hasSecretOnServer = (): boolean => false;
 async function call<T>(path: string, init: RequestInit = {}, secret = loadSecret()): Promise<T> {
   const response = await fetch(`/api/admin${path}`, {
     ...init,
+    cache: "no-store",
     headers: {
       "content-type": "application/json",
       ...(secret ? { "x-admin-secret": secret } : {}),
@@ -121,6 +129,15 @@ export const adminApi = {
 
   subscriptions: (params: { limit?: number; offset?: number } = {}) =>
     call<{ items: AdminSubscription[]; total: number }>(`/subscriptions${query(params)}`),
+
+  deletionRequests: (status?: string) =>
+    call<{ items: AdminDeletionRequest[] }>(`/account-deletion-requests${query({ status })}`),
+
+  resolveDeletionRequest: (id: string, status: "done" | "rejected") =>
+    call<{ id: string; status: string; handledAt: string | null }>(
+      `/account-deletion-requests/${id}`,
+      { method: "PATCH", body: JSON.stringify({ status }) },
+    ),
 };
 
 function query(params: Record<string, string | number | undefined>): string {
