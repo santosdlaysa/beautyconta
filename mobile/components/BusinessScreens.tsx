@@ -24,6 +24,8 @@ export function ServicesScreen({ onBack, onUpgrade }: ScreenProps) {
   const [editing, setEditing] = useState<Service | null>(null);
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  /** Serviço aberto na tela de detalhe; id, porque a edição troca o objeto. */
+  const [viewingId, setViewingId] = useState<string | null>(null);
 
   const limit = app.subscription?.limits.services ?? null;
   // O limite do plano conta o cadastro inteiro, arquivados inclusive, que é
@@ -42,6 +44,7 @@ export function ServicesScreen({ onBack, onUpgrade }: ScreenProps) {
       return sum + Math.round((material?.unitCostCents ?? 0) * item.quantityUsed);
     }, 0);
 
+  const viewing = viewingId ? app.services.find(item => item.id === viewingId) ?? null : null;
   const active = app.services.filter(service => !service.isArchived);
   const archived = app.services.filter(service => service.isArchived);
   const priced = active.filter(service => service.currentPriceCents !== null);
@@ -58,11 +61,64 @@ export function ServicesScreen({ onBack, onUpgrade }: ScreenProps) {
       subtitle={`${service.durationMinutes} min · ${service.materials.length ? `${service.materials.length} ${service.materials.length === 1 ? 'material' : 'materiais'} (${formatCents(materialCostOf(service))})` : 'sem materiais'}`}
       meta={service.currentPriceCents === null ? 'definir preço' : formatCents(service.currentPriceCents)}
       badge={service.isArchived ? <Badge label="Arquivado" tone="warning" /> : undefined}
-      onPress={() => openSheet(service)}
+      onPress={() => { setViewingId(service.id); setDone(null); }}
     />
   );
 
   return <Screen>
+    {viewing ? <>
+      {/*
+        Detalhe do serviço, no desenho da tela de resultado (direção B): o
+        preço em destaque no topo escuro e a composição como recibo. Tocar na
+        lista abre isto; o modal de edição só aparece pelo botão Editar.
+      */}
+      <View style={s.resultHero}>
+        <View style={s.resultHeroTop}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Voltar à lista de serviços" onPress={() => setViewingId(null)} style={({ pressed }) => [s.resultBack, pressed && ui.pressed]}>
+            <View style={ui.flip}><Icon name="chevron" size={18} color={colors.lilac} /></View>
+          </Pressable>
+          <View style={s.resultChip}><Text style={s.resultChipText}>{viewing.durationMinutes} min{viewing.materials.length ? ` · ${viewing.materials.length} ${viewing.materials.length === 1 ? 'material' : 'materiais'}` : ''}</Text></View>
+        </View>
+        <View style={s.resultHeroBody}>
+          <Text style={s.resultLabel}>{viewing.name}</Text>
+          <Text style={s.resultPrice}>{viewing.currentPriceCents === null ? '—' : formatCents(viewing.currentPriceCents)}</Text>
+          <Text style={s.resultSub}>{viewing.currentPriceCents === null ? 'sem preço definido: calcule para descobrir quanto cobrar' : 'preço definido por você na calculadora'}</Text>
+          <View style={s.resultPills}>
+            <View style={s.resultPill}><Text style={s.resultPillText}>Margem {formatPercent(viewing.desiredMarginPercent)}</Text></View>
+            <View style={[s.resultPill, s.resultPillProfit]}><Text style={[s.resultPillText, s.resultPillProfitText]}>Materiais {formatCents(materialCostOf(viewing))}</Text></View>
+          </View>
+        </View>
+      </View>
+
+      <View style={s.receipt}>
+        <Text style={s.receiptTitle}>O que entra nele</Text>
+        {viewing.materials.length
+          ? viewing.materials.map(item => {
+            const material = app.materials.find(entry => entry.id === item.materialId);
+            if (!material) return null;
+            return <Line
+              key={item.materialId}
+              label={material.name}
+              note={`${item.quantityUsed} ${labelOf(UNITS, material.unit).toLowerCase()}`}
+              value={formatCents(Math.round((material.unitCostCents ?? 0) * item.quantityUsed))}
+            />;
+          })
+          : <Text style={s.hint}>Nenhum material na composição: o cálculo considera só o seu tempo e os custos fixos.</Text>}
+        {viewing.materials.length > 0 && <>
+          <View style={s.dashed} />
+          <Line label="Custo de materiais" value={formatCents(materialCostOf(viewing))} strong />
+        </>}
+        {viewing.otherDirectCostCents > 0 && <Line label="Outros custos diretos" value={formatCents(viewing.otherDirectCostCents)} />}
+        {viewing.salesFeePercent > 0 && <Line label="Taxa sobre a venda" value={formatPercent(viewing.salesFeePercent)} />}
+        <View style={s.dashed} />
+        <Line label="Margem desejada" value={formatPercent(viewing.desiredMarginPercent)} strong tone="profit" />
+      </View>
+
+      {viewing.isArchived && <Notice tone="warning" message="Este serviço está arquivado: fica fora da tabela e da calculadora até ser restaurado." />}
+      {done && <Notice tone="success" message={done} />}
+
+      <Button label="Editar serviço" icon="edit" onPress={() => openSheet(viewing)} />
+    </> : <>
     <ScreenHeader title="Serviços" subtitle="O que você faz, e quanto custa para fazer" onBack={onBack} />
     <Row>
       <StatCard icon="tag" label="Serviços salvos" value={limit === null ? String(app.services.length) : `${app.services.length} de ${limit}`} caption={limit === null ? 'Ilimitados no seu plano' : 'Limite do plano gratuito'} />
@@ -89,6 +145,7 @@ export function ServicesScreen({ onBack, onUpgrade }: ScreenProps) {
       <Section title="Arquivados" />
       <Text style={s.hint}>Ficam fora da tabela e da calculadora, mas os cálculos que eles já explicaram continuam no histórico.</Text>
       {archived.map(rowOf)}
+    </>}
     </>}
 
     <ServiceSheet
