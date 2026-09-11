@@ -22,7 +22,7 @@ const ceilTo = (value: number, step: number) => Math.ceil(value / step) * step;
 const endingNinety = (value: number) => Math.ceil(value - 0.9) + 0.9;
 const round = (value: number) => Math.round(value * 100) / 100;
 
-export function PriceChooser({ result, feePercent, currentPrice, busy, onUse, label = 'Usar este preço' }: {
+export function PriceChooser({ result, feePercent, currentPrice, busy, onUse }: {
   result: PricingResult;
   /** Taxa sobre a venda, em pontos percentuais: entra no lucro do preço escolhido. */
   feePercent: number;
@@ -30,15 +30,13 @@ export function PriceChooser({ result, feePercent, currentPrice, busy, onUse, la
   currentPrice?: number | null;
   busy?: boolean;
   onUse?: (price: number) => void;
-  label?: string;
 }) {
   const options = useMemo<Option[]>(() => {
     const suggested = result.commercialPrice || result.suggestedPrice;
     const candidates: Option[] = [
       { label: formatMoney(suggested), price: round(suggested), hint: 'Sugerido' },
-      { label: formatMoney(ceilTo(suggested, 5)), price: round(ceilTo(suggested, 5)), hint: 'Múltiplo de 5' },
-      { label: formatMoney(ceilTo(suggested, 10)), price: round(ceilTo(suggested, 10)), hint: 'Múltiplo de 10' },
       { label: formatMoney(endingNinety(suggested)), price: round(endingNinety(suggested)), hint: 'Final 90' },
+      { label: formatMoney(ceilTo(suggested, 10)), price: round(ceilTo(suggested, 10)), hint: 'Múltiplo de 10' },
     ];
 
     // Arredondamentos diferentes caem no mesmo valor com frequência; repetir a
@@ -63,7 +61,7 @@ export function PriceChooser({ result, feePercent, currentPrice, busy, onUse, la
       <Section title="Quanto você vai cobrar" />
       <Card>
         <Text style={s.intro}>
-          O cálculo sugere {formatMoney(result.commercialPrice || result.suggestedPrice)}. Você decide o valor final.
+          Arredonde, acompanhe o que a sua região pratica ou digite o seu. O sugerido é o que fecha a margem que você pediu.
         </Text>
 
         <View style={s.options}>
@@ -122,7 +120,7 @@ export function PriceChooser({ result, feePercent, currentPrice, busy, onUse, la
 
       {onUse && (
         <Button
-          label={busy ? 'Salvando...' : label}
+          label={busy ? 'Salvando...' : `Usar ${formatMoney(round(price))} no serviço`}
           icon="check"
           onPress={busy || price <= 0 ? undefined : () => onUse(round(price))}
         />
@@ -133,15 +131,15 @@ export function PriceChooser({ result, feePercent, currentPrice, busy, onUse, la
 
 const s = StyleSheet.create({
   intro: { color: colors.ink3, fontSize: 12, lineHeight: 18 },
-  options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  option: { minWidth: 96, flexGrow: 1, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, paddingVertical: 11, paddingHorizontal: 13, gap: 3 },
+  options: { flexDirection: 'row', gap: 8 },
+  option: { flex: 1, minWidth: 0, alignItems: 'center', borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, paddingVertical: 11, paddingHorizontal: 8, gap: 3 },
   optionActive: { backgroundColor: colors.pink, borderColor: colors.pink },
-  optionPrice: { color: colors.ink, fontSize: 14, fontWeight: '600', letterSpacing: -0.3 },
+  optionPrice: { color: colors.ink, fontSize: 13, fontWeight: '600', letterSpacing: -0.3, fontVariant: ['tabular-nums'] },
   optionHint: { color: colors.faded, fontSize: 10 },
   optionTextActive: { color: colors.white },
-  summary: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.softLilac, borderRadius: 18, padding: 14 },
+  summary: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.softLilac, borderRadius: 18, padding: 16 },
   summaryLabel: { color: colors.muted, fontSize: 11 },
-  summaryValue: { color: colors.ink, fontSize: 15, fontWeight: '600', letterSpacing: -0.3, marginTop: 4 },
-  summaryHint: { color: colors.ink3, fontSize: 10, lineHeight: 16, marginTop: 5 },
+  summaryValue: { color: colors.ink, fontSize: 18, fontWeight: '600', letterSpacing: -0.5, marginTop: 5, fontVariant: ['tabular-nums'] },
+  summaryHint: { color: colors.ink3, fontSize: 11, lineHeight: 17, marginTop: 6 },
   loss: { color: colors.danger },
 });

@@ -1,25 +1,21 @@
 import { colors } from '../theme';
-import { useEffect, useState } from 'react';
-import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState, type PropsWithChildren } from 'react';
+import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { track } from '../lib/analytics';
-import { FIXED_COST_CATEGORIES, labelOf, slugOf } from '../lib/catalog';
+import { FIXED_COST_CATEGORIES, guessMaterialCategory, labelOf, slugOf, UNITS } from '../lib/catalog';
 import { configurePurchases, getStoreOfferings, purchasePackage, restorePurchases, storePurchaseAvailable, type StoreOffering } from '../lib/purchases';
 import { getPlans, startCheckout, type AllocationMethod, type Calculation, type FixedCostBreakdown, type PaymentMethod, type PlanCatalog, type PlanOffer, type PricingResult, type RoundingStrategy, type Service, type Subscription, type SubscriptionChannel } from '../lib/resources';
 import { centsToInput, formatCents, formatMoney, formatPercent, parseCents, parseNumber, useSubmit } from '../lib/useSubmit';
 import { useApp } from '../state/AppProvider';
 import { useDialog } from './Dialog';
 import { Icon } from './AppChrome';
-import { Badge, Button, Card, ChoiceField, DetailSheet, EmptyState, Field, FormSheet, HeroCard, ListRow, Loading, Notice, PlanLimitNotice, Row, Screen, ScreenHeader, Section, StatCard, SwitchRow, ui } from './ui';
+import { Badge, Button, Card, ChoiceField, DetailSheet, EmptyState, Field, FormSheet, HeroCard, Line, ListRow, Loading, Notice, PlanLimitNotice, Row, Screen, ScreenHeader, Section, StatCard, SwitchRow, ui } from './ui';
 import { GoalSimulator } from './GoalSimulator';
 import { PriceChooser } from './PriceChooser';
 import { PublicCalculator } from './PublicCalculator';
 import { ServiceSheet } from './ServiceSheet';
 
 type ScreenProps = { onBack?: () => void; onUpgrade?: () => void };
-
-function Line({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return <View style={s.line}><Text style={[s.lineLabel, strong && s.lineStrong]}>{label}</Text><Text style={[s.lineValue, strong && s.lineStrong]}>{value}</Text></View>;
-}
 
 // --- serviços -------------------------------------------------------------
 
@@ -336,12 +332,50 @@ export function CostsScreen({ onBack, onUpgrade }: ScreenProps) {
  * calcular e decidir quanto cobrar. Quem ainda não cadastrou nada faz um
  * cálculo rápido com os números na mão e cadastra depois.
  */
+/**
+ * Um passo da linha do tempo vertical da calculadora.
+ *
+ * O trilho à esquerda responde "onde eu estou": passo feito vira check rosa,
+ * o atual fica contornado, o que falta espera em lilás. A linha desce até o
+ * passo seguinte e pinta de rosa quando o de cima está resolvido — é o mapa
+ * de preenchimento que os rótulos soltos não davam.
+ */
+function TimelineStep({ number, title, hint, done, active, last, children }: PropsWithChildren<{ number: number; title: string; hint?: string; done?: boolean; active?: boolean; last?: boolean }>) {
+  return <View style={s.tlRow}>
+    <View style={s.tlRail}>
+      <View style={[s.tlDot, active && !done && s.tlDotActive, done && s.tlDotDone]}>
+        {done
+          ? <Icon name="check" size={13} color={colors.white} />
+          : <Text style={[s.tlNumber, active && s.tlNumberActive]}>{number}</Text>}
+      </View>
+      {!last && <View style={[s.tlLine, done && s.tlLineDone]} />}
+    </View>
+    <View style={s.tlBody}>
+      <Text accessibilityRole="header" style={s.tlTitle}>{title}</Text>
+      {hint && <Text style={s.tlHint}>{hint}</Text>}
+      {children}
+    </View>
+  </View>;
+}
+
 export function PricingScreen({ onBack, onUpgrade, onEquipment }: ScreenProps & { onEquipment?: () => void }) {
   const app = useApp();
   const { busy, error, setError, run } = useSubmit();
   const expense = useSubmit();
-  const [expenseOpen, setExpenseOpen] = useState(false);
   const [expenseForm, setExpenseForm] = useState({ name: '', category: FIXED_COST_CATEGORIES[0].label, amount: '' });
+  /**
+   * Cadastros dentro da linha do tempo, sem sair da tela.
+   *
+   * `materialMode` diz o que o passo 2 está mostrando: fechado (''), o
+   * formulário de material novo ('new') ou o campo de consumo de um material
+   * do estoque (o id dele). O passo 3 tem o equivalente para a despesa.
+   */
+  const materialAdd = useSubmit();
+  const [materialMode, setMaterialMode] = useState('');
+  const emptyNewMaterial = { name: '', price: '', quantity: '', unit: UNITS[0].label, used: '1' };
+  const [newMaterial, setNewMaterial] = useState(emptyNewMaterial);
+  const [stockUse, setStockUse] = useState('1');
+  const [expenseAdding, setExpenseAdding] = useState(false);
   // Serviço arquivado sai da calculadora: ele não faz mais parte da tabela.
   const selectable = app.services.filter(item => !item.isArchived);
   const [mode, setMode] = useState<string>(selectable.length ? 'Meus serviços' : 'Cálculo rápido');
@@ -396,6 +430,9 @@ export function PricingScreen({ onBack, onUpgrade, onEquipment }: ScreenProps & 
     ? Math.round(result.allocatedFixedCost * 100 * equipmentReserve / monthlyFixedTotal)
     : 0;
 
+  /** Taxa sobre a venda embutida no preço sugerido: preço − custo − lucro. */
+  const resultFee = result ? result.commercialPrice - result.totalCost - result.expectedProfit : 0;
+
   const calculate = () => {
     if (!service) return;
     setSavedPrice(null);
@@ -436,6 +473,60 @@ export function PricingScreen({ onBack, onUpgrade, onEquipment }: ScreenProps & 
     />;
   }
 
+  /** Material do estoque entra na composição com o consumo informado. */
+  const addFromStock = (materialId: string) => {
+    if (!service) return;
+    const used = parseNumber(stockUse);
+    if (used <= 0) {
+      materialAdd.setError('Diga quanto usa por atendimento.');
+      return;
+    }
+    void materialAdd.run(async () => {
+      await app.updateService(service.id, { materials: [...service.materials, { materialId, quantityUsed: used }] });
+      setMaterialMode('');
+      setStockUse('1');
+      setResult(null);
+      setBreakdown(null);
+    });
+  };
+
+  /**
+   * Cadastro de material sem sair da linha do tempo: o material entra no
+   * estoque e na composição do serviço na mesma ação, como na ficha completa.
+   */
+  const createAndAddMaterial = () => {
+    if (!service) return;
+    const quantity = parseNumber(newMaterial.quantity);
+    const used = parseNumber(newMaterial.used);
+    if (!newMaterial.name.trim()) {
+      materialAdd.setError('Dê um nome ao material.');
+      return;
+    }
+    if (quantity <= 0) {
+      materialAdd.setError('Diga quanto vem na embalagem que você compra.');
+      return;
+    }
+    if (used <= 0) {
+      materialAdd.setError('Diga quanto usa por atendimento.');
+      return;
+    }
+    void materialAdd.run(async () => {
+      const material = await app.createMaterial({
+        name: newMaterial.name.trim(),
+        // Sem perguntar: a categoria é organização de estoque, não dado de cálculo.
+        category: guessMaterialCategory(newMaterial.name),
+        purchasePriceCents: parseCents(newMaterial.price),
+        purchaseQuantity: quantity,
+        unit: slugOf(UNITS, newMaterial.unit),
+      });
+      await app.updateService(service.id, { materials: [...service.materials, { materialId: material.id, quantityUsed: used }] });
+      setNewMaterial(emptyNewMaterial);
+      setMaterialMode('');
+      setResult(null);
+      setBreakdown(null);
+    });
+  };
+
   /** Custo fixo cadastrado aqui entra no rateio do próximo cálculo. */
   const saveExpense = () => {
     if (!expenseForm.name.trim()) {
@@ -450,84 +541,204 @@ export function PricingScreen({ onBack, onUpgrade, onEquipment }: ScreenProps & 
         monthlyAmountCents: parseCents(expenseForm.amount),
       });
       setExpenseForm({ name: '', category: FIXED_COST_CATEGORIES[0].label, amount: '' });
-      setExpenseOpen(false);
+      setExpenseAdding(false);
       setResult(null);
       setBreakdown(null);
     });
   };
 
-  return <Screen>
+  return <View style={ui.grow}>
+  <Screen>
+    {!result && <>
     <ScreenHeader title="Calcular preço" subtitle="Descubra quanto cobrar sem trabalhar no prejuízo" onBack={onBack} />
 
-    <Section title="1. Qual serviço" first />
-    <ChoiceField
-      label="Serviço a calcular"
-      items={selectable.map(item => item.name)}
-      value={service?.name ?? ''}
-      onChange={name => {
-        setSelected(selectable.find(item => item.name === name)?.id ?? null);
-        setResult(null);
-        setBreakdown(null);
-        setSavedPrice(null);
-      }}
-    />
-    {service && <>
-        <Section title="2. O que entra nele" />
-        <Card onPress={() => setSheetOpen(true)} accessibilityLabel="Editar serviço e materiais">
-          <Line label="Duração" value={`${service.durationMinutes} minutos`} />
-          <Line label="Materiais" value={service.materials.length ? `${service.materials.length} · ${formatCents(materialCost)}` : 'nenhum cadastrado'} />
-          {service.otherDirectCostCents > 0 && <Line label="Outros custos diretos" value={formatCents(service.otherDirectCostCents)} />}
-          <Line label="Margem desejada" value={formatPercent(service.desiredMarginPercent)} />
-          {service.salesFeePercent > 0 && <Line label="Taxa de venda" value={formatPercent(service.salesFeePercent)} />}
-          <Text style={s.editHint}>Toque para editar o serviço e a lista de materiais.</Text>
-        </Card>
-        {service.materials.length === 0 && <Notice tone="lilac" message="Sem materiais na composição, o cálculo considera só o seu tempo e os custos fixos." action="Adicionar" onAction={() => setSheetOpen(true)} />}
+    {/*
+      Direção A do canvas aprovado, organizada como linha do tempo vertical:
+      a tela é uma lista de serviços — inicial, duração e preço de hoje em
+      cada linha — os custos entram como resumo, e a ação vive na barra fixa
+      do rodapé. O trilho à esquerda mostra em que passo a pessoa está.
+    */}
+    <TimelineStep number={1} title="Escolha o serviço" hint="Toque no serviço que você vai precificar." done={!!service} active={!service}>
+      <View accessibilityRole="radiogroup" accessibilityLabel="Serviço a calcular">
+        {selectable.map((item, index) => {
+          const active = item.id === selected;
+          const materialsLabel = item.materials.length
+            ? `${item.materials.length} ${item.materials.length === 1 ? 'material' : 'materiais'}`
+            : 'sem materiais';
+          return <Pressable
+            key={item.id}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={`${item.name}, ${item.durationMinutes} minutos, ${materialsLabel}`}
+            onPress={() => {
+              setSelected(item.id);
+              setResult(null);
+              setBreakdown(null);
+              setSavedPrice(null);
+            }}
+            style={({ pressed }) => [s.serviceRow, active && s.serviceRowOn, pressed && ui.pressed]}
+          >
+            <View style={[s.avatar, { backgroundColor: active ? colors.white : index % 2 ? colors.softLilac : colors.softPink }]}>
+              <Text style={[s.avatarText, { color: index % 2 && !active ? colors.info : colors.accent }]}>{item.name.trim().charAt(0).toUpperCase()}</Text>
+            </View>
+            <View style={ui.grow}>
+              <Text style={[s.serviceName, active && s.serviceNameOn]}>{item.name}</Text>
+              <Text style={s.serviceSub}>{item.durationMinutes} min · {materialsLabel}</Text>
+            </View>
+            {item.currentPriceCents
+              ? <View style={s.serviceMeta}>
+                <Text style={[s.servicePrice, active && s.servicePriceOn]}>{formatCents(item.currentPriceCents)}</Text>
+                <Text style={s.serviceHint}>hoje</Text>
+              </View>
+              : <Text style={s.serviceEmpty}>sem preço</Text>}
+            {active && <View style={s.serviceCheck}><Icon name="check" size={13} color={colors.white} /></View>}
+          </Pressable>;
+        })}
+      </View>
+      {service && service.materials.length === 0 && <Notice tone="lilac" message="Sem materiais na composição, o cálculo considera só o seu tempo e os custos fixos." action="Adicionar" onAction={() => setSheetOpen(true)} />}
+      {service && <Pressable accessibilityRole="button" accessibilityLabel="Editar serviço e materiais" onPress={() => setSheetOpen(true)} style={({ pressed }) => [s.tlLink, pressed && ui.pressed]}>
+        <Text style={ui.link}>Editar serviço e materiais</Text>
+      </Pressable>}
+    </TimelineStep>
+
+    <TimelineStep number={2} title="Monte os materiais" hint={service ? 'O que é gasto em cada atendimento entra no custo.' : 'Escolha o serviço acima para montar a lista.'} done={!!service && service.materials.length > 0} active={!!service && service.materials.length === 0}>
+      {service && <>
+        {service.materials.length > 0 && <Card>
+          {service.materials.map(item => {
+            const material = app.materials.find(entry => entry.id === item.materialId);
+            if (!material) return null;
+            return <Line
+              key={item.materialId}
+              label={material.name}
+              note={`${item.quantityUsed} ${labelOf(UNITS, material.unit).toLowerCase()}`}
+              value={formatCents(Math.round((material.unitCostCents ?? 0) * item.quantityUsed))}
+            />;
+          })}
+          <Line label="Custo de materiais" value={formatCents(materialCost)} strong total />
+        </Card>}
+
+        {/*
+          Materiais já cadastrados que não estão neste serviço: um toque abre a
+          única pergunta que falta — quanto se usa por atendimento.
+        */}
+        {materialMode !== 'new' && app.materials.some(entry => !entry.isArchived && !service.materials.some(used => used.materialId === entry.id)) && <View style={s.stockChips}>
+          {app.materials.filter(entry => !entry.isArchived && !service.materials.some(used => used.materialId === entry.id)).map(entry => {
+            const picked = materialMode === entry.id;
+            return <Pressable
+              key={entry.id}
+              accessibilityRole="button"
+              accessibilityState={{ selected: picked }}
+              accessibilityLabel={`Incluir ${entry.name}`}
+              onPress={() => { setMaterialMode(picked ? '' : entry.id); setStockUse('1'); materialAdd.setError(null); }}
+              style={({ pressed }) => [ui.chip, picked && ui.chipActive, pressed && ui.pressed]}
+            >
+              <Text style={[ui.chipText, picked && ui.chipTextActive]}>+ {entry.name}</Text>
+            </Pressable>;
+          })}
+        </View>}
+
+        {materialMode !== '' && materialMode !== 'new' && <Card>
+          <Field label="Quanto usa por atendimento" value={stockUse} onChangeText={setStockUse} numeric hint="na unidade em que o material foi cadastrado" />
+          <Button label={materialAdd.busy ? 'Incluindo...' : 'Incluir no serviço'} icon="check" inline onPress={materialAdd.busy ? undefined : () => addFromStock(materialMode)} />
+        </Card>}
+
+        {materialMode === 'new' && <Card>
+          <Field label="Nome do material" value={newMaterial.name} onChangeText={value => setNewMaterial({ ...newMaterial, name: value })} placeholder="Ex.: Esmalte em gel" />
+          <Row>
+            <View style={ui.grow}><Field label="Preço pago" value={newMaterial.price} onChangeText={value => setNewMaterial({ ...newMaterial, price: value })} prefix="R$" numeric /></View>
+            <View style={ui.grow}><Field label="Vem na embalagem" value={newMaterial.quantity} onChangeText={value => setNewMaterial({ ...newMaterial, quantity: value })} numeric /></View>
+          </Row>
+          <ChoiceField label="Unidade" items={UNITS.map(item => item.label)} value={newMaterial.unit} onChange={value => setNewMaterial({ ...newMaterial, unit: value })} />
+          <Field label="Quanto usa por atendimento" value={newMaterial.used} onChangeText={value => setNewMaterial({ ...newMaterial, used: value })} numeric />
+          <Button label={materialAdd.busy ? 'Salvando...' : 'Cadastrar e incluir'} icon="check" inline onPress={materialAdd.busy ? undefined : createAndAddMaterial} />
+        </Card>}
+
+        {materialAdd.error && <Notice message={materialAdd.error} />}
+
+        <View style={s.tlLinks}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Cadastrar material novo" onPress={() => { setMaterialMode(materialMode === 'new' ? '' : 'new'); materialAdd.setError(null); }} style={({ pressed }) => [s.tlLink, pressed && ui.pressed]}>
+            <Text style={ui.link}>{materialMode === 'new' ? 'Fechar cadastro' : '+ Cadastrar material novo'}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Editar serviço e materiais" onPress={() => setSheetOpen(true)} style={({ pressed }) => [s.tlLink, pressed && ui.pressed]}>
+            <Text style={ui.link}>Ficha completa</Text>
+          </Pressable>
+        </View>
       </>}
+    </TimelineStep>
 
-    <Section title="3. Seus custos fixos" />
-    <Card onPress={app.fixedCosts.length ? () => setExpenseOpen(true) : undefined} accessibilityLabel="Adicionar despesa fixa">
-      <Line label="Despesas do mês" value={formatCents(expensesTotal)} />
-      {/*
-        A reserva aparece como linha do custo fixo, e não como termo novo: é
-        exatamente onde ela entra na conta, segundo a seção 6 do documento 07.
-        Sem esta linha, o total daqui não bateria com o do cálculo e a diferença
-        ficaria sem explicação.
-      */}
-      {equipmentReserve > 0 && <Line label="Reserva para repor equipamentos" value={formatCents(equipmentReserve)} />}
-      <Line label="Total por mês" value={formatCents(monthlyFixedTotal)} strong />
-      <Line label="Despesas cadastradas" value={String(app.fixedCosts.length)} />
-      <Text style={s.editHint}>
-        {app.fixedCosts.length
-          ? 'Aluguel, energia, internet: rateados por hora produtiva em cada atendimento.'
-          : 'Sem despesas cadastradas, o preço cobre só materiais e o seu tempo.'}
-      </Text>
-    </Card>
-    {app.fixedCosts.length === 0
-      ? <Notice tone="lilac" message="Cadastre o que sai todo mês, mesmo quando você não atende: é isso que o preço precisa cobrir." action="Adicionar despesa" onAction={() => setExpenseOpen(true)} />
-      : <Button label="Adicionar despesa fixa" icon="plus" secondary onPress={() => setExpenseOpen(true)} />}
+    <TimelineStep number={3} title="Confira seus custos" hint="O que sai todo mês entra no rateio de cada atendimento." done={app.fixedCosts.length > 0} active={!!service && app.fixedCosts.length === 0}>
+      {app.fixedCosts.length > 0 && <Card>
+        {app.fixedCosts.filter(item => item.isActive).map(item => (
+          <Line key={item.id} label={item.name} note={labelOf(FIXED_COST_CATEGORIES, item.category)} value={formatCents(item.monthlyAmountCents)} />
+        ))}
+        {equipmentReserve > 0 && <Line label="Reserva para repor equipamentos" value={formatCents(equipmentReserve)} />}
+        <Line label="Total por mês" value={formatCents(monthlyFixedTotal)} strong total />
+      </Card>}
+      {app.fixedCosts.length === 0 && <Notice tone="lilac" message="Cadastre o que sai todo mês, mesmo quando você não atende: é isso que o preço precisa cobrir." action="Adicionar despesa" onAction={() => { setExpenseAdding(true); expense.setError(null); }} />}
 
-    <Button label={busy ? 'Calculando...' : '4. Calcular meu preço'} icon="arrow" onPress={busy || !service ? undefined : calculate} />
-    <Button label="Fazer um cálculo avulso" icon="calculator" secondary onPress={() => { setMode('Cálculo rápido'); setResult(null); setBreakdown(null); setSavedPrice(null); setError(null); }} />
+      {expenseAdding && <Card>
+        <Field label="Nome da despesa" value={expenseForm.name} onChangeText={value => setExpenseForm({ ...expenseForm, name: value })} placeholder="Ex.: Aluguel do espaço" />
+        <ChoiceField label="Categoria" items={FIXED_COST_CATEGORIES.map(item => item.label)} value={expenseForm.category} onChange={value => setExpenseForm({ ...expenseForm, category: value })} />
+        <Field label="Valor por mês" value={expenseForm.amount} onChangeText={value => setExpenseForm({ ...expenseForm, amount: value })} prefix="R$" numeric />
+        <Button label={expense.busy ? 'Salvando...' : 'Adicionar despesa'} icon="check" inline onPress={expense.busy ? undefined : saveExpense} />
+      </Card>}
+      {expense.error && expenseAdding && <Notice message={expense.error} />}
+
+      <Pressable accessibilityRole="button" accessibilityLabel="Adicionar despesa fixa" onPress={() => { setExpenseAdding(!expenseAdding); expense.setError(null); }} style={({ pressed }) => [s.tlLink, pressed && ui.pressed]}>
+        <Text style={ui.link}>{expenseAdding ? 'Fechar cadastro' : '+ Adicionar despesa fixa'}</Text>
+      </Pressable>
+    </TimelineStep>
+
+    <TimelineStep number={4} title="Calcule o preço" hint="Confira o selecionado na barra abaixo e toque em Calcular." active={!!service} last>
+      <Pressable accessibilityRole="button" accessibilityLabel="Fazer um cálculo avulso" onPress={() => { setMode('Cálculo rápido'); setResult(null); setBreakdown(null); setSavedPrice(null); setError(null); }} style={({ pressed }) => [s.tlLink, pressed && ui.pressed]}>
+        <Text style={ui.link}>Ou fazer um cálculo avulso</Text>
+      </Pressable>
+    </TimelineStep>
+    </>}
 
     {error && <Notice message={error} />}
 
-    {result && <View accessibilityLiveRegion="polite">
-      <Section title="Seu custo por atendimento" />
-      <Card>
+    {result && service && <View accessibilityLiveRegion="polite">
+      {/*
+        Direção B do canvas aprovado: o resultado É a tela. O preço abre em
+        destaque no topo escuro e a conta vem logo abaixo como recibo. A
+        explicação da reserva de equipamentos (seção 11 do documento 07)
+        continua colada na linha de custo fixo que ela infla — dentro do recibo
+        e no aviso logo abaixo dele.
+      */}
+      <View style={s.resultHero}>
+        <View style={s.resultHeroTop}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Voltar à escolha do serviço" onPress={() => { setResult(null); setBreakdown(null); }} style={({ pressed }) => [s.resultBack, pressed && ui.pressed]}>
+            <View style={ui.flip}><Icon name="chevron" size={18} color={colors.lilac} /></View>
+          </Pressable>
+          <View style={s.resultChip}><Text style={s.resultChipText}>{service.name} · {service.durationMinutes} min</Text></View>
+        </View>
+        <View style={s.resultHeroBody}>
+          <Text style={s.resultLabel}>Preço sugerido</Text>
+          <Text style={s.resultPrice}>{formatMoney(result.commercialPrice || result.suggestedPrice)}</Text>
+          <Text style={s.resultSub}>para fechar os {formatPercent(result.expectedMarginPercent)} de margem que você pediu</Text>
+          <View style={s.resultPills}>
+            <View style={s.resultPill}><Text style={s.resultPillText}>Mínimo {formatMoney(result.minimumPrice)}</Text></View>
+            <View style={[s.resultPill, s.resultPillProfit]}><Text style={[s.resultPillText, s.resultPillProfitText]}>Lucro {formatMoney(result.expectedProfit)}</Text></View>
+          </View>
+        </View>
+      </View>
+
+      <View style={s.receipt}>
+        <Text style={s.receiptTitle}>Como chegamos nesse valor</Text>
         <Line label="Materiais" value={formatMoney(result.materialCost)} />
         <Line label="Mão de obra" value={formatMoney(result.laborCost)} />
         <Line label="Custos fixos rateados" value={formatMoney(result.allocatedFixedCost)} />
         {reserveShareCents > 0 && <Text style={s.subLine}>Deste rateio, {formatCents(reserveShareCents)} é reserva para repor equipamentos.</Text>}
         {result.otherDirectCosts > 0 && <Line label="Outros custos diretos" value={formatMoney(result.otherDirectCosts)} />}
-        <Line label="Custo total" value={formatMoney(result.totalCost)} strong />
+        <View style={s.dashed} />
+        <Line label="Seu custo total" value={formatMoney(result.totalCost)} strong />
+        {resultFee > 0.004 && <Line label={service.salesFeePercent > 0 ? `Taxa sobre a venda (${formatPercent(service.salesFeePercent)})` : 'Taxa sobre a venda'} value={formatMoney(resultFee)} />}
+        <View style={s.dashed} />
+        <Line label="Seu lucro" value={formatMoney(result.expectedProfit)} note={formatPercent(result.expectedMarginPercent)} strong tone="profit" />
         <Text style={s.method}>Rateio por {result.allocationMethod === 'productive_hour' ? 'hora produtiva' : 'atendimento'} · sua hora a {formatMoney(result.hourlyRate)}</Text>
-      </Card>
+      </View>
 
-      {/*
-        Vem antes do preço, e não depois: a seção 11 do documento 07 avisa que o
-        risco da reserva é a sensação de preço inflado, e a hora de explicar de
-        onde vem o aumento é antes de a usuária ver o número.
-      */}
       {equipmentReserve > 0 && <Notice
         tone="lilac"
         message={`Dos ${formatCents(monthlyFixedTotal)} de custo fixo por mês, ${formatCents(equipmentReserve)} são a reserva para repor os seus equipamentos: um pouco guardado por mês para trocar o aparelho quando ele acabar. Por isso este preço é maior do que seria sem eles.`}
@@ -537,11 +748,10 @@ export function PricingScreen({ onBack, onUpgrade, onEquipment }: ScreenProps & 
 
       <PriceChooser
         result={result}
-        feePercent={service ? service.salesFeePercent : 0}
-        currentPrice={usingService && service?.currentPriceCents ? service.currentPriceCents / 100 : null}
+        feePercent={service.salesFeePercent}
+        currentPrice={service.currentPriceCents ? service.currentPriceCents / 100 : null}
         busy={busy}
-        onUse={usingService ? usePrice : undefined}
-        label="Usar este preço no serviço"
+        onUse={usePrice}
       />
 
       {result.currentProfit !== undefined && <>
@@ -554,23 +764,30 @@ export function PricingScreen({ onBack, onUpgrade, onEquipment }: ScreenProps & 
         <Card>
           <Line label="Lucro no preço de hoje" value={formatMoney(result.currentProfit)} />
           {result.currentMarginPercent !== undefined && <Line label="Margem de hoje" value={formatPercent(result.currentMarginPercent)} />}
-          <Line label="Diferença para o recomendado" value={formatMoney(result.expectedProfit - result.currentProfit)} strong />
+          <Line label="Diferença para o recomendado" value={formatMoney(result.expectedProfit - result.currentProfit)} strong total />
         </Card>
       </>}
 
-      <Text style={s.hint}>Estimativa calculada com os dados que você informou.</Text>
-      {savedPrice !== null && <Notice tone="success" message={`Pronto: ${service?.name ?? 'o serviço'} agora vale ${formatMoney(savedPrice)}, e o cálculo entrou no seu histórico.`} />}
+      {savedPrice !== null && <Notice tone="success" message={`Pronto: ${service.name} agora vale ${formatMoney(savedPrice)}, e o cálculo entrou no seu histórico.`} />}
 
       {/* Depois do preço vem a pergunta seguinte: isso dá para viver? (item A-04) */}
       <GoalSimulator
         totalCost={result.totalCost}
-        feePercent={service ? service.salesFeePercent : 0}
-        currentPrice={service?.currentPriceCents ? service.currentPriceCents / 100 : null}
+        feePercent={service.salesFeePercent}
+        currentPrice={service.currentPriceCents ? service.currentPriceCents / 100 : null}
         monthlyAppointments={settings?.estimatedAppointmentsPerMonth ?? null}
         initialGoalCents={settings?.monthlyProfitGoalCents ?? null}
       />
+
+      <Text style={s.hint}>Estimativa calculada com os dados que você informou.</Text>
+      <View style={s.linksRow}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Refazer o cálculo" onPress={() => { setResult(null); setBreakdown(null); }} style={({ pressed }) => [s.sideAction, pressed && ui.pressed]}>
+          <Text style={ui.link}>Refazer o cálculo</Text>
+        </Pressable>
+      </View>
     </View>}
 
+    {!result && <>
     <Section title="Histórico" />
     {app.calculations.length === 0
       ? <EmptyState icon="clock" title="Nenhum cálculo salvo" description="Escolha um preço para um serviço e o cálculo entra aqui." />
@@ -586,6 +803,8 @@ export function PricingScreen({ onBack, onUpgrade, onEquipment }: ScreenProps & 
       ))}
     {app.calculationsLimitedByPlan && <Notice tone="warning" message="Seu plano mostra os cálculos mais recentes. Os anteriores continuam guardados e voltam a aparecer ao assinar." action="Ver planos" onAction={onUpgrade} />}
     <Text style={s.hint}>O histórico guarda a fotografia dos dados usados: editar um material depois não muda um cálculo antigo.</Text>
+    <View style={s.barSpacer} />
+    </>}
 
     <DetailSheet
       visible={detail !== null}
@@ -622,22 +841,21 @@ export function PricingScreen({ onBack, onUpgrade, onEquipment }: ScreenProps & 
 
     <ServiceSheet visible={sheetOpen} service={service} onClose={() => setSheetOpen(false)} onSaved={() => { setResult(null); setBreakdown(null); }} onUpgrade={onUpgrade} />
 
-    <FormSheet
-      visible={expenseOpen}
-      title="Nova despesa fixa"
-      subtitle="O que sai todo mês, atendendo ou não."
-      busy={expense.busy}
-      error={expense.error}
-      limitReached={expense.limitReached}
-      onUpgrade={onUpgrade}
-      onClose={() => setExpenseOpen(false)}
-      onSubmit={saveExpense}
-    >
-      <Field label="Nome da despesa" value={expenseForm.name} onChangeText={value => setExpenseForm({ ...expenseForm, name: value })} placeholder="Ex.: Aluguel do espaço" />
-      <ChoiceField label="Categoria" items={FIXED_COST_CATEGORIES.map(item => item.label)} value={expenseForm.category} onChange={value => setExpenseForm({ ...expenseForm, category: value })} />
-      <Field label="Valor por mês" value={expenseForm.amount} onChangeText={value => setExpenseForm({ ...expenseForm, amount: value })} prefix="R$" numeric />
-    </FormSheet>
-  </Screen>;
+  </Screen>
+
+  {/* A barra da direção A: o selecionado e a ação, sempre à vista. */}
+  {!result && service && <View style={s.bar}>
+    <View style={ui.grow}>
+      <Text style={s.barOverline}>Selecionado</Text>
+      <Text style={s.barTitle}>{service.name}</Text>
+      <Text style={s.barSub}>{service.durationMinutes} min · com os seus custos de hoje</Text>
+    </View>
+    <Pressable accessibilityRole="button" accessibilityLabel="Calcular preço" onPress={busy ? undefined : calculate} style={({ pressed }) => [s.barButton, pressed && ui.pressed]}>
+      <Text style={s.barButtonText}>{busy ? 'Calculando...' : 'Calcular'}</Text>
+      {!busy && <Icon name="arrow" size={16} color={colors.white} />}
+    </Pressable>
+  </View>}
+  </View>;
 }
 
 // --- planos ---------------------------------------------------------------
@@ -1094,16 +1312,72 @@ function CancelSection({
 }
 
 const s = StyleSheet.create({
-  line: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  lineLabel: { color: colors.ink3, fontSize: 12 },
-  lineValue: { color: colors.ink, fontSize: 12, fontWeight: '500' },
-  lineStrong: { color: colors.ink, fontSize: 13, fontWeight: '600' },
-  method: { color: colors.faded, fontSize: 10, lineHeight: 16 },
+  /** Metodologia, não valor: separada do corpo da conta por uma régua. */
+  method: { color: colors.faded, fontSize: 10, lineHeight: 16, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, marginTop: 2 },
   // Detalhe de uma linha da composição: recuado, para se ler como parte dela.
   subLine: { color: colors.ink3, fontSize: 11, lineHeight: 17, marginTop: -6, paddingLeft: 12 },
   groupLabel: { fontSize: 12, fontWeight: '500', color: colors.muted, marginBottom: 9 },
   hint: { color: colors.faded, fontSize: 11, lineHeight: 17, marginTop: 4 },
-  editHint: { color: colors.faded, fontSize: 10, lineHeight: 16 },
+  sideAction: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 12 },
+  linksRow: { flexDirection: 'row', justifyContent: 'center', gap: 14, marginTop: 6, marginBottom: 8 },
+
+  // --- direção A: linha do tempo, lista de serviços e barra fixa ---------
+  tlRow: { flexDirection: 'row', gap: 12 },
+  tlRail: { width: 28, alignItems: 'center' },
+  tlDot: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.softLilac, alignItems: 'center', justifyContent: 'center' },
+  tlDotActive: { backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.accent },
+  tlDotDone: { backgroundColor: colors.accent },
+  tlNumber: { fontSize: 13, fontWeight: '700', color: colors.outline },
+  tlNumberActive: { color: colors.accent },
+  /** A linha que desce ao próximo passo; rosa quando o de cima está pronto. */
+  tlLine: { width: 2, flexGrow: 1, borderRadius: 1, backgroundColor: colors.border, marginVertical: 4 },
+  tlLineDone: { backgroundColor: colors.marker },
+  tlBody: { flex: 1, minWidth: 0, paddingBottom: 20 },
+  tlTitle: { fontSize: 15, fontWeight: '600', letterSpacing: -0.3, color: colors.ink, marginBottom: 3 },
+  tlHint: { fontSize: 11, color: colors.muted, marginBottom: 12 },
+  tlLink: { alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center', marginTop: 2 },
+  tlLinks: { flexDirection: 'row', gap: 16 },
+  stockChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 13 },
+  serviceRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 9 },
+  serviceRowOn: { backgroundColor: colors.softPink, borderWidth: 1.5, borderColor: colors.accent },
+  avatar: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 14, fontWeight: '600' },
+  serviceName: { fontSize: 14, fontWeight: '600', letterSpacing: -0.2, color: colors.ink2 },
+  serviceNameOn: { color: colors.ink },
+  serviceSub: { fontSize: 11, color: colors.ink3, marginTop: 4 },
+  serviceMeta: { alignItems: 'flex-end', gap: 3 },
+  servicePrice: { fontSize: 14, fontWeight: '600', color: colors.ink2, fontVariant: ['tabular-nums'] },
+  servicePriceOn: { color: colors.accent },
+  serviceHint: { fontSize: 10, color: colors.faded },
+  serviceEmpty: { fontSize: 11, color: colors.faded, fontStyle: 'italic' },
+  serviceCheck: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+  bar: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 22, paddingTop: 16, paddingBottom: 26, shadowColor: colors.ink, shadowOffset: { width: 0, height: -6 }, shadowOpacity: 0.07, shadowRadius: 14, elevation: 12 },
+  barOverline: { fontSize: 10, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.faded },
+  barTitle: { fontSize: 14, fontWeight: '600', color: colors.ink, marginTop: 3 },
+  barSub: { fontSize: 11, color: colors.ink3, marginTop: 3 },
+  barButton: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.accent, borderRadius: 28, paddingVertical: 15, paddingHorizontal: 22 },
+  barButtonText: { fontSize: 14, fontWeight: '600', color: colors.white },
+  barSpacer: { height: 104 },
+
+  // --- direção B: preço no topo escuro e conta como recibo ---------------
+  resultHero: { backgroundColor: colors.ink, marginHorizontal: -22, marginTop: -16, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, paddingHorizontal: 22, paddingTop: 16, paddingBottom: 54 },
+  resultHeroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, marginBottom: 10 },
+  resultBack: { width: 40, height: 40, borderRadius: 21, backgroundColor: 'rgba(255, 255, 255, 0.12)', alignItems: 'center', justifyContent: 'center' },
+  resultChip: { backgroundColor: 'rgba(255, 255, 255, 0.14)', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 7 },
+  resultChipText: { fontSize: 11, color: colors.lilac },
+  resultHeroBody: { alignItems: 'center', gap: 6, paddingTop: 6 },
+  resultLabel: { fontSize: 12, fontWeight: '500', color: colors.lilac },
+  resultPrice: { fontSize: 46, fontWeight: '700', letterSpacing: -1.8, color: colors.white, fontVariant: ['tabular-nums'] },
+  resultSub: { fontSize: 12, color: 'rgba(255, 255, 255, 0.72)', textAlign: 'center' },
+  resultPills: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  resultPill: { backgroundColor: 'rgba(255, 255, 255, 0.12)', borderRadius: 13, paddingHorizontal: 12, paddingVertical: 6 },
+  resultPillText: { fontSize: 11, color: colors.lilac },
+  resultPillProfit: { backgroundColor: 'rgba(218, 91, 141, 0.35)' },
+  resultPillProfitText: { color: colors.white, fontWeight: '600' },
+  /** O recibo invade o topo escuro: a conta pertence ao preço. */
+  receipt: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: 19, paddingHorizontal: 16, paddingVertical: 18, marginTop: -38, marginBottom: 13, gap: 9, shadowColor: colors.ink, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 8 },
+  receiptTitle: { fontSize: 11, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: colors.faded },
+  dashed: { borderBottomWidth: 1, borderStyle: 'dashed', borderColor: colors.trail, marginVertical: 4 },
   benefit: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   offerHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   offerPeriod: { color: colors.ink3, fontSize: 12, fontWeight: '600' },

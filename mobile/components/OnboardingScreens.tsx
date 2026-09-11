@@ -16,23 +16,7 @@ import type { Calculation } from '../lib/resources';
 import { formatCents, formatMoney, parseCents, parseNumber, useSubmit } from '../lib/useSubmit';
 import { useApp } from '../state/AppProvider';
 import { Brand } from './AuthScreens';
-import {
-  Badge,
-  Button,
-  Card,
-  ChoiceField,
-  Field,
-  HeroCard,
-  Loading,
-  Notice,
-  ProgressBar,
-  Row,
-  Screen,
-  ScreenHeader,
-  Section,
-  StatCard,
-  ui,
-} from './ui';
+import { Badge, Button, Card, ChoiceField, Field, HeroCard, Line, Loading, Notice, ProgressBar, Row, Screen, ScreenHeader, Section, StatCard, ui } from './ui';
 
 /**
  * Onboarding em cinco etapas (item D-02, seção 3 do documento 02).
@@ -533,9 +517,6 @@ function MultiChoice({ label, items, selected, onChange, hint }: {
   </View>;
 }
 
-function Line({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return <View style={s.line}><Text style={[s.lineLabel, strong && s.lineStrong]}>{label}</Text><Text style={[s.lineValue, strong && s.lineStrong]}>{value}</Text></View>;
-}
 
 const s = StyleSheet.create({
   progress: { marginBottom: 20 },
@@ -543,8 +524,4 @@ const s = StyleSheet.create({
   hint: { color: colors.faded, fontSize: 11, lineHeight: 17, marginBottom: 10 },
   skip: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   leave: { color: colors.muted, fontSize: 12 },
-  line: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 26 },
-  lineLabel: { color: colors.ink3, fontSize: 12 },
-  lineValue: { color: colors.ink, fontSize: 12, fontWeight: '500' },
-  lineStrong: { color: colors.ink, fontSize: 13, fontWeight: '600' },
 });

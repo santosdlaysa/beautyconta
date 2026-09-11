@@ -57,6 +57,30 @@ export function Section({ title, action, actionIcon, onAction, first }: { title:
   </View>;
 }
 
+/**
+ * Cabeçalho de um passo numerado.
+ *
+ * A tela de preço pede três coisas antes de calcular, e a numeração vivia só
+ * como texto dentro do título da seção — "1. Qual serviço". Lida assim, a
+ * sequência não aparece: são três seções iguais, e nada mostra onde a pessoa
+ * está nem o que já ficou pronto. O numeral vira marcador, e vira check quando
+ * o passo está resolvido.
+ */
+export function StepHeader({ number, title, hint, done, action, onAction }: { number: number; title: string; hint?: string; done?: boolean; action?: string; onAction?: () => void }) {
+  return <View style={ui.step}>
+    <View style={[ui.stepMark, done && ui.stepMarkDone]}>
+      {done ? <Icon name="check" size={15} color={colors.white} /> : <Text style={ui.stepNumber}>{number}</Text>}
+    </View>
+    <View style={ui.grow}>
+      <Text accessibilityRole="header" style={ui.stepTitle}>{title}</Text>
+      {hint && <Text style={ui.stepHint}>{hint}</Text>}
+    </View>
+    {action && <Pressable accessibilityRole="button" accessibilityLabel={action} onPress={onAction} style={({ pressed }) => [ui.textButton, pressed && ui.pressed]}>
+      <Text style={ui.link}>{action}</Text><Icon name="chevron" size={13} color={colors.accent} />
+    </Pressable>}
+  </View>;
+}
+
 export function Card({ children, tone = 'neutral', onPress, accessibilityLabel }: PropsWithChildren<{ tone?: Tone; onPress?: () => void; accessibilityLabel?: string }>) {
   const style = [ui.card, tone !== 'neutral' && { backgroundColor: tones[tone].background, borderColor: 'transparent' }];
   if (!onPress) return <View style={style}>{children}</View>;
@@ -92,6 +116,37 @@ export function ListRow({ icon, iconTone, initials, title, subtitle, meta, badge
   return <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={({ pressed }) => [ui.row, pressed && ui.pressed]}>{body}</Pressable>;
 }
 
+/**
+ * Item de uma lista de escolha: nome, legenda e valor, com estado selecionado.
+ *
+ * Existe porque `Chips` carrega uma palavra só. Quando cada opção tem mais de
+ * um dado — um serviço tem duração e preço —, a escolha por chip esconde
+ * justamente o que ajuda a escolher, e o Material 3 manda usar lista. É também
+ * o formato que Fresha, Booksy e os kits de salão usam para serviço: nome à
+ * esquerda, duração embaixo, preço à direita.
+ */
+export function SelectRow({ title, subtitle, meta, metaHint, selected, onPress }: { title: string; subtitle?: string; meta?: string; metaHint?: string; selected?: boolean; onPress: () => void }) {
+  return <Pressable
+    accessibilityRole="radio"
+    accessibilityState={{ selected }}
+    accessibilityLabel={[title, subtitle, meta].filter(Boolean).join(', ')}
+    onPress={onPress}
+    style={({ pressed }) => [ui.selectRow, selected && ui.selectRowOn, pressed && ui.pressed]}
+  >
+    <View style={[ui.selectMark, selected && ui.selectMarkOn]}>
+      {selected && <Icon name="check" size={13} color={colors.white} />}
+    </View>
+    <View style={ui.grow}>
+      <Text style={[ui.selectTitle, selected && ui.selectTitleOn]}>{title}</Text>
+      {subtitle && <Text style={ui.selectSub}>{subtitle}</Text>}
+    </View>
+    {meta && <View style={ui.selectMeta}>
+      <Text style={[ui.selectValue, selected && ui.selectValueOn]}>{meta}</Text>
+      {metaHint && <Text style={ui.selectHint}>{metaHint}</Text>}
+    </View>}
+  </Pressable>;
+}
+
 export function StatCard({ icon, label, value, caption, tone = 'pink', onPress, accessibilityLabel }: { icon?: IconName; label: string; value: string; caption?: string; tone?: Tone; onPress?: () => void; accessibilityLabel?: string }) {
   const style = [ui.stat, { backgroundColor: tones[tone].background }];
   const body = <>
@@ -101,6 +156,27 @@ export function StatCard({ icon, label, value, caption, tone = 'pink', onPress, 
   </>;
   if (!onPress) return <View style={style}>{body}</View>;
   return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} onPress={onPress} style={({ pressed }) => [...style, pressed && ui.pressed]}>{body}</Pressable>;
+}
+
+/**
+ * Uma linha de dinheiro: rótulo à esquerda, valor à direita.
+ *
+ * Vivia copiada em três telas, e a composição de preço aparece em todas elas.
+ * Aqui é uma só, para que a hierarquia da conta não dependa de qual tela a
+ * usuária abriu.
+ *
+ * `total` traça uma régua acima: sem ela, parcelas e somas empilham iguais e a
+ * conta deixa de se ler como conta. `note` carrega a margem ao lado do valor,
+ * em corpo menor, em vez de colada no mesmo texto disputando com o número.
+ */
+export function Line({ label, value, note, strong, total, tone }: { label: string; value: string; note?: string; strong?: boolean; total?: boolean; tone?: 'profit' | 'loss' }) {
+  return <View style={[ui.line, total && ui.lineTotal]}>
+    <Text style={[ui.lineLabel, strong && ui.lineLabelStrong]}>{label}</Text>
+    <View style={ui.lineValueGroup}>
+      <Text style={[ui.lineValue, strong && ui.lineValueStrong, tone === 'profit' && ui.lineProfit, tone === 'loss' && ui.lineLoss]}>{value}</Text>
+      {note && <Text style={ui.lineNote}>{note}</Text>}
+    </View>
+  </View>;
 }
 
 export function Row({ children }: PropsWithChildren) { return <View style={ui.pair}>{children}</View>; }
@@ -319,7 +395,30 @@ export const ui = StyleSheet.create({
   textButton: { minHeight: 32, minWidth: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
   link: { color: colors.accent, fontSize: 11, fontWeight: '600' },
 
+  step: { flexDirection: 'row', alignItems: 'center', gap: 11, marginTop: 22, marginBottom: 10 },
+  stepMark: { width: 27, height: 27, borderRadius: 14, backgroundColor: colors.softLilac, alignItems: 'center', justifyContent: 'center' },
+  stepMarkDone: { backgroundColor: colors.accent },
+  stepNumber: { color: colors.accent, fontSize: 13, fontWeight: '700' },
+  stepTitle: { color: colors.ink, fontSize: 16, fontWeight: '600', letterSpacing: -0.35 },
+  stepHint: { color: colors.muted, fontSize: 11, marginTop: 3 },
+
   card: { backgroundColor: colors.white, borderRadius: 19, borderWidth: 1, borderColor: colors.border, padding: 15, gap: 11, marginBottom: 13 },
+  line: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, minHeight: 26 },
+  /** Régua de soma: separa as parcelas do total que elas formam. */
+  lineTotal: { borderTopWidth: 1, borderTopColor: colors.border, marginTop: 4, paddingTop: 11 },
+  lineLabel: { color: colors.ink3, fontSize: 13, flexShrink: 1 },
+  lineLabelStrong: { color: colors.ink, fontSize: 13, fontWeight: '600' },
+  lineValueGroup: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+  /**
+   * `tabular-nums` fixa a largura do algarismo: sem isso, cada linha desloca a
+   * vírgula alguns pixels e a coluna de valores fica serrilhada.
+   */
+  lineValue: { color: colors.ink2, fontSize: 13, fontWeight: '500', fontVariant: ['tabular-nums'] },
+  lineValueStrong: { color: colors.ink, fontSize: 16, fontWeight: '600', letterSpacing: -0.4 },
+  lineProfit: { color: colors.accent },
+  lineLoss: { color: colors.danger },
+  lineNote: { color: colors.faded, fontSize: 11, fontVariant: ['tabular-nums'] },
+
   bubble: { alignItems: 'center', justifyContent: 'center' },
   initials: { fontWeight: '600' },
 
@@ -332,6 +431,19 @@ export const ui = StyleSheet.create({
   badge: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
   badgeDot: { width: 4, height: 4, borderRadius: 2 },
   badgeText: { fontSize: 10, fontWeight: '600' },
+
+  selectRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, backgroundColor: colors.white, borderRadius: 18, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 9 },
+  /** Selecionado é borda e fundo, não só cor de texto: precisa ler de relance. */
+  selectRowOn: { borderColor: colors.accent, backgroundColor: colors.softPink },
+  selectMark: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: colors.outline, alignItems: 'center', justifyContent: 'center' },
+  selectMarkOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  selectTitle: { color: colors.ink2, fontSize: 14, fontWeight: '600', letterSpacing: -0.2 },
+  selectTitleOn: { color: colors.ink },
+  selectSub: { color: colors.ink3, fontSize: 11, marginTop: 4 },
+  selectMeta: { alignItems: 'flex-end' },
+  selectValue: { color: colors.ink2, fontSize: 14, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  selectValueOn: { color: colors.accent },
+  selectHint: { color: colors.faded, fontSize: 10, marginTop: 3 },
 
   pair: { flexDirection: 'row', gap: 11, marginBottom: 13 },
   stat: { flex: 1, borderRadius: 19, padding: 15 },

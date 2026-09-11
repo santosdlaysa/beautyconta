@@ -6,7 +6,7 @@ import { SERVICE_CATEGORIES } from '../lib/catalog';
 import { calculatePrice, type PublicPricingInput, type PricingResult } from '../lib/resources';
 import { formatMoney, formatPercent, parseCents, parseNumber, useSubmit } from '../lib/useSubmit';
 import { GoalSimulator } from './GoalSimulator';
-import { Button, Card, ChoiceField, Field, HeroCard, Loading, Notice, Row, Screen, ScreenHeader, Section, StatCard, ui } from './ui';
+import { Button, Card, ChoiceField, Field, HeroCard, Line, Loading, Notice, Row, Screen, ScreenHeader, Section, StatCard, ui } from './ui';
 
 /**
  * Calculadora pública, a jornada da seção 2 do documento 02.
@@ -312,43 +312,11 @@ function Simulation({ price, totalCost, feePercent }: { price: number; totalCost
   </View>;
 }
 
-/**
- * Uma linha de dinheiro.
- *
- * `total` traça uma régua acima: sem ela, parcelas e somas empilham iguais e a
- * conta deixa de se ler como conta. `note` carrega a margem ao lado do valor,
- * em corpo menor — antes vinha colada no mesmo texto e competia com o número.
- */
-function Line({ label, value, note, strong, total, tone }: { label: string; value: string; note?: string; strong?: boolean; total?: boolean; tone?: 'profit' | 'loss' }) {
-  return <View style={[s.line, total && s.lineTotal]}>
-    <Text style={[s.lineLabel, strong && s.lineLabelStrong]}>{label}</Text>
-    <View style={s.lineValueGroup}>
-      <Text style={[s.lineValue, strong && s.lineValueStrong, tone === 'profit' && s.lineProfit, tone === 'loss' && s.lineLoss]}>{value}</Text>
-      {note && <Text style={s.lineNote}>{note}</Text>}
-    </View>
-  </View>;
-}
-
 function Pair({ children }: { children: [React.ReactNode, React.ReactNode] }) {
   return <Row><View style={ui.grow}>{children[0]}</View><View style={ui.grow}>{children[1]}</View></Row>;
 }
 
 const s = StyleSheet.create({
-  line: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, minHeight: 26 },
-  /** Régua de soma: separa as parcelas do total que elas formam. */
-  lineTotal: { borderTopWidth: 1, borderTopColor: colors.border, marginTop: 4, paddingTop: 11 },
-  lineLabel: { color: colors.ink3, fontSize: 13, flexShrink: 1 },
-  lineLabelStrong: { color: colors.ink, fontSize: 13, fontWeight: '600' },
-  lineValueGroup: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
-  /**
-   * `tabular-nums` fixa a largura do algarismo: sem isso, cada linha desloca a
-   * vírgula alguns pixels e a coluna de valores fica serrilhada.
-   */
-  lineValue: { color: colors.ink2, fontSize: 13, fontWeight: '500', fontVariant: ['tabular-nums'] },
-  lineValueStrong: { color: colors.ink, fontSize: 16, fontWeight: '600', letterSpacing: -0.4 },
-  lineProfit: { color: colors.accent },
-  lineLoss: { color: colors.danger },
-  lineNote: { color: colors.faded, fontSize: 11, fontVariant: ['tabular-nums'] },
   /** Metodologia, não valor: separada do corpo da conta por uma régua. */
   method: { color: colors.faded, fontSize: 10, lineHeight: 16, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, marginTop: 2 },
   hint: { color: colors.faded, fontSize: 11, lineHeight: 17, marginBottom: 14 },
