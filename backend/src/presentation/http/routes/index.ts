@@ -40,10 +40,15 @@ export function createApiRouter(deps: Dependencies): Router {
 
   // As rotas abertas levam teto de requisição; as autenticadas já têm a
   // sessão como barreira e o custo por requisição é baixo.
-  router.use(limites.public, pricingRoutes);
-  router.use(limites.public, catalogRoutes);
-  router.use(limites.public, planRoutes(deps));
-  router.use(limites.account, accountDeletionRoutes(deps));
+  //
+  // Cada teto entra montado sob o caminho que ele protege. `router.use(teto,
+  // sub)` sem caminho parece restringir só o sub-roteador, mas monta os dois na
+  // raiz: o teto passa a contar toda requisição da API — a leitura autenticada
+  // da Home, que dispara onze de uma vez, batia no teto de conta e voltava 429.
+  router.use("/pricing", pricingRoutes(limites.public));
+  router.use("/catalog", catalogRoutes(limites.public));
+  router.use(planRoutes(deps, limites));
+  router.use(accountDeletionRoutes(deps, limites));
   router.use("/booking", bookingRoutes(deps, limites));
 
   router.use(sessionRoutes(deps, limites));
@@ -65,11 +70,11 @@ export function createApiRouter(deps: Dependencies): Router {
  * Leva o teto das rotas de conta: é uma rota que grava e dispara aviso, e sem
  * teto viraria um jeito barato de encher a caixa de mensagens de quem atende.
  */
-function accountDeletionRoutes(deps: Dependencies): Router {
+function accountDeletionRoutes(deps: Dependencies, limites: RateLimiters): Router {
   const controller = new AccountDeletionController(deps);
   const router = Router();
 
-  router.post("/account-deletion-requests", asyncHandler(controller.request));
+  router.post("/account-deletion-requests", limites.account, asyncHandler(controller.request));
 
   return router;
 }
@@ -79,11 +84,11 @@ function accountDeletionRoutes(deps: Dependencies): Router {
  * precisa existir antes da conta, e porque as lojas exigem o valor visível
  * antes da compra.
  */
-function planRoutes(deps: Dependencies): Router {
+function planRoutes(deps: Dependencies, limites: RateLimiters): Router {
   const controller = new PlanController(deps);
   const router = Router();
 
-  router.get("/plans", asyncHandler(controller.list));
+  router.get("/plans", limites.public, asyncHandler(controller.list));
 
   return router;
 }

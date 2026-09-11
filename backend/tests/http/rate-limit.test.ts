@@ -2,6 +2,7 @@ import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
 import { createTestDependencies } from "../support/in-memory";
+import { setupApi } from "../support/api";
 
 /**
  * Teto de requisição nas rotas abertas.
@@ -116,5 +117,30 @@ describe("limite de tentativas", () => {
       .send({ email: "a@exemplo.com", password: "x" });
 
     expect(status).toBe(401);
+  });
+
+  it("não gasta o teto das rotas abertas nas leituras autenticadas", async () => {
+    const { as, businessId } = await setupApi();
+
+    // A Home dispara onze leituras de uma vez a cada abertura do aplicativo.
+    // Enquanto os tetos das rotas abertas entravam montados na raiz, eles
+    // contavam toda a API junto: a segunda abertura seguida já voltava 429 no
+    // teto de conta, que é o mais apertado dos quatro.
+    for (let i = 0; i < 40; i += 1) {
+      const { status } = await as().get(`/api/businesses/${businessId}/materials`);
+      expect(status).toBe(200);
+    }
+  });
+
+  it("mantém o teto de conta onde ele protege — o pedido público de exclusão", async () => {
+    const app = createApp(createTestDependencies());
+    const pedir = () =>
+      request(app).post("/api/account-deletion-requests").send({ email: "alvo@exemplo.com" });
+
+    for (let i = 0; i < 20; i += 1) {
+      expect((await pedir()).status).not.toBe(429);
+    }
+
+    expect((await pedir()).status).toBe(429);
   });
 });

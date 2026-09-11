@@ -1,13 +1,24 @@
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import { PricingController } from "../controllers/PricingController";
 
-const controller = new PricingController();
-const router = Router();
+/**
+ * Calculadora e simulador públicos.
+ *
+ * Montado sob `/pricing` para que o teto de requisição valha só para estas
+ * rotas: middleware posto ao lado de um roteador montado na raiz roda em toda
+ * a API, inclusive nas rotas autenticadas, que têm outro teto.
+ */
+export function pricingRoutes(limite: RequestHandler): Router {
+  const controller = new PricingController();
+  const router = Router();
 
-/** Calculadora pública: não exige autenticação, conforme a jornada do documento 02. */
-router.post("/pricing/calculate", controller.calculate);
+  router.use(limite);
 
-/** Simulador de meta, item A-04. Também público: é projeção, não cadastro. */
-router.post("/pricing/goal", controller.goal);
+  /** Calculadora pública: não exige autenticação, conforme a jornada do documento 02. */
+  router.post("/calculate", controller.calculate);
 
-export { router as pricingRoutes };
+  /** Simulador de meta, item A-04. Também público: é projeção, não cadastro. */
+  router.post("/goal", controller.goal);
+
+  return router;
+}

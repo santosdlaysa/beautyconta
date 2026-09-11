@@ -158,6 +158,7 @@ export function PublicCalculator({ onBack, prefill, onSignUp, onSave }: Props) {
         onBack={onBack}
       />
 
+      <Section title="O serviço" first />
       <Card>
         <ChoiceField label="Tipo de serviço" items={SERVICE_CATEGORIES.map(item => item.label)} value={form.category} onChange={value => set({ category: value })} />
         <Pair>
@@ -166,7 +167,7 @@ export function PublicCalculator({ onBack, prefill, onSignUp, onSave }: Props) {
         </Pair>
       </Card>
 
-      <Section title="A sua hora de trabalho" first />
+      <Section title="A sua hora de trabalho" />
       <Card>
         <ChoiceField
           label="Como definir o valor da hora"
@@ -262,9 +263,9 @@ export function PriceResult({ result, title }: { result: PricingResult; title: s
       <Line label="Mão de obra" value={formatMoney(result.laborCost)} />
       <Line label="Custos fixos rateados" value={formatMoney(result.allocatedFixedCost)} />
       {result.otherDirectCosts > 0 && <Line label="Outros custos diretos" value={formatMoney(result.otherDirectCosts)} />}
-      <Line label="Seu custo total" value={formatMoney(result.totalCost)} strong />
+      <Line label="Seu custo total" value={formatMoney(result.totalCost)} strong total />
       {fee > 0.004 && <Line label="Taxa sobre a venda" value={formatMoney(fee)} />}
-      <Line label="Seu lucro" value={`${formatMoney(result.expectedProfit)} · ${formatPercent(result.expectedMarginPercent)}`} strong />
+      <Line label="Seu lucro" value={formatMoney(result.expectedProfit)} note={formatPercent(result.expectedMarginPercent)} strong total tone="profit" />
       <Text style={s.method}>
         Rateio por {result.allocationMethod === 'productive_hour' ? 'hora produtiva' : 'atendimento'} · sua hora a {formatMoney(result.hourlyRate)}
         {result.commercialPrice !== result.suggestedPrice ? ` · calculado em ${formatMoney(result.suggestedPrice)} e arredondado` : ''}
@@ -283,7 +284,7 @@ export function PriceResult({ result, title }: { result: PricingResult; title: s
       <Card>
         <Line label="Lucro no preço de hoje" value={formatMoney(result.currentProfit)} />
         {result.currentMarginPercent !== undefined && <Line label="Margem de hoje" value={formatPercent(result.currentMarginPercent)} />}
-        <Line label="Diferença para o recomendado" value={formatMoney(result.expectedProfit - result.currentProfit)} strong />
+        <Line label="Diferença para o recomendado" value={formatMoney(result.expectedProfit - result.currentProfit)} strong total />
       </Card>
     </>}
 
@@ -305,14 +306,27 @@ function Simulation({ price, totalCost, feePercent }: { price: number; totalCost
   const margin = (profit / price) * 100;
 
   return <View>
-    <Line label="Lucro nesse preço" value={formatMoney(profit)} strong />
+    <Line label="Lucro nesse preço" value={formatMoney(profit)} strong tone={profit > 0 ? 'profit' : 'loss'} />
     <Line label="Margem nesse preço" value={formatPercent(margin)} />
     {profit <= 0 && <Notice message="Nesse preço você trabalha no prejuízo." />}
   </View>;
 }
 
-function Line({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return <View style={s.line}><Text style={[s.lineLabel, strong && s.lineStrong]}>{label}</Text><Text style={[s.lineValue, strong && s.lineStrong]}>{value}</Text></View>;
+/**
+ * Uma linha de dinheiro.
+ *
+ * `total` traça uma régua acima: sem ela, parcelas e somas empilham iguais e a
+ * conta deixa de se ler como conta. `note` carrega a margem ao lado do valor,
+ * em corpo menor — antes vinha colada no mesmo texto e competia com o número.
+ */
+function Line({ label, value, note, strong, total, tone }: { label: string; value: string; note?: string; strong?: boolean; total?: boolean; tone?: 'profit' | 'loss' }) {
+  return <View style={[s.line, total && s.lineTotal]}>
+    <Text style={[s.lineLabel, strong && s.lineLabelStrong]}>{label}</Text>
+    <View style={s.lineValueGroup}>
+      <Text style={[s.lineValue, strong && s.lineValueStrong, tone === 'profit' && s.lineProfit, tone === 'loss' && s.lineLoss]}>{value}</Text>
+      {note && <Text style={s.lineNote}>{note}</Text>}
+    </View>
+  </View>;
 }
 
 function Pair({ children }: { children: [React.ReactNode, React.ReactNode] }) {
@@ -320,10 +334,22 @@ function Pair({ children }: { children: [React.ReactNode, React.ReactNode] }) {
 }
 
 const s = StyleSheet.create({
-  line: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 26 },
-  lineLabel: { color: colors.ink3, fontSize: 12 },
-  lineValue: { color: colors.ink, fontSize: 12, fontWeight: '500' },
-  lineStrong: { color: colors.ink, fontSize: 13, fontWeight: '600' },
-  method: { color: colors.faded, fontSize: 10, lineHeight: 16 },
+  line: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, minHeight: 26 },
+  /** Régua de soma: separa as parcelas do total que elas formam. */
+  lineTotal: { borderTopWidth: 1, borderTopColor: colors.border, marginTop: 4, paddingTop: 11 },
+  lineLabel: { color: colors.ink3, fontSize: 13, flexShrink: 1 },
+  lineLabelStrong: { color: colors.ink, fontSize: 13, fontWeight: '600' },
+  lineValueGroup: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+  /**
+   * `tabular-nums` fixa a largura do algarismo: sem isso, cada linha desloca a
+   * vírgula alguns pixels e a coluna de valores fica serrilhada.
+   */
+  lineValue: { color: colors.ink2, fontSize: 13, fontWeight: '500', fontVariant: ['tabular-nums'] },
+  lineValueStrong: { color: colors.ink, fontSize: 16, fontWeight: '600', letterSpacing: -0.4 },
+  lineProfit: { color: colors.accent },
+  lineLoss: { color: colors.danger },
+  lineNote: { color: colors.faded, fontSize: 11, fontVariant: ['tabular-nums'] },
+  /** Metodologia, não valor: separada do corpo da conta por uma régua. */
+  method: { color: colors.faded, fontSize: 10, lineHeight: 16, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, marginTop: 2 },
   hint: { color: colors.faded, fontSize: 11, lineHeight: 17, marginBottom: 14 },
 });
