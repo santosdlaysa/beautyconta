@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import type { PaymentMethod } from './resources';
+import { storePackages } from './store-packages';
 
 /**
  * Compra dentro do aplicativo, pelas lojas, via RevenueCat.
@@ -19,6 +20,7 @@ export type StoreOffering = {
   /** Identificador do pacote, para pedir a compra depois. */
   id: string;
   productId: string;
+  plan: 'PREMIUM' | 'MASTER';
   /**
    * Preço já formatado pela loja, na moeda do país da conta.
    *
@@ -135,11 +137,12 @@ export async function getStoreOfferings(): Promise<StoreOffering[]> {
 
   try {
     const offerings = await sdk.getOfferings();
-    const pacotes = offerings.current?.availablePackages ?? [];
+    const pacotes = storePackages(offerings);
 
-    return pacotes.map((pacote) => ({
-      id: pacote.identifier,
+    return pacotes.map(({ id, package: pacote }) => ({
+      id,
       productId: pacote.product.identifier,
+      plan: pacote.product.identifier.startsWith('beautyconta_master_') ? 'MASTER' : 'PREMIUM',
       priceLabel: pacote.product.priceString,
       billingPeriod: periodFromProductId(pacote.product.identifier),
     }));
@@ -161,7 +164,7 @@ export async function purchasePackage(packageId: string): Promise<PurchaseOutcom
 
   try {
     const offerings = await sdk.getOfferings();
-    const pacote = offerings.current?.availablePackages.find((item) => item.identifier === packageId);
+    const pacote = storePackages(offerings).find((item) => item.id === packageId)?.package;
 
     if (!pacote) return { status: 'error', message: 'Este plano não está mais disponível.' };
 

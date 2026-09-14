@@ -14,6 +14,7 @@ import type { PaymentMethod } from './resources';
 export type StoreOffering = {
   id: string;
   productId: string;
+  plan: 'PREMIUM' | 'MASTER';
   priceLabel: string;
   billingPeriod: 'MONTHLY' | 'ANNUAL' | 'UNKNOWN';
 };

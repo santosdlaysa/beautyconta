@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { MercadoPagoTranslator } from "../../src/infrastructure/billing/mercado-pago/translator";
 import { RevenueCatTranslator } from "../../src/infrastructure/billing/revenuecat/translator";
+import { env } from "../../src/config/env";
 
 /**
  * Tradutores de webhook.
@@ -35,6 +36,13 @@ const evento = (overrides: Record<string, unknown> = {}) => ({
 
 describe("RevenueCat", () => {
   const translator = new RevenueCatTranslator(PRODUTOS, TOKEN);
+  it("reconhece Master mensal da Apple usando o mapa da aplicação", () => {
+    const configured = new RevenueCatTranslator(env.billing.revenueCatProducts, TOKEN);
+    const result = configured.translate(evento({
+      product_id: "beautyconta_master_monthly", store: "APP_STORE", environment: "PRODUCTION",
+    }), { authorization: TOKEN });
+    expect(result?.subscription).toMatchObject({ plan: "MASTER", billingPeriod: "MONTHLY", channel: "IOS" });
+  });
   const autorizado = { authorization: TOKEN };
 
   it("traduz a compra inicial para assinatura ativa", () => {

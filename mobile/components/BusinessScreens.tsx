@@ -1054,7 +1054,8 @@ export function PlansScreen({ onBack }: ScreenProps) {
    * prometer o plano na hora seria afirmar o que ainda não é verdade.
    */
   const comprarNaLoja = (packageId: string) => {
-    track('checkout_started', { plan: 'PREMIUM', billingPeriod: store.find(item => item.id === packageId)?.billingPeriod ?? 'UNKNOWN', paymentMethod: 'store' });
+    const selected = store.find(item => item.id === packageId);
+    track('checkout_started', { plan: selected?.plan ?? 'PREMIUM', billingPeriod: selected?.billingPeriod ?? 'UNKNOWN', paymentMethod: 'store' });
 
     void run(async () => {
       const resultado = await purchasePackage(packageId);
@@ -1160,18 +1161,16 @@ export function PlansScreen({ onBack }: ScreenProps) {
         </>}
 
         {storeMensal.map(item => (
-          <Card key={item.id} onPress={busy ? undefined : () => comprarNaLoja(item.id)} accessibilityLabel={`Assinar ${item.billingPeriod === 'ANNUAL' ? 'plano anual' : 'plano mensal'} por ${item.priceLabel}`}>
+          <Card key={item.id} onPress={busy ? undefined : () => comprarNaLoja(item.id)} accessibilityLabel={`Assinar ${item.plan === 'MASTER' ? 'Master' : 'Premium'} ${item.billingPeriod === 'ANNUAL' ? 'anual' : 'mensal'} por ${item.priceLabel}`}>
             <View style={s.offerHead}>
-              <Text style={s.offerPeriod}>{item.billingPeriod === 'ANNUAL' ? 'Anual' : 'Mensal'}</Text>
+              <Text style={s.offerPeriod}>{item.plan === 'MASTER' ? 'Master' : 'Premium'} · {item.billingPeriod === 'ANNUAL' ? 'Anual' : 'Mensal'}</Text>
             </View>
             <Text style={s.offerPrice}>{item.priceLabel}</Text>
             <Text style={s.offerCaption}>Cobrado pela loja do seu aparelho</Text>
+            {(offers.find(offer => offer.plan === item.plan)?.benefits ?? []).map(benefit => <View key={benefit} style={s.benefit}><Icon name="check" size={16} color={colors.accent} /><Text style={s.benefitText}>{benefit}</Text></View>)}
           </Card>
         ))}
 
-        {storeMensal.length > 0 && <Card>
-          {(offers[0]?.benefits ?? []).map(benefit => <View key={benefit} style={s.benefit}><Icon name="check" size={16} color={colors.accent} /><Text style={s.benefitText}>{benefit}</Text></View>)}
-        </Card>}
 
         {error && <Notice message={error} />}
 

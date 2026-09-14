@@ -1,5 +1,18 @@
 # Revisão Apple
 
+## Atualização: Master mensal
+
+A consulta ao RevenueCat passou a retornar `beautyconta_premium_monthly` na
+oferta `default` e `beautyconta_master_monthly` na oferta `master`.
+O app agora carrega ambas e distingue os pacotes por oferta, pacote e produto,
+pois as duas ofertas usam `$rc_monthly`. Cada plano apresenta seus benefícios.
+O backend reconhece Master mensal mesmo quando a variável de ambiente ainda
+contém apenas o antigo Master anual; os produtos antigos continuam reconhecidos.
+Após o deploy do backend e a distribuição de um build/update compatível do app,
+validar compra e restauração no iOS. Os testes automatizados não realizam compra
+na Apple. Um evento TEST enviado diretamente ao webhook de produção respondeu
+200/recorded; isso confirma endpoint/autorização, não entrega pelo RevenueCat.
+
 ## Suporte
 
 Após a publicação do site, preencher o campo Support URL no App Store Connect

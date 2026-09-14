@@ -65,9 +65,13 @@ export const env = {
     /**
      * Mapa de identificador de produto para plano, exigido pelo item F-03.
      * Formato: `produto:PLANO:PERIODO`, separados por vírgula. Exemplo:
-     * `beautyconta_premium_monthly:PREMIUM:MONTHLY,beautyconta_master_annual:MASTER:ANNUAL`.
+     * `beautyconta_premium_monthly:PREMIUM:MONTHLY,beautyconta_master_monthly:MASTER:MONTHLY`.
      */
-    revenueCatProducts: parseProductMap(process.env.REVENUECAT_PRODUCTS),
+    // Reconhece o produto mensal publicado mesmo em ambientes com o antigo mapa anual.
+    // As entradas configuradas continuam tendo precedência, inclusive as assinaturas antigas.
+    revenueCatProducts: parseProductMap(
+      `${process.env.REVENUECAT_PRODUCTS ?? ""},beautyconta_master_monthly:MASTER:MONTHLY`,
+    ),
     /** Só para homologação: em produção, compra de teste não concede plano. */
     revenueCatAcceptSandbox: process.env.REVENUECAT_ACCEPT_SANDBOX === "true",
     /**
