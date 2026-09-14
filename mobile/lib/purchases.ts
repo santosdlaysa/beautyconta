@@ -57,9 +57,9 @@ export function allowedPaymentMethods(os: string): PaymentMethod[] | 'store' {
   return os === 'ios' || os === 'android' ? 'store' : ['card', 'pix'];
 }
 
-/** Se a compra pela loja pode sequer ser tentada nesta plataforma. */
+/** A plataforma determina o canal; falta de configuração nunca libera checkout web. */
 export function storePurchaseAvailable(): boolean {
-  return allowedPaymentMethods(Platform.OS) === 'store' && Boolean(API_KEYS[Platform.OS]);
+  return allowedPaymentMethods(Platform.OS) === 'store';
 }
 
 /**

@@ -20,6 +20,10 @@
     "production": {
       "channel": "production",
       "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://beautyconta.onrender.com",
+        "EXPO_PUBLIC_SITE_URL": "https://beautyconta.vercel.app"
+      },
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle",

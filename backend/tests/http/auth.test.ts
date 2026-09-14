@@ -10,6 +10,17 @@ function novaApi() {
   return createApp(createTestDependencies());
 }
 
+it("libera o preflight de autenticação para o site público", async () => {
+  const response = await request(novaApi())
+    .options("/api/sessions")
+    .set("Origin", "https://beautyconta.vercel.app")
+    .set("Access-Control-Request-Method", "POST")
+    .set("Access-Control-Request-Headers", "content-type,authorization");
+  expect(response.status).toBe(204);
+  expect(response.headers["access-control-allow-origin"]).toBe("https://beautyconta.vercel.app");
+  expect(response.headers["access-control-allow-headers"]).toContain("authorization");
+});
+
 describe("POST /api/users", () => {
   it("cria a conta e já devolve a sessão", async () => {
     const { status, body } = await request(novaApi()).post("/api/users").send(conta);

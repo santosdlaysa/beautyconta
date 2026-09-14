@@ -20,6 +20,7 @@ export function SiteHeader() {
         <Link href="/#como-funciona">Como funciona</Link>
         <Link href="/#calculadoras">Calculadoras</Link>
         <Link href="/#planos">Planos</Link>
+        <Link href="/suporte">Suporte</Link>
       </nav>
       <div className="header-actions">
         <button className="login-button" type="button">Entrar</button>
@@ -50,6 +51,7 @@ export function SiteFooter() {
         <h2>BeautyConta</h2>
         <ul>
           <li><Link href="/#planos">Planos</Link></li>
+          <li><Link href="/suporte">Suporte e contato</Link></li>
           <li><Link href="/#como-funciona">Como funciona</Link></li>
           <li><Link href="/termos">Termos de Uso</Link></li>
           <li><Link href="/excluir-conta">Excluir conta e dados</Link></li>

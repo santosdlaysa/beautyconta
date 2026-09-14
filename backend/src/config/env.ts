@@ -14,13 +14,13 @@ export const env = {
    * Expo web nas portas que ele costuma abrir. Em produção a variável é
    * obrigatória, e nenhuma dessas origens existe lá.
    */
-  corsOrigins: (
+  corsOrigins: ["https://beautyconta.vercel.app", ...(
     process.env.CORS_ORIGINS ??
     "http://localhost:3000,http://localhost:8081,http://localhost:8082,http://localhost:19006"
   )
     .split(",")
     .map((origin) => origin.trim())
-    .filter(Boolean),
+    .filter(Boolean)],
   nodeEnv: process.env.NODE_ENV ?? "development",
   /**
    * Avisos administrativos pelo Telegram.
