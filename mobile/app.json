@@ -32,7 +32,7 @@
         "backgroundImage": "./assets/android-icon-background.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 60
+      "versionCode": 61
     },
     "ios": {
       "supportsTablet": true,
@@ -41,7 +41,7 @@
         "CFBundleDisplayName": "BeautyConta",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "3"
+      "buildNumber": "4"
     },
     "web": {
       "favicon": "./assets/favicon.png"
