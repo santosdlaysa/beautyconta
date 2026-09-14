@@ -23,7 +23,7 @@ export default function SupportPage() {
           <section aria-labelledby="contato">
             <h2 id="contato">Fale com o suporte</h2>
             <p>WhatsApp: <a href="https://wa.me/5595991371313">+55 (95) 99137-1313</a>.</p>
-            <p>E-mail: <a href="mailto:suporte@beautyconta.com.br">suporte@beautyconta.com.br</a>.</p>
+            <p>E-mail: <a href="mailto:santosdlaysa@gmail.com">santosdlaysa@gmail.com</a>.</p>
             <p>Você não precisa entrar na conta para pedir ajuda.</p>
           </section>
           <section aria-labelledby="acesso">
