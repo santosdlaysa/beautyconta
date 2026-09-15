@@ -17,6 +17,7 @@ import { HomeScreen } from './components/HomeScreen';
 import { Button, Loading, Notice, Screen, ScreenHeader } from './components/ui';
 import { AppProvider, useApp } from './state/AppProvider';
 import { DialogProvider } from './components/Dialog';
+import { screenDataState } from './lib/background-load';
 
 type Tab = 'inicio' | 'calcular' | 'servicos' | 'custos' | 'planos' | 'clientes' | 'agenda' | 'agenda-online' | 'expediente' | 'financeiro' | 'estoque' | 'equipamentos' | 'relatorios' | 'perfil';
 
@@ -128,10 +129,15 @@ function BeautyContaApp() {
     perfil: <ProfileScreen onBack={home} onAction={(action) => navigate(routeOf(action))} />,
   }[activeTab];
 
+  const dataStatus = screenDataState(activeTab, app.dataState);
   return (
     <View style={styles.screen}>
       <StatusBar style="dark" />
-      {screen}
+      {dataStatus === 'error'
+        ? <FailedToLoad message={app.loadError ?? 'Não foi possível atualizar esta tela.'} onRetry={() => void app.reload()} />
+        : dataStatus === 'loading'
+          ? <Screen><ScreenHeader title="Carregando seus dados" onBack={home} /><Loading label="Você pode continuar navegando enquanto atualizamos esta tela." /></Screen>
+          : screen}
       <AppTabs active={activeTab} onChange={navigate} />
     </View>
   );

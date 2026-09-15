@@ -8,7 +8,7 @@ import { useApp } from '../state/AppProvider';
 import { useDialog } from './Dialog';
 import { Icon } from './AppChrome';
 import { PrimeirosPassosCard, usePrimeirosPassos } from './PrimeirosPassos';
-import { CENTER_DAY, EmptyState, HeroCard, ListRow, Notice, Row, Screen, Section, StatCard, TimelinePanel, TimelineRow, WeekStrip, weekAround, ui } from './ui';
+import { CENTER_DAY, EmptyState, HeroCard, ListRow, Loading, Notice, Row, Screen, Section, StatCard, TimelinePanel, TimelineRow, WeekStrip, weekAround, ui } from './ui';
 
 export type HomeRoute = 'inicio' | 'calcular' | 'servicos' | 'custos' | 'planos' | 'clientes' | 'agenda' | 'agenda-online' | 'financeiro' | 'estoque' | 'equipamentos' | 'relatorios' | 'perfil';
 
@@ -33,6 +33,39 @@ const initialsOf = (name: string) => name.split(' ').map(part => part[0]).slice(
 const firstName = (name: string) => name.trim().split(' ')[0];
 
 export function HomeScreen({ onNavigate }: { onNavigate: (route: HomeRoute) => void }) {
+  const app = useApp();
+  if (Object.values(app.dataState).every(status => status === 'ready')) {
+    return <HomeContent onNavigate={onNavigate} />;
+  }
+  return <Screen>
+    <View style={s.header}>
+      <View>
+        <View style={s.brandRow}><Icon name="sparkle" size={20} color={colors.accent} /><Text style={s.brand}>beauty<Text style={s.brandAccent}>conta</Text></Text></View>
+        <Text style={s.greeting}>Olá, {app.user ? firstName(app.user.name) : ''}. Seu negócio está aqui.</Text>
+      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel="Abrir meu perfil" onPress={() => onNavigate('perfil')} style={s.avatar}><Icon name="users" size={22} color={colors.accent} /></Pressable>
+    </View>
+    <HeroCard label="Seu negócio" value={app.business?.name ?? 'BeautyConta'} caption="Seus dados estão sendo atualizados." hint="Você já pode escolher o que deseja fazer." />
+    <View style={s.shortcuts}>
+      {shortcuts.map(item => <Pressable key={item.route} accessibilityRole="button" onPress={() => onNavigate(item.route)} style={({ pressed }) => [s.shortcut, pressed && ui.pressed]}>
+        <View style={[s.shortcutCircle, { backgroundColor: item.background }]}><Icon name={item.icon} size={24} color={item.color} /></View>
+        <Text style={s.shortcutLabel}>{item.label}</Text>
+      </Pressable>)}
+    </View>
+    {app.loadError && <Notice message={app.loadError} action="Tentar novamente" onAction={() => void app.reload()} />}
+    <Section title="Sua agenda" action="Ver agenda" onAction={() => onNavigate('agenda')} />
+    {app.dataState.agenda === 'ready'
+      ? <ListRow icon="clock" title="Atendimentos de hoje" meta={String(app.daySummary?.appointments ?? 0)} onPress={() => onNavigate('agenda')} />
+      : app.dataState.agenda === 'loading' ? <Loading label="Buscando sua agenda..." /> : <Notice message="Sua agenda ainda não pôde ser carregada." />}
+    <Section title="Seu negócio" />
+    {app.dataState.services === 'ready'
+      ? <ListRow icon="tag" title="Serviços cadastrados" meta={String(app.services.filter(item => !item.isArchived).length)} onPress={() => onNavigate('servicos')} />
+      : app.dataState.services === 'loading' ? <Loading label="Buscando seus serviços..." /> : <Notice message="Seus serviços ainda não puderam ser carregados." />}
+    {Object.values(app.dataState).some(status => status === 'loading') && <Loading label="Atualizando os demais dados em segundo plano..." />}
+  </Screen>;
+}
+
+function HomeContent({ onNavigate }: { onNavigate: (route: HomeRoute) => void }) {
   const app = useApp();
   const dialog = useDialog();
   // O tutorial de quem acabou de configurar o negócio. Nada a ver com o

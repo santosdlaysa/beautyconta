@@ -5,6 +5,7 @@ import { ApiError } from '../lib/api';
 import { forgetCalculation, readCalculation } from '../lib/anonymous';
 import { forgetDraft } from '../lib/onboarding';
 import * as api from '../lib/resources';
+import { backgroundLoad, pendingData, type DataState, type DataGroup } from '../lib/background-load';
 
 /**
  * Estado do aplicativo.
@@ -27,6 +28,7 @@ const SESSION_KEY = 'beautyconta.session.token';
 export type Status = 'loading' | 'signed-out' | 'onboarding' | 'ready';
 
 type State = {
+  dataState: DataState;
   status: Status;
   user: api.User | null;
   business: api.Business | null;
@@ -59,6 +61,7 @@ type State = {
 };
 
 const empty: State = {
+  dataState: pendingData,
   status: 'loading',
   user: null,
   business: null,
@@ -162,6 +165,7 @@ const AppContext = createContext<(State & Actions & { token: string | null }) | 
 export function AppProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState<State>(empty);
   const [token, setToken] = useState<string | null>(null);
+  const loadVersion = useRef(0);
   // O dia visível muda fora do ciclo das ações; a referência evita capturar um
   // valor velho dentro dos callbacks memorizados.
   const stateRef = useRef(state);
@@ -186,71 +190,73 @@ export function AppProvider({ children }: PropsWithChildren) {
   const patch = useCallback((values: Partial<State>) => setState((current) => ({ ...current, ...values })), []);
 
   /**
-   * Carrega tudo o que a interface precisa de uma vez.
-   *
-   * Em paralelo porque nenhuma dessas leituras depende da outra, e a Home
-   * mostra dados de quase todas ao mesmo tempo.
+   * Abre após validar conta e configuração. Cada grupo restante chega separadamente.
    */
   const load = useCallback(async (sessionToken: string) => {
-    const [user, businesses] = await Promise.all([api.getMe(sessionToken), api.listBusinesses(sessionToken)]);
-    const business = businesses[0] ?? null;
+    const version = ++loadVersion.current;
+    const current = () => loadVersion.current === version;
+    try {
+      const [user, businesses] = await Promise.all([api.getMe(sessionToken), api.listBusinesses(sessionToken)]);
+      if (!current()) return;
+      const business = businesses[0] ?? null;
 
-    if (!business) {
-      setState({ ...empty, status: 'onboarding', user });
-      return;
+      if (!business) {
+        setState({ ...empty, status: 'onboarding', user });
+        return;
+      }
+
+      const scope = { token: sessionToken, businessId: business.id };
+      const today = new Date();
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+      const settings = await api.getSettings(sessionToken, business.id);
+      if (!current()) return;
+      // Apenas identidade e configuração decidem se a conta vai para o onboarding.
+      setState(previous => ({
+        ...(previous.business?.id === business.id ? previous : empty),
+        status: settings ? 'ready' : 'onboarding', user, business, settings,
+        dataState: { ...pendingData }, loadError: null, agendaDay: today,
+      }));
+      if (!settings) return;
+
+      await backgroundLoad<DataGroup, Partial<State>>({
+        services: async () => ({ services: await api.listServices(scope) }),
+        materials: async () => ({ materials: await api.listMaterials(scope) }),
+        costs: async () => ({ fixedCosts: await api.listFixedCosts(scope) }),
+        history: async () => {
+          const history = await api.listCalculations(scope);
+          if (!current()) return {};
+          const migrated = await migratePendingCalculation(scope);
+          return { calculations: migrated ? [migrated, ...history.items] : history.items,
+            calculationsLimitedByPlan: history.limitedByPlan, migratedCalculation: migrated };
+        },
+        subscription: async () => ({ subscription: await api.getSubscription(scope) }),
+        agenda: async () => {
+          const [appointments, daySummary] = await Promise.all([
+            api.listAppointments(scope, { day: today }), api.getDaySummary(scope, today),
+          ]);
+          return { appointments, daySummary };
+        },
+        month: async () => ({ monthAppointments: await api.listAppointments(scope, { from: monthStart, to: monthEnd }) }),
+      }, current, (key, values) => {
+        if (values.subscription) reportPlanChange(lastPlan, values.subscription.plan);
+        setState(previous => current() ? { ...previous, ...values,
+          dataState: { ...previous.dataState, [key]: 'ready' } } : previous);
+      }, (key, error) => {
+        if (error instanceof ApiError && error.isUnauthenticated) {
+          ++loadVersion.current;
+          void AsyncStorage.removeItem(SESSION_KEY).catch(() => undefined);
+          setToken(null);
+          setState({ ...empty, status: 'signed-out' });
+          return;
+        }
+        setState(previous => current() ? { ...previous, loadError: message(error),
+          dataState: { ...previous.dataState, [key]: 'error' } } : previous);
+      });
+    } catch (error) {
+      if (current()) throw error;
     }
-
-    const scope = { token: sessionToken, businessId: business.id };
-    const today = new Date();
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-
-    const [
-      settings,
-      services,
-      materials,
-      fixedCosts,
-      history,
-      subscription,
-      appointments,
-      daySummary,
-      monthAppointments,
-    ] = await Promise.all([
-      api.getSettings(sessionToken, business.id),
-      api.listServices(scope),
-      api.listMaterials(scope),
-      api.listFixedCosts(scope),
-      api.listCalculations(scope),
-      api.getSubscription(scope),
-      api.listAppointments(scope, { day: today }),
-      api.getDaySummary(scope, today),
-      api.listAppointments(scope, { from: monthStart, to: monthEnd }),
-    ]);
-
-    reportPlanChange(lastPlan, subscription.plan);
-
-    // Só depois da configuração o negócio sabe calcular; antes disso o cálculo
-    // anônimo espera no aparelho em vez de virar erro.
-    const migrated = settings ? await migratePendingCalculation(scope) : null;
-
-    setState({
-      status: settings ? 'ready' : 'onboarding',
-      user,
-      business,
-      settings,
-      subscription,
-      services,
-      materials,
-      fixedCosts,
-      calculations: migrated ? [migrated, ...history.items] : history.items,
-      calculationsLimitedByPlan: history.limitedByPlan,
-      appointments,
-      daySummary,
-      monthAppointments,
-      agendaDay: today,
-      migratedCalculation: migrated,
-      loadError: null,
-    });
   }, []);
 
   /** Sessão guardada no aparelho: é o que faz o app abrir já dentro da conta. */
@@ -279,6 +285,7 @@ export function AppProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     void restore();
+    return () => { ++loadVersion.current; };
   }, [restore]);
 
   const startSession = useCallback(
@@ -347,6 +354,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         await startSession(await api.signIn(input));
       },
       async signOut() {
+        ++loadVersion.current;
         // A sessão sai do aparelho mesmo se o servidor não responder: manter a
         // usuária presa dentro da conta por causa de rede é pior.
         if (token) await api.signOut(token).catch(() => undefined);
@@ -384,13 +392,25 @@ export function AppProvider({ children }: PropsWithChildren) {
         await load(withToken());
       },
       async reload() {
-        await load(withToken());
+        try {
+          await load(withToken());
+        } catch (error) {
+          if (error instanceof ApiError && error.isUnauthenticated) {
+            ++loadVersion.current;
+            await AsyncStorage.removeItem(SESSION_KEY).catch(() => undefined);
+            setToken(null);
+            setState({ ...empty, status: 'signed-out' });
+            return;
+          }
+          patch({ loadError: message(error) });
+        }
       },
       async updateProfile(input) {
         patch({ user: await api.updateMe(withToken(), input) });
       },
       async changePassword(input) {
         await api.changePassword(withToken(), input);
+        ++loadVersion.current;
         // A troca derruba as sessões, inclusive esta: sair é o efeito correto.
         await AsyncStorage.removeItem(SESSION_KEY).catch(() => undefined);
         setToken(null);
@@ -398,6 +418,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       },
       async deleteAccount() {
         await api.deleteAccount(withToken());
+        ++loadVersion.current;
         await forgetDraft();
         await AsyncStorage.removeItem(SESSION_KEY).catch(() => undefined);
         setToken(null);
