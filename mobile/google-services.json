@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "650610308942",
+    "project_id": "beautyconta-c8c01",
+    "storage_bucket": "beautyconta-c8c01.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:650610308942:android:0abe3ecfe323568232d01f",
+        "android_client_info": {
+          "package_name": "com.laysadiniz.sweetpricing"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvtk3n8zFiowXid9GfgjXeI8Z-oYaaZEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
