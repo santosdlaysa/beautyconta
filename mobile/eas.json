@@ -5,11 +5,17 @@
   },
   "build": {
     "development": {
+      "env": {
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "932111085582-in8nfrndthgblv8fnee6uo5r26imr57b.apps.googleusercontent.com"
+      },
       "environment": "development",
       "developmentClient": true,
       "distribution": "internal"
     },
     "preview": {
+      "env": {
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "932111085582-in8nfrndthgblv8fnee6uo5r26imr57b.apps.googleusercontent.com"
+      },
       "channel": "preview",
       "environment": "preview",
       "distribution": "internal",
@@ -21,6 +27,7 @@
       "channel": "production",
       "environment": "production",
       "env": {
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "932111085582-in8nfrndthgblv8fnee6uo5r26imr57b.apps.googleusercontent.com",
         "EXPO_PUBLIC_API_URL": "https://beautyconta.onrender.com",
         "EXPO_PUBLIC_SITE_URL": "https://beautyconta.vercel.app"
       },

@@ -33,6 +33,7 @@ import type {
  * sobre repositórios em memória e exercita as regras sem rede e sem banco.
  */
 export type Dependencies = {
+  socialTokens: import("./social-auth").SocialTokenVerifier;
   users: UserRepository;
   sessions: SessionRepository;
   businesses: BusinessRepository;

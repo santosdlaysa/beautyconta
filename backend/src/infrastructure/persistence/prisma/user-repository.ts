@@ -1,9 +1,30 @@
 import type { PrismaClient, User } from "@prisma/client";
+import { ConflictError } from "../../../application/errors";
 import type { UserRepository } from "../../../application/ports/repositories";
 import type { UserCredentialsRecord, UserRecord } from "../../../application/ports/records";
 
 export class PrismaUserRepository implements UserRepository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  async findBySocialIdentity(key: { provider: string; subject: string }): Promise<UserRecord | null> {
+    const identity = await this.prisma.socialIdentity.findUnique({ where: { provider_subject: key }, include: { user: true } });
+    return identity ? toRecord(identity.user) : null;
+  }
+
+  async linkSocialIdentity(userId: string, key: { provider: string; subject: string }): Promise<void> {
+    try {
+      await this.prisma.socialIdentity.create({ data: { ...key, userId } });
+    } catch (error) { socialConflict(error); }
+  }
+
+  async createSocial(input: { provider: string; subject: string; name: string; email: string }): Promise<UserRecord> {
+    const { provider, subject, ...profile } = input;
+    try {
+      return toRecord(await this.prisma.user.create({ data: {
+        ...profile, emailVerifiedAt: new Date(), identities: { create: { provider, subject } },
+      } }));
+    } catch (error) { return socialConflict(error); }
+  }
 
   async create(input: { name: string; email: string; passwordHash: string }): Promise<UserRecord> {
     return toRecord(await this.prisma.user.create({ data: input }));
@@ -39,6 +60,13 @@ export class PrismaUserRepository implements UserRepository {
   async delete(id: string): Promise<void> {
     await this.prisma.user.delete({ where: { id } });
   }
+}
+
+function socialConflict(error: unknown): never {
+  if (typeof error === "object" && error && "code" in error && error.code === "P2002") {
+    throw new ConflictError("Este login já foi cadastrado. Tente entrar novamente.");
+  }
+  throw error;
 }
 
 function toRecord(user: User): UserRecord {

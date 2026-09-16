@@ -8,6 +8,10 @@ import { parsePriceList } from "./plan-prices";
  * recebe por parâmetro, conforme o ADR-0008.
  */
 export const env = {
+  socialAuth: {
+    google: (process.env.GOOGLE_CLIENT_IDS ?? "").split(",").map(value => value.trim()).filter(Boolean),
+    apple: (process.env.APPLE_CLIENT_IDS ?? "com.beautyconta.app").split(",").map(value => value.trim()).filter(Boolean),
+  },
   port: Number(process.env.PORT ?? 3333),
   /**
    * Sem `CORS_ORIGINS`, o padrão cobre o desenvolvimento: a web em 3000 e o

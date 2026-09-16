@@ -31,6 +31,9 @@ export type Clock = { now(): Date };
 export type IdGenerator = { next(): string };
 
 export interface UserRepository {
+  findBySocialIdentity(key: { provider: string; subject: string }): Promise<UserRecord | null>;
+  linkSocialIdentity(userId: string, key: { provider: string; subject: string }): Promise<void>;
+  createSocial(input: { provider: string; subject: string; name: string; email: string }): Promise<UserRecord>;
   create(input: { name: string; email: string; passwordHash: string }): Promise<UserRecord>;
   findById(id: string): Promise<UserRecord | null>;
   findByEmail(email: string): Promise<UserRecord | null>;

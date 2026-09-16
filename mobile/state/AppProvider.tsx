@@ -83,6 +83,7 @@ const empty: State = {
 type Actions = {
   signUp(input: { name: string; email: string; password: string }): Promise<void>;
   signIn(input: { email: string; password: string }): Promise<void>;
+  signInSocial(input: api.SocialLoginInput): Promise<void>;
   signOut(): Promise<void>;
   /**
    * Grava o negócio no meio do onboarding, sem encerrá-lo.
@@ -352,6 +353,9 @@ export function AppProvider({ children }: PropsWithChildren) {
       },
       async signIn(input) {
         await startSession(await api.signIn(input));
+      },
+      async signInSocial(input) {
+        await startSession(await api.signInSocial(input));
       },
       async signOut() {
         ++loadVersion.current;

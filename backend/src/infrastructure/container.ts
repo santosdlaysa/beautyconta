@@ -1,4 +1,5 @@
 import type { Dependencies } from "../application/ports/dependencies";
+import { OidcSocialTokenVerifier } from "./auth/social-token-verifier";
 import type { Notifier } from "../application/ports/notifications";
 import { env } from "../config/env";
 import { MercadoPagoTranslator } from "./billing/mercado-pago/translator";
@@ -56,6 +57,7 @@ export function createDependencies(): Dependencies {
 
   return {
     users: new PrismaUserRepository(prisma),
+    socialTokens: new OidcSocialTokenVerifier(env.socialAuth),
     sessions: new PrismaSessionRepository(prisma),
     businesses: new PrismaBusinessRepository(prisma),
     businessHours: new PrismaBusinessHoursRepository(prisma),

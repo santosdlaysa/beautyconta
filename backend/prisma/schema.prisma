@@ -88,8 +88,21 @@ model User {
 
   businesses Business[]
   sessions   Session[]
+  identities SocialIdentity[]
 
   @@map("users")
+}
+
+model SocialIdentity {
+  id       String @id @default(uuid()) @db.Uuid
+  provider String
+  subject  String
+  userId   String @map("user_id") @db.Uuid
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, subject])
+  @@index([userId])
+  @@map("social_identities")
 }
 
 /// Sessão persistente do aplicativo. Guarda o resumo do token, nunca o token.

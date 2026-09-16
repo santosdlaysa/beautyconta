@@ -6,9 +6,25 @@ import { serializeSession } from "../mappers/serializers";
 import { sessionTokenOf } from "../middleware/identity";
 import { parse } from "../validators/parse";
 import { signInSchema } from "../validators/schemas";
+import { z } from "zod";
+import { SocialLogin } from "../../../application/use-cases/social-login";
+
+const socialSchema = z.object({
+  provider: z.enum(["google", "apple"]),
+  idToken: z.string().min(1).max(16000),
+  nonce: z.string().min(16).max(256).optional(),
+  name: z.string().trim().max(120).optional(),
+  existingPassword: z.string().min(1).max(200).optional(),
+});
 
 export class SessionController {
   constructor(private readonly deps: Dependencies) {}
+
+  social = async (req: Request, res: Response): Promise<void> => {
+    const user = await new SocialLogin(this.deps).execute(parse(socialSchema, req.body));
+    const session = await new StartSession(this.deps.sessions, this.deps.clock).execute(user);
+    res.status(201).json(serializeSession(session));
+  };
 
   /** Entrada: confere a senha e devolve o token que o aplicativo guarda. */
   create = async (req: Request, res: Response): Promise<void> => {

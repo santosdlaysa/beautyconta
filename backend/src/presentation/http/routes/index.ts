@@ -155,6 +155,7 @@ function sessionRoutes(deps: Dependencies, limites: RateLimiters): Router {
     asyncHandler(controller.create),
   );
   router.delete("/sessions/current", requireUser, asyncHandler(controller.destroy));
+  router.post("/sessions/social", limites.session, limites.account, asyncHandler(controller.social));
 
   return router;
 }

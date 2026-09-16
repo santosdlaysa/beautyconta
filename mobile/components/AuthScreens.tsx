@@ -11,6 +11,7 @@ import { useDialog } from './Dialog';
 import { Icon } from './AppChrome';
 import { PublicCalculator } from './PublicCalculator';
 import { Button, Card, Field, Notice, Screen, ScreenHeader, ui } from './ui';
+import { SocialButtons } from './SocialButtons';
 
 /**
  * Fluxo de entrada: boas-vindas, calculadora pública, login, cadastro e
@@ -18,32 +19,9 @@ import { Button, Card, Field, Notice, Screen, ScreenHeader, ui } from './ui';
  */
 export type AuthScreen = 'welcome' | 'calculator' | 'login' | 'signup' | 'forgot';
 
-const socials = [
-  { label: 'Google', color: '#4285f4' },
-  { label: 'Facebook', color: '#1877f2' },
-  { label: 'Apple', color: colors.ink },
-];
-
 /** A mesma assinatura da Home, para a marca ser a primeira coisa reconhecível. */
 export function Brand({ center }: { center?: boolean }) {
   return <View style={[s.brandRow, center && s.center]}><Icon name="sparkle" size={20} color={colors.accent} /><Text style={s.brand}>beauty<Text style={s.brandAccent}>conta</Text></Text></View>;
-}
-
-function SocialRow() {
-  const dialog = useDialog();
-  return <View style={s.socialRow}>{socials.map(social => (
-    <Pressable
-      key={social.label}
-      accessibilityRole="button"
-      accessibilityLabel={`Continuar com ${social.label}`}
-      // Entrar por provedor externo depende do ADR-0003; até lá o botão avisa.
-      onPress={() => dialog.inform({ title: 'Em breve', message: `A entrada com ${social.label} ainda está sendo preparada. Use seu e-mail e senha.` })}
-      style={({ pressed }) => [s.socialButton, pressed && ui.pressed]}
-    >
-      <View style={[s.socialDot, { backgroundColor: social.color }]} />
-      <Text style={s.socialLabel}>{social.label}</Text>
-    </Pressable>
-  ))}</View>;
 }
 
 export function AuthView({ mode, onMode }: { mode: AuthScreen; onMode: (m: AuthScreen) => void }) {
@@ -130,10 +108,7 @@ export function AuthView({ mode, onMode }: { mode: AuthScreen; onMode: (m: AuthS
           {!isSignup && <Pressable accessibilityRole="button" onPress={() => onMode('forgot')} style={({ pressed }) => [s.forgot, pressed && ui.pressed]}><Text style={ui.link}>Esqueci a senha</Text></Pressable>}
         </>}
         <Button label={busy ? 'Aguarde...' : action} icon="arrow" onPress={busy ? undefined : submit} />
-        {!isForgot && <View>
-          <View style={s.divider}><View style={s.dividerLine} /><Text style={s.dividerText}>ou continue com</Text><View style={s.dividerLine} /></View>
-          <SocialRow />
-        </View>}
+        {!isForgot && <SocialButtons disabled={busy} />}
         {isSignup && <Text style={s.terms}>Ao continuar, você concorda com os Termos e a Política de Privacidade.</Text>}
       </Card>
       <View style={s.switch}>
@@ -165,13 +140,6 @@ const s = StyleSheet.create({
 
   eye: { paddingLeft: 6, paddingVertical: 6 },
   forgot: { alignSelf: 'flex-end', minHeight: 32, justifyContent: 'center', marginTop: -4 },
-  divider: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 4 },
-  dividerLine: { height: 1, backgroundColor: colors.border, flex: 1 },
-  dividerText: { color: colors.faded, fontSize: 10 },
-  socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 14 },
-  socialButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 40, borderRadius: 21, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
-  socialDot: { width: 8, height: 8, borderRadius: 4 },
-  socialLabel: { color: colors.ink3, fontSize: 11, fontWeight: '500' },
   terms: { color: colors.faded, fontSize: 10, lineHeight: 16, textAlign: 'center' },
 
   switch: { alignItems: 'center', marginTop: 6 },

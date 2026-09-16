@@ -210,6 +210,10 @@ export const signUp = (input: { name: string; email: string; password: string })
 export const signIn = (input: { email: string; password: string }) =>
   apiRequest<Session>('/api/sessions', { method: 'POST', body: input });
 
+export type SocialLoginInput = { provider: 'google' | 'apple'; idToken: string; nonce?: string; name?: string; existingPassword?: string };
+export const signInSocial = (input: SocialLoginInput) =>
+  apiRequest<Session>('/api/sessions/social', { method: 'POST', body: input });
+
 export const signOut = (token: string) =>
   apiRequest<void>('/api/sessions/current', { method: 'DELETE', token });
 

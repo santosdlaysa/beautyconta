@@ -68,6 +68,20 @@ import type {
 const clone = <T>(value: T): T => structuredClone(value);
 
 export class InMemoryUserRepository implements UserRepository {
+  readonly identities = new Map<string, string>();
+  async findBySocialIdentity(key: { provider: string; subject: string }): Promise<UserRecord | null> {
+    const id = this.identities.get(`${key.provider}:${key.subject}`);
+    return id ? this.findById(id) : null;
+  }
+  async linkSocialIdentity(userId: string, key: { provider: string; subject: string }): Promise<void> {
+    this.identities.set(`${key.provider}:${key.subject}`, userId);
+  }
+  async createSocial(input: { provider: string; subject: string; name: string; email: string }): Promise<UserRecord> {
+    const user = await this.create({ ...input, passwordHash: '' });
+    this.hashes.set(user.id, null);
+    await this.linkSocialIdentity(user.id, input);
+    return user;
+  }
   readonly items = new Map<string, UserRecord>();
   /** Fora de `items` porque o hash não pertence ao registro que circula. */
   private readonly hashes = new Map<string, string | null>();
@@ -123,6 +137,8 @@ export class InMemoryUserRepository implements UserRepository {
 
   delete(id: string): Promise<void> {
     this.items.delete(id);
+    for (const [key, userId] of this.identities) if (userId === id) this.identities.delete(key);
+    this.hashes.delete(id);
     return Promise.resolve();
   }
 }
@@ -1089,6 +1105,7 @@ export function createTestDependencies(): TestDependencies {
 
   return {
     users: new InMemoryUserRepository(),
+    socialTokens: { verify: async () => { throw new Error('Social verifier must be supplied by the test'); } },
     sessions: new InMemorySessionRepository(),
     businesses: new InMemoryBusinessRepository(),
     businessHours: new InMemoryBusinessHoursRepository(),
